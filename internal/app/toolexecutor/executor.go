@@ -1,26 +1,37 @@
-package toolexecutor
+package tools
 
 import (
-	ports "arch-agent/internal/app"
-	"arch-agent/internal/domain/shared"
+	"arch-agent/internal/domain/conversation"
 	"context"
 	"sync"
 
 	"golang.org/x/sync/errgroup"
 )
 
-type ToolExecutor struct {
-	ports.Recivier
+type ToolCallRecivier interface {
+	SendCall(ctx context.Context, toolName string, args conversation.ToolArguments) (string, error)
 }
 
-func (e *ToolExecutor) ExecuteToolCalls(ctx context.Context, calls []shared.ToolCall) ([]*shared.ToolResultMessage, error) {
+type Executor struct {
+	recivier ToolCallRecivier
+}
+
+func New(r ToolCallRecivier) *Executor {
+	return &Executor{
+		recivier: r,
+	}
+}
+
+func (e *Executor) Execute(ctx context.Context, calls []conversation.ToolCall) ([]conversation.ToolCallResult, error) {
 	var mu sync.Mutex
 	g, ctx := errgroup.WithContext(ctx)
-	results := []*shared.ToolResultMessage{}
+	results := []conversation.ToolCallResult{}
 
 	for _, c := range calls {
+		c := c // shadowing for avoid implicit racing
+
 		g.Go(func() error {
-			result, err := e.Execute(ctx, c.ToolName, c.Arguments)
+			result, err := e.recivier.SendCall(ctx, c.ToolName(), c.Arguments())
 			if err != nil {
 				return err
 			}
@@ -29,7 +40,7 @@ func (e *ToolExecutor) ExecuteToolCalls(ctx context.Context, calls []shared.Tool
 			mu.Lock()
 			defer mu.Unlock()
 
-			results = append(results, shared.NewToolResultMessage(c.ID, result))
+			results = append(results, conversation.NewToolCallResult(c.ID(), result))
 			return nil
 		})
 

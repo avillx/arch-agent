@@ -1,4 +1,4 @@
-package shared
+package conversation
 
 type Role string
 

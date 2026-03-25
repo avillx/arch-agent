@@ -1,8 +1,7 @@
-package domain
+package executioncontext
 
 import (
 	"fmt"
-	"slices"
 	"time"
 )
 
@@ -15,7 +14,7 @@ type SemanticData struct {
 }
 
 func (d SemanticData) String() string {
-	return fmt.Sprintf("{\"%s\":\"%s\"}", d.Data, d.From.String())
+	return fmt.Sprintf("fact:\"%s\"\n from:\"%s\"", d.Data, d.From.String())
 }
 
 // is a Running memory that saved in database
@@ -55,26 +54,10 @@ func NewMemory(sd []SemanticData, recEp []Episode, relEp []Episode, runningMemor
 	}
 }
 
-func (m *Memory) sortedEpisodes() []Episode {
-	eps := append(m.RelevantEpisodes, m.RecentEpisodes...)
-	slices.SortFunc(eps, func(a, b Episode) int {
-		return a.TimeStamp.Compare(b.TimeStamp)
-	})
-	return eps
-}
-
-func (m *Memory) Augmentation() string {
-	// strings builder is not used becouse it can return errors
-	// errors should be minimized in domain layer
-	result := ""
-
-	for _, s := range m.Semantic {
-		result += s.String()
-	}
-
-	for _, e := range m.sortedEpisodes() {
-		result += e.String()
-	}
-
-	return result
-}
+// func (m *Memory) sortedEpisodes() []Episode {
+// 	eps := append(m.RelevantEpisodes, m.RecentEpisodes...)
+// 	slices.SortFunc(eps, func(a, b Episode) int {
+// 		return a.TimeStamp.Compare(b.TimeStamp)
+// 	})
+// 	return eps
+// }
