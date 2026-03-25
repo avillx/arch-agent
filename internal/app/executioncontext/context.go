@@ -44,7 +44,7 @@ func NewExecutionContext(
 func (r *ExecutionContext) NextReasonParams(ctx context.Context, messasges []conversation.Message) ReasonParams {
 
 	if r.followUpBudget--; r.followUpBudget == 0 {
-		r.excludeCircleTools()
+		r.excludeFollowUpRequiredTools()
 	}
 
 	return ReasonParams{
@@ -71,7 +71,7 @@ func (r *ExecutionContext) ShouldFollowUp(calls []conversation.ToolCall) bool {
 	return false
 }
 
-func (r *ExecutionContext) excludeCircleTools() {
+func (r *ExecutionContext) excludeFollowUpRequiredTools() {
 	maps.DeleteFunc(r.tools, func(_ string, t tools.ToolDefinition) bool {
 		return !t.ReasonOnce
 	})
