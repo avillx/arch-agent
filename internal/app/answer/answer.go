@@ -45,10 +45,12 @@ func NewAnswerUseCase(
 func (a *AnswerUseCase) Execute(
 	ctx context.Context,
 	cr ContentRecivier,
-	te *tools.Executor,
+	tr tools.ToolCallRecivier,
 	cmd *AnswerCommand,
 ) error {
 	var errs error
+
+	te := tools.NewExecutor(tr)
 
 	ctx, cancel := context.WithTimeout(ctx, ExecutionTimeLimin)
 	defer cancel()

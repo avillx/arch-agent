@@ -34,9 +34,9 @@ func newConvRepoWithHistory(msgs []conversation.Message) *spyConversationRepo {
 	return &spyConversationRepo{conv: conv}
 }
 
-func (r *spyConversationRepo) Get() *conversation.Conversation    { return r.conv }
-func (r *spyConversationRepo) Save(msgs []conversation.Message)   { r.savedMessages = msgs }
-func (r *spyConversationRepo) Optimize()                          { r.optimizeCalled = true }
+func (r *spyConversationRepo) Get() *conversation.Conversation  { return r.conv }
+func (r *spyConversationRepo) Save(msgs []conversation.Message) { r.savedMessages = msgs }
+func (r *spyConversationRepo) Optimize()                        { r.optimizeCalled = true }
 
 // ---
 
@@ -111,11 +111,11 @@ func buildUseCase(reasoner answer.Reasoner, convRepo answer.ConversationResposit
 	return answer.NewAnswerUseCase(reasoner, convRepo, &stubAgentRepo{}, factory)
 }
 
-func makeExecutor(result string, err error) *tools.Executor {
-	return tools.NewExecutor(&stubToolReceiver{result: result, err: err})
+func makeToolCallReciver(result string, err error) *stubToolReceiver {
+	return &stubToolReceiver{result: result, err: err}
 }
 
-func okExecutor() *tools.Executor { return makeExecutor("ok", nil) }
+func okToolCallReciver() *stubToolReceiver { return makeToolCallReciver("ok", nil) }
 
 // toolDef creates a ToolDefinition. reasonOnce=true means no follow-up after call.
 func toolDef(name string, reasonOnce bool) tools.ToolDefinition {
@@ -145,7 +145,7 @@ func TestHappyPath_SingleReason_NoToolCalls(t *testing.T) {
 	reasoner := &stubReasoner{responses: []answer.ReasonResult{noToolCalls("hello")}}
 
 	err := buildUseCase(reasoner, convRepo).Execute(
-		context.Background(), cr, okExecutor(),
+		context.Background(), cr, okToolCallReciver(),
 		answer.NewAnswerCommand("hi", nil),
 	)
 
@@ -167,7 +167,7 @@ func TestAgenticLoop_TwoIterations(t *testing.T) {
 
 	err := buildUseCase(reasoner, convRepo).Execute(
 		context.Background(), &spyContentReceiver{},
-		makeExecutor("result", nil),
+		makeToolCallReciver("result", nil),
 		answer.NewAnswerCommand("hi", []tools.ToolDefinition{toolDef(tool, false)}),
 	)
 
@@ -183,7 +183,7 @@ func TestLoop_StopsWhenReasonOnce(t *testing.T) {
 	reasoner := &stubReasoner{responses: []answer.ReasonResult{withToolCall(tool, "")}}
 
 	err := buildUseCase(reasoner, newConvRepo(0)).Execute(
-		context.Background(), &spyContentReceiver{}, okExecutor(),
+		context.Background(), &spyContentReceiver{}, okToolCallReciver(),
 		answer.NewAnswerCommand("hi", []tools.ToolDefinition{toolDef(tool, true)}),
 	)
 
@@ -200,7 +200,7 @@ func TestLoop_BudgetExhausted(t *testing.T) {
 
 	err := buildUseCase(reasoner, newConvRepo(0)).Execute(
 		context.Background(), &spyContentReceiver{},
-		makeExecutor("ok", nil),
+		makeToolCallReciver("ok", nil),
 		answer.NewAnswerCommand("hi", []tools.ToolDefinition{toolDef(tool, false)}),
 	)
 
@@ -215,7 +215,7 @@ func TestLoop_ContextTimeout_SaveStillCalled(t *testing.T) {
 	cancel() // already done
 
 	err := buildUseCase(&stubReasoner{}, convRepo).Execute(
-		ctx, &spyContentReceiver{}, okExecutor(),
+		ctx, &spyContentReceiver{}, okToolCallReciver(),
 		answer.NewAnswerCommand("hi", nil),
 	)
 
@@ -233,7 +233,7 @@ func TestError_ReasonerFails_SaveNotCalled(t *testing.T) {
 	reasoner := &stubReasoner{err: errors.New("llm down")}
 
 	err := buildUseCase(reasoner, convRepo).Execute(
-		context.Background(), &spyContentReceiver{}, okExecutor(),
+		context.Background(), &spyContentReceiver{}, okToolCallReciver(),
 		answer.NewAnswerCommand("hi", nil),
 	)
 
@@ -250,7 +250,7 @@ func TestError_ContentReceiverFails_ReturnsError(t *testing.T) {
 	cr := &spyContentReceiver{err: errors.New("send failed")}
 
 	err := buildUseCase(reasoner, newConvRepo(0)).Execute(
-		context.Background(), cr, okExecutor(),
+		context.Background(), cr, okToolCallReciver(),
 		answer.NewAnswerCommand("hi", nil),
 	)
 
@@ -269,7 +269,7 @@ func TestError_ExecutorFails_ErrorJoinedLoopContinues(t *testing.T) {
 
 	err := buildUseCase(reasoner, newConvRepo(0)).Execute(
 		context.Background(), &spyContentReceiver{},
-		makeExecutor("", errors.New("tool failed")),
+		makeToolCallReciver("", errors.New("tool failed")),
 		answer.NewAnswerCommand("hi", []tools.ToolDefinition{toolDef(tool, false)}),
 	)
 
@@ -289,7 +289,7 @@ func TestSave_ReceivesOnlyNewMessages(t *testing.T) {
 	reasoner := &stubReasoner{responses: []answer.ReasonResult{noToolCalls("new response")}}
 
 	err := buildUseCase(reasoner, convRepo).Execute(
-		context.Background(), &spyContentReceiver{}, okExecutor(),
+		context.Background(), &spyContentReceiver{}, okToolCallReciver(),
 		answer.NewAnswerCommand("new msg", nil),
 	)
 
@@ -307,7 +307,7 @@ func TestOptimize_CalledOnTokenOverflow(t *testing.T) {
 	reasoner := &stubReasoner{responses: []answer.ReasonResult{noToolCalls("hi")}}
 
 	err := buildUseCase(reasoner, convRepo).Execute(
-		context.Background(), &spyContentReceiver{}, okExecutor(),
+		context.Background(), &spyContentReceiver{}, okToolCallReciver(),
 		answer.NewAnswerCommand("hi", nil),
 	)
 
@@ -322,7 +322,7 @@ func TestOptimize_NotCalledWhenWithinLimit(t *testing.T) {
 	reasoner := &stubReasoner{responses: []answer.ReasonResult{noToolCalls("hi")}}
 
 	err := buildUseCase(reasoner, convRepo).Execute(
-		context.Background(), &spyContentReceiver{}, okExecutor(),
+		context.Background(), &spyContentReceiver{}, okToolCallReciver(),
 		answer.NewAnswerCommand("hi", nil),
 	)
 
