@@ -16,7 +16,7 @@ type Executor struct {
 	recivier ToolCallRecivier
 }
 
-func New(r ToolCallRecivier) *Executor {
+func NewExecutor(r ToolCallRecivier) *Executor {
 	return &Executor{
 		recivier: r,
 	}

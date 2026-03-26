@@ -28,6 +28,20 @@ type AnswerUseCase struct {
 	executionContextFactory *requestcontext.RequestContextFactory
 }
 
+func NewAnswerUseCase(
+	reasoner Reasoner,
+	conversationRepo ConversationRespository,
+	agentRepo requestcontext.AgentRepository,
+	executionContextFactory *requestcontext.RequestContextFactory,
+) *AnswerUseCase {
+	return &AnswerUseCase{
+		reasoner:                reasoner,
+		conversationRepo:        conversationRepo,
+		agentRepo:               agentRepo,
+		executionContextFactory: executionContextFactory,
+	}
+}
+
 func (a *AnswerUseCase) Execute(
 	ctx context.Context,
 	cr ContentRecivier,
@@ -63,13 +77,13 @@ func (a *AnswerUseCase) Execute(
 
 		reasonParams := executionContext.NextReasonParams(ctx, conver.Messages())
 
-		reasonResult, err := a.reasoner.Reason(ctx, reasonParams)
+		reasonResultValue, err := a.reasoner.Reason(ctx, reasonParams)
 		if err != nil {
 			return err
 		}
 
-		reasonContent := reasonResult.Content()
-		toolCalls := reasonResult.ToolCalls()
+		reasonContent := reasonResultValue.content
+		toolCalls := reasonResultValue.toolCalls
 
 		conver.AddAgentMessage(reasonContent, toolCalls)
 

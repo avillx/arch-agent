@@ -1,8 +1,6 @@
 package conversation
 
-import "encoding/json"
-
-type ToolArguments json.RawMessage
+type ToolArguments []byte
 
 // bounded context value object
 type ToolCall struct {
