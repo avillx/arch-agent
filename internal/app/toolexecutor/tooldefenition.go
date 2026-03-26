@@ -20,6 +20,7 @@ const (
 )
 
 type ToolProperty struct {
+	Name        string
 	Required    bool
 	Type        PropertyType
 	Description string
