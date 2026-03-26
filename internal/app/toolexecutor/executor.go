@@ -10,6 +10,7 @@ import (
 
 type ToolCallRecivier interface {
 	SendCall(ctx context.Context, toolName string, args conversation.ToolArguments) (string, error)
+	Tools() []ToolDefinition
 }
 
 type Executor struct {
@@ -49,10 +50,3 @@ func (e *Executor) Execute(ctx context.Context, calls []conversation.ToolCall) (
 	return results, g.Wait()
 }
 
-// func (e *ToolExecutor) executeToolCall(ctx context.Context, call shared.ToolCall) (string, error) {
-
-// 	if itool, ok := e.internalTools[call.ToolName]; ok {
-// 		return itool.Execute(ctx, call.Arguments)
-// 	}
-// 	return "", nil
-// }

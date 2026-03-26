@@ -10,11 +10,16 @@ import (
 
 // stubReceiver — заглушка ToolCallReceiver
 type stubReceiver struct {
-	fn func(toolName string, args conversation.ToolArguments) (string, error)
+	fn    func(toolName string, args conversation.ToolArguments) (string, error)
+	tools []tools.ToolDefinition
 }
 
 func (s *stubReceiver) SendCall(_ context.Context, toolName string, args conversation.ToolArguments) (string, error) {
 	return s.fn(toolName, args)
+}
+
+func (s *stubReceiver) Tools() []tools.ToolDefinition {
+	return s.tools
 }
 
 func okReceiver(result string) *stubReceiver {
@@ -34,7 +39,6 @@ func errReceiver(err error) *stubReceiver {
 }
 
 // helpers
-
 func makeCall(id, toolName string) conversation.ToolCall {
 	return *conversation.NewToolCall(id, toolName, nil)
 }

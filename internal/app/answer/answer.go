@@ -11,10 +11,6 @@ import (
 
 const ExecutionTimeLimin = 3 * time.Minute
 
-type ContentRecivier interface {
-	Send(ctx context.Context, content string) error
-}
-
 type ConversationRespository interface {
 	Get() *conversation.Conversation
 	Save([]conversation.Message)
@@ -44,24 +40,24 @@ func NewAnswerUseCase(
 
 func (a *AnswerUseCase) Execute(
 	ctx context.Context,
-	cr ContentRecivier,
-	tr tools.ToolCallRecivier,
-	cmd *AnswerCommand,
+	request string,
+	contentRecivier func(ctx context.Context, content string) error,
+	tcr tools.ToolCallRecivier,
 ) error {
 	var errs error
 
-	te := tools.NewExecutor(tr)
+	te := tools.NewExecutor(tcr)
 
 	ctx, cancel := context.WithTimeout(ctx, ExecutionTimeLimin)
 	defer cancel()
 
 	conver := a.conversationRepo.Get()
-	conver.AddUserMessage(cmd.Content)
+	conver.AddUserMessage(request)
 	executionContext, err := a.executionContextFactory.Build(
 		ctx,
 		a.agentRepo.Get(),
 		conver.Messages(),
-		cmd.toolDefs)
+		tcr.Tools())
 	if err != nil {
 		return err
 	}
@@ -90,7 +86,7 @@ func (a *AnswerUseCase) Execute(
 		conver.AddAgentMessage(reasonContent, toolCalls)
 
 		// resolve content
-		if err := cr.Send(ctx, reasonContent); err != nil {
+		if err := contentRecivier(ctx, reasonContent); err != nil {
 			return errors.Join(errs, err)
 		}
 
