@@ -15,8 +15,8 @@ func makeTool(name string, reasonOnce bool) tools.ToolDefinition {
 	return tools.ToolDefinition{Name: name, ReasonOnce: reasonOnce}
 }
 
-func makeToolCall(toolName string) conversation.ToolCall {
-	return *conversation.NewToolCall("id-"+toolName, toolName, nil)
+func makeToolCall(toolName string) *conversation.ToolCall {
+	return conversation.NewToolCall("id-"+toolName, toolName, nil)
 }
 
 func newCtx(toolDefs []tools.ToolDefinition) *executioncontext.ExecutionContext {
@@ -48,7 +48,7 @@ func TestShouldFollowUp_NoCalls_False(t *testing.T) {
 
 func TestShouldFollowUp_ReasonOnceTool_False(t *testing.T) {
 	ec := newCtx([]tools.ToolDefinition{makeTool("tool-a", true)})
-	calls := []conversation.ToolCall{makeToolCall("tool-a")}
+	calls := []*conversation.ToolCall{makeToolCall("tool-a")}
 
 	if ec.ShouldFollowUp(calls) {
 		t.Error("expected false for ReasonOnce tool")
@@ -57,7 +57,7 @@ func TestShouldFollowUp_ReasonOnceTool_False(t *testing.T) {
 
 func TestShouldFollowUp_FollowUpRequiredTool_True(t *testing.T) {
 	ec := newCtx([]tools.ToolDefinition{makeTool("tool-a", false)})
-	calls := []conversation.ToolCall{makeToolCall("tool-a")}
+	calls := []*conversation.ToolCall{makeToolCall("tool-a")}
 
 	if !ec.ShouldFollowUp(calls) {
 		t.Error("expected true for follow up required tool with budget")
@@ -66,7 +66,7 @@ func TestShouldFollowUp_FollowUpRequiredTool_True(t *testing.T) {
 
 func TestShouldFollowUp_UnknownTool_False(t *testing.T) {
 	ec := newCtx([]tools.ToolDefinition{makeTool("tool-a", false)})
-	calls := []conversation.ToolCall{makeToolCall("unknown")}
+	calls := []*conversation.ToolCall{makeToolCall("unknown")}
 
 	if ec.ShouldFollowUp(calls) {
 		t.Error("expected false for unknown tool")
@@ -77,7 +77,7 @@ func TestShouldFollowUp_UnknownTool_False(t *testing.T) {
 
 func TestNextReasonParams_DecrementsBudget(t *testing.T) {
 	ec := newCtx([]tools.ToolDefinition{makeTool("tool-a", false)})
-	calls := []conversation.ToolCall{makeToolCall("tool-a")}
+	calls := []*conversation.ToolCall{makeToolCall("tool-a")}
 
 	// после 9 вызовов бюджет = 1, followUp ещё должен работать
 	for range executioncontext.DefaultFollowUpBudget - 1 {
@@ -91,7 +91,7 @@ func TestNextReasonParams_DecrementsBudget(t *testing.T) {
 
 func TestNextReasonParams_BudgetExhausted_ShouldFollowUpFalse(t *testing.T) {
 	ec := newCtx([]tools.ToolDefinition{makeTool("tool-a", false)})
-	calls := []conversation.ToolCall{makeToolCall("tool-a")}
+	calls := []*conversation.ToolCall{makeToolCall("tool-a")}
 
 	// 10 вызовов — бюджет обнуляется
 	for range executioncontext.DefaultFollowUpBudget {

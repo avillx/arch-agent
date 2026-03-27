@@ -3,6 +3,7 @@ package tools
 type ToolDefinition struct {
 	Name       string
 	ReasonOnce bool
+	Strict     bool
 	Schema     Schema
 }
 

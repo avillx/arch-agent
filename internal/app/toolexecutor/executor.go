@@ -23,7 +23,7 @@ func NewExecutor(r ToolCallRecivier) *Executor {
 	}
 }
 
-func (e *Executor) Execute(ctx context.Context, calls []conversation.ToolCall) ([]conversation.ToolCallResult, error) {
+func (e *Executor) Execute(ctx context.Context, calls []*conversation.ToolCall) ([]conversation.ToolCallResult, error) {
 	var mu sync.Mutex
 	g, ctx := errgroup.WithContext(ctx)
 	results := []conversation.ToolCallResult{}
@@ -49,4 +49,3 @@ func (e *Executor) Execute(ctx context.Context, calls []conversation.ToolCall) (
 
 	return results, g.Wait()
 }
-

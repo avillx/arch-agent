@@ -28,10 +28,10 @@ type UserMessage struct {
 
 type AgentMessage struct {
 	messageBase
-	toolCalls []ToolCall
+	toolCalls []*ToolCall
 }
 
-func (m *AgentMessage) ToolCalls() []ToolCall {
+func (m *AgentMessage) ToolCalls() []*ToolCall {
 	return m.toolCalls
 }
 
@@ -57,7 +57,7 @@ func NewUserMessage(content string) *UserMessage {
 	}
 }
 
-func NewAgentMessage(content string, tc []ToolCall) *AgentMessage {
+func NewAgentMessage(content string, tc []*ToolCall) *AgentMessage {
 	return &AgentMessage{
 		messageBase: messageBase{
 			role:    Agent,

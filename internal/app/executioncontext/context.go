@@ -57,9 +57,9 @@ func (r *ExecutionContext) NextReasonParams(ctx context.Context, messasges []con
 	}
 }
 
-func (r *ExecutionContext) ShouldFollowUp(calls []conversation.ToolCall) bool {
+func (r *ExecutionContext) ShouldFollowUp(calls []*conversation.ToolCall) bool {
 
-	followUpByToolCall := slices.ContainsFunc(calls, func(c conversation.ToolCall) bool {
+	followUpByToolCall := slices.ContainsFunc(calls, func(c *conversation.ToolCall) bool {
 		t, ok := r.tools[c.ToolName()]
 		return ok && !t.ReasonOnce
 	})

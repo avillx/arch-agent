@@ -78,14 +78,14 @@ func (r *stubToolReceiver) SendCall(_ context.Context, _ string, _ conversation.
 
 // stubReasoner returns responses in sequence; repeats the last one when exhausted.
 type stubReasoner struct {
-	responses []answer.ReasonResult
+	responses []*answer.ReasonResult
 	callCount int
 	err       error
 }
 
-func (r *stubReasoner) Reason(_ context.Context, _ executioncontext.ReasonParams) (answer.ReasonResult, error) {
+func (r *stubReasoner) Reason(_ context.Context, _ executioncontext.ReasonParams) (*answer.ReasonResult, error) {
 	if r.err != nil {
-		return answer.ReasonResult{}, r.err
+		return &answer.ReasonResult{}, r.err
 	}
 	idx := min(r.callCount, len(r.responses)-1)
 	r.callCount++
@@ -117,16 +117,16 @@ func toolDef(name string, reasonOnce bool) tools.ToolDefinition {
 	return tools.ToolDefinition{Name: name, ReasonOnce: reasonOnce}
 }
 
-func toolCall(name string) conversation.ToolCall {
-	return *conversation.NewToolCall("call-id", name, nil)
+func toolCall(name string) *conversation.ToolCall {
+	return conversation.NewToolCall("call-id", name, nil)
 }
 
-func noToolCalls(content string) answer.ReasonResult {
+func noToolCalls(content string) *answer.ReasonResult {
 	return answer.NewReasonResult(nil, content)
 }
 
-func withToolCall(name, content string) answer.ReasonResult {
-	return answer.NewReasonResult([]conversation.ToolCall{toolCall(name)}, content)
+func withToolCall(name, content string) *answer.ReasonResult {
+	return answer.NewReasonResult([]*conversation.ToolCall{toolCall(name)}, content)
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -136,7 +136,7 @@ func withToolCall(name, content string) answer.ReasonResult {
 func TestHappyPath_SingleReason_NoToolCalls(t *testing.T) {
 	var sent []string
 	convRepo := newConvRepo(0)
-	reasoner := &stubReasoner{responses: []answer.ReasonResult{noToolCalls("hello")}}
+	reasoner := &stubReasoner{responses: []*answer.ReasonResult{noToolCalls("hello")}}
 
 	err := buildUseCase(reasoner, convRepo).Execute(
 		context.Background(), "hi", spySend(&sent), receiver(),
@@ -152,7 +152,7 @@ func TestHappyPath_SingleReason_NoToolCalls(t *testing.T) {
 
 func TestAgenticLoop_TwoIterations(t *testing.T) {
 	const tool = "search"
-	reasoner := &stubReasoner{responses: []answer.ReasonResult{
+	reasoner := &stubReasoner{responses: []*answer.ReasonResult{
 		withToolCall(tool, "thinking..."),
 		noToolCalls("done"),
 	}}
@@ -171,7 +171,7 @@ func TestAgenticLoop_TwoIterations(t *testing.T) {
 // ReasonOnce=true → tool doesn't trigger follow-up, loop stops after 1 iteration.
 func TestLoop_StopsWhenReasonOnce(t *testing.T) {
 	const tool = "oneshot"
-	reasoner := &stubReasoner{responses: []answer.ReasonResult{withToolCall(tool, "")}}
+	reasoner := &stubReasoner{responses: []*answer.ReasonResult{withToolCall(tool, "")}}
 
 	err := buildUseCase(reasoner, newConvRepo(0)).Execute(
 		context.Background(), "hi", noopSend,
@@ -185,7 +185,7 @@ func TestLoop_StopsWhenReasonOnce(t *testing.T) {
 // Budget exhaustion must terminate the loop — no infinite spin.
 func TestLoop_BudgetExhausted(t *testing.T) {
 	const tool = "search"
-	reasoner := &stubReasoner{responses: []answer.ReasonResult{withToolCall(tool, "")}}
+	reasoner := &stubReasoner{responses: []*answer.ReasonResult{withToolCall(tool, "")}}
 
 	err := buildUseCase(reasoner, newConvRepo(0)).Execute(
 		context.Background(), "hi", noopSend,
@@ -232,7 +232,7 @@ func TestError_ReasonerFails_SaveNotCalled(t *testing.T) {
 }
 
 func TestError_SendFails_ReturnsError(t *testing.T) {
-	reasoner := &stubReasoner{responses: []answer.ReasonResult{noToolCalls("hi")}}
+	reasoner := &stubReasoner{responses: []*answer.ReasonResult{noToolCalls("hi")}}
 	failSend := func(_ context.Context, _ string) error { return errors.New("send failed") }
 
 	err := buildUseCase(reasoner, newConvRepo(0)).Execute(
@@ -247,7 +247,7 @@ func TestError_SendFails_ReturnsError(t *testing.T) {
 // Executor error is non-fatal: joined into result, loop still continues.
 func TestError_ExecutorFails_ErrorJoinedLoopContinues(t *testing.T) {
 	const tool = "search"
-	reasoner := &stubReasoner{responses: []answer.ReasonResult{
+	reasoner := &stubReasoner{responses: []*answer.ReasonResult{
 		withToolCall(tool, ""),
 		noToolCalls("done"),
 	}}
@@ -272,7 +272,7 @@ func TestError_ExecutorFails_ErrorJoinedLoopContinues(t *testing.T) {
 func TestSave_ReceivesOnlyNewMessages(t *testing.T) {
 	historical := conversation.NewUserMessage("old msg")
 	convRepo := newConvRepoWithHistory([]conversation.Message{historical})
-	reasoner := &stubReasoner{responses: []answer.ReasonResult{noToolCalls("new response")}}
+	reasoner := &stubReasoner{responses: []*answer.ReasonResult{noToolCalls("new response")}}
 
 	err := buildUseCase(reasoner, convRepo).Execute(
 		context.Background(), "new msg", noopSend, receiver(),
@@ -288,7 +288,7 @@ func TestSave_ReceivesOnlyNewMessages(t *testing.T) {
 
 func TestOptimize_CalledOnTokenOverflow(t *testing.T) {
 	convRepo := newConvRepo(conversation.TokenLimit)
-	reasoner := &stubReasoner{responses: []answer.ReasonResult{noToolCalls("hi")}}
+	reasoner := &stubReasoner{responses: []*answer.ReasonResult{noToolCalls("hi")}}
 
 	err := buildUseCase(reasoner, convRepo).Execute(
 		context.Background(), "hi", noopSend, receiver(),
@@ -302,7 +302,7 @@ func TestOptimize_CalledOnTokenOverflow(t *testing.T) {
 
 func TestOptimize_NotCalledWhenWithinLimit(t *testing.T) {
 	convRepo := newConvRepo(0)
-	reasoner := &stubReasoner{responses: []answer.ReasonResult{noToolCalls("hi")}}
+	reasoner := &stubReasoner{responses: []*answer.ReasonResult{noToolCalls("hi")}}
 
 	err := buildUseCase(reasoner, convRepo).Execute(
 		context.Background(), "hi", noopSend, receiver(),

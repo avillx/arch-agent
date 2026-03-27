@@ -1,7 +1,7 @@
 package answer
 
 import (
-	requestcontext "arch-agent/internal/app/executioncontext"
+	executioncontext "arch-agent/internal/app/executioncontext"
 	"arch-agent/internal/domain/conversation"
 	"context"
 )
@@ -9,17 +9,17 @@ import (
 type Reasoner interface {
 	Reason(
 		ctx context.Context,
-		params requestcontext.ReasonParams,
-	) (ReasonResult, error)
+		params executioncontext.ReasonParams,
+	) (*ReasonResult, error)
 }
 
 type ReasonResult struct {
-	toolCalls []conversation.ToolCall
+	toolCalls []*conversation.ToolCall
 	content   string
 }
 
-func NewReasonResult(tc []conversation.ToolCall, content string) ReasonResult {
-	return ReasonResult{
+func NewReasonResult(tc []*conversation.ToolCall, content string) *ReasonResult {
+	return &ReasonResult{
 		content:   content,
 		toolCalls: tc,
 	}

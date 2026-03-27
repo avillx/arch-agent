@@ -39,8 +39,8 @@ func errReceiver(err error) *stubReceiver {
 }
 
 // helpers
-func makeCall(id, toolName string) conversation.ToolCall {
-	return *conversation.NewToolCall(id, toolName, nil)
+func makeCall(id, toolName string) *conversation.ToolCall {
+	return conversation.NewToolCall(id, toolName, nil)
 }
 
 func findByID(results []conversation.ToolCallResult, id string) (conversation.ToolCallResult, bool) {
@@ -69,7 +69,7 @@ func TestExecute_Empty_NoErrorNoResults(t *testing.T) {
 
 func TestExecute_SingleCall_ReturnsCorrectResult(t *testing.T) {
 	e := tools.NewExecutor(okReceiver("pong"))
-	calls := []conversation.ToolCall{makeCall("id-1", "ping")}
+	calls := []*conversation.ToolCall{makeCall("id-1", "ping")}
 
 	results, err := e.Execute(context.Background(), calls)
 
@@ -89,7 +89,7 @@ func TestExecute_SingleCall_ReturnsCorrectResult(t *testing.T) {
 
 func TestExecute_MultipleCalls_AllResultsCollected(t *testing.T) {
 	e := tools.NewExecutor(okReceiver("ok"))
-	calls := []conversation.ToolCall{
+	calls := []*conversation.ToolCall{
 		makeCall("id-1", "tool-a"),
 		makeCall("id-2", "tool-b"),
 		makeCall("id-3", "tool-c"),
@@ -114,7 +114,7 @@ func TestExecute_MultipleCalls_AllResultsCollected(t *testing.T) {
 func TestExecute_ParallelCalls_NoResultsLost(t *testing.T) {
 	e := tools.NewExecutor(okReceiver("ok"))
 
-	calls := make([]conversation.ToolCall, 50)
+	calls := make([]*conversation.ToolCall, 50)
 	for i := range calls {
 		calls[i] = makeCall(string(rune('A'+i%26))+string(rune('0'+i%10)), "tool")
 	}
@@ -142,7 +142,7 @@ func TestExecute_OneCallFails_ReturnsError(t *testing.T) {
 		},
 	}
 	e := tools.NewExecutor(receiver)
-	calls := []conversation.ToolCall{
+	calls := []*conversation.ToolCall{
 		makeCall("id-1", "good-tool"),
 		makeCall("id-2", "bad-tool"),
 	}
@@ -160,7 +160,7 @@ func TestExecute_OneCallFails_ReturnsError(t *testing.T) {
 func TestExecute_AllCallsFail_ReturnsError(t *testing.T) {
 	boom := errors.New("all broken")
 	e := tools.NewExecutor(errReceiver(boom))
-	calls := []conversation.ToolCall{
+	calls := []*conversation.ToolCall{
 		makeCall("id-1", "tool-a"),
 		makeCall("id-2", "tool-b"),
 	}
