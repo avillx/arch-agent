@@ -11,23 +11,26 @@ import (
 const DefaultFollowUpBudget = 10
 
 type ReasonParams struct {
-	Agent      AgentConfig
-	Reflection Reflection
-	Memory     Memory
-	Messages   []conversation.Message
-	Tools      []tools.ToolDefinition
+	Agent              AgentConfig
+	Reflection         *Reflection
+	ContextDescription string
+	Memory             Memory
+	Messages           []conversation.Message
+	Tools              []tools.ToolDefinition
 }
 
 type ExecutionContext struct {
-	agent          AgentConfig
-	reflection     Reflection
-	memory         Memory
-	followUpBudget int
-	tools          map[string]tools.ToolDefinition
+	agent              AgentConfig
+	ContextDescription string
+	reflection         *Reflection
+	memory             Memory
+	followUpBudget     int
+	tools              map[string]tools.ToolDefinition
 }
 
 func NewExecutionContext(
-	reflection Reflection,
+	reflection *Reflection,
+	ContextDescription string,
 	memory Memory,
 	agent AgentConfig,
 	tools []tools.ToolDefinition,
@@ -48,10 +51,11 @@ func (r *ExecutionContext) NextReasonParams(ctx context.Context, messasges []con
 	}
 
 	return ReasonParams{
-		Agent:      r.agent,
-		Reflection: r.reflection,
-		Messages:   messasges,
-		Memory:     r.memory,
+		Agent:              r.agent,
+		Reflection:         r.reflection,
+		Messages:           messasges,
+		Memory:             r.memory,
+		ContextDescription: r.ContextDescription,
 		// map to slice
 		Tools: slices.Collect(maps.Values(r.tools)),
 	}

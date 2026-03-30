@@ -16,6 +16,7 @@ func (b *Bot) createToolCallRecivier() *llm.ToolCallRecivier {
 		ToolDefinition: tools.ToolDefinition{
 			Name:       "send_message",
 			ReasonOnce: true,
+			Strict:     true,
 			Schema: tools.Schema{
 				Description: "send messages in chat",
 				Properties: []tools.ToolProperty{
@@ -49,6 +50,7 @@ func (b *Bot) createToolCallRecivier() *llm.ToolCallRecivier {
 	sendSticker := llm.Tool{
 		ToolDefinition: tools.ToolDefinition{
 			Name:       "send_sticker",
+			Strict:     true,
 			ReasonOnce: true,
 			Schema: tools.Schema{
 				Description: "send sticker in chat",
@@ -98,8 +100,8 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 		return b.SendMessage(message.From.ID, content, 0)
 	}
 
-	b.answerUC.Execute(context.Background(), message.Text, contentRecivier, b.createToolCallRecivier())
-	return nil
+	content := messageToText(message)
+	return b.answerUC.Execute(context.Background(), content, contentRecivier, "", b.createToolCallRecivier())
 }
 
 func (b *Bot) handleCommand(update tgbotapi.Update) error {
@@ -139,7 +141,7 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) error {
 	switch {
 	case update.Message != nil && update.Message.Command() != "":
 		err = b.handleCommand(update)
-	case update.Message == nil && update.Message.Text != "":
+	case update.Message != nil && update.Message.Text != "":
 		err = b.handleMessage(update.Message)
 	}
 

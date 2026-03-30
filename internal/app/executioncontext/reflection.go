@@ -37,5 +37,5 @@ type Reflector interface {
 		ctx context.Context,
 		conversation []conversation.Message,
 		personality string,
-	) Reflection
+	) (*Reflection, error)
 }

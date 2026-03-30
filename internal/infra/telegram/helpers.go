@@ -56,3 +56,12 @@ func textChunkDivide(t string) []string {
 
 	return chunks
 }
+
+func messageToText(msg *tgbotapi.Message) string {
+	const dateFormat = "15:04 02.01.06" // well this is magic shit, but is a go stdlib design.
+	return fmt.Sprintf("chat_id: %d\ntime:%s\nname:%s\ntext:%s",
+		msg.From.ID,
+		msg.Time().Format(dateFormat),
+		msg.From.FirstName,
+		msg.Text)
+}

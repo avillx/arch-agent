@@ -22,12 +22,21 @@ func NewRequestContextFactory(p MemoryProvider, reflector Reflector) *RequestCon
 	}
 }
 
-func (f *RequestContextFactory) Build(ctx context.Context, a AgentConfig, messages []conversation.Message, tools []tools.ToolDefinition) (*ExecutionContext, error) {
+func (f *RequestContextFactory) Build(
+	ctx context.Context,
+	a AgentConfig,
+	messages []conversation.Message,
+	contextDescription string,
+	tools []tools.ToolDefinition,
+) (*ExecutionContext, error) {
 
 	memory := f.memoryProvider.Snapshot(ctx, messages)
-	reflection := f.reflector.Reflect(ctx, messages, a.Personality)
+	reflection, err := f.reflector.Reflect(ctx, messages, a.Personality)
+	if err != nil {
+		return nil, err
+	}
 
-	return NewExecutionContext(reflection, memory, a, tools), nil
+	return NewExecutionContext(reflection, contextDescription, memory, a, tools), nil
 }
 
 // func AssymblyMemory(m *Memory) string {

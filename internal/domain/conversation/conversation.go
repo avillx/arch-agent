@@ -43,7 +43,7 @@ func (c *Conversation) AddUserMessage(content string) {
 	c.addNewMessage(NewUserMessage(content))
 }
 
-func (c *Conversation) AddAgentMessage(content string, tc []ToolCall) {
+func (c *Conversation) AddAgentMessage(content string, tc []*ToolCall) {
 	c.addNewMessage(NewAgentMessage(content, tc))
 }
 

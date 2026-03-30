@@ -16,12 +16,18 @@ type ConversationRespository interface {
 	Save([]conversation.Message)
 	Optimize()
 }
+type AnswerUCLogger interface {
+	Error(string, ...any)
+	Debug(string, ...any)
+	Info(string, ...any)
+}
 
 type AnswerUseCase struct {
 	reasoner                Reasoner
 	conversationRepo        ConversationRespository
 	agentRepo               requestcontext.AgentRepository
 	executionContextFactory *requestcontext.RequestContextFactory
+	logger                  AnswerUCLogger
 }
 
 func NewAnswerUseCase(
@@ -29,12 +35,14 @@ func NewAnswerUseCase(
 	conversationRepo ConversationRespository,
 	agentRepo requestcontext.AgentRepository,
 	executionContextFactory *requestcontext.RequestContextFactory,
+	logger AnswerUCLogger,
 ) *AnswerUseCase {
 	return &AnswerUseCase{
 		reasoner:                reasoner,
 		conversationRepo:        conversationRepo,
 		agentRepo:               agentRepo,
 		executionContextFactory: executionContextFactory,
+		logger:                  logger,
 	}
 }
 
@@ -42,6 +50,7 @@ func (a *AnswerUseCase) Execute(
 	ctx context.Context,
 	request string,
 	contentRecivier func(ctx context.Context, content string) error,
+	contextDescription string,
 	tcr tools.ToolCallRecivier,
 ) error {
 	var errs error
@@ -57,6 +66,7 @@ func (a *AnswerUseCase) Execute(
 		ctx,
 		a.agentRepo.Get(),
 		conver.Messages(),
+		contextDescription,
 		tcr.Tools())
 	if err != nil {
 		return err
@@ -74,6 +84,7 @@ func (a *AnswerUseCase) Execute(
 		}
 
 		reasonParams := executionContext.NextReasonParams(ctx, conver.Messages())
+		a.logger.Debug("reason params created", "reflection", reasonParams.Reflection)
 
 		reasonResultValue, err := a.reasoner.Reason(ctx, reasonParams)
 		if err != nil {
@@ -82,12 +93,15 @@ func (a *AnswerUseCase) Execute(
 
 		reasonContent := reasonResultValue.content
 		toolCalls := reasonResultValue.toolCalls
+		a.logger.Debug("reason is complete", "result", reasonResultValue)
 
 		conver.AddAgentMessage(reasonContent, toolCalls)
 
 		// resolve content
-		if err := contentRecivier(ctx, reasonContent); err != nil {
-			return errors.Join(errs, err)
+		if reasonContent != "" {
+			if err := contentRecivier(ctx, reasonContent); err != nil {
+				return errors.Join(errs, err)
+			}
 		}
 
 		// tool calls

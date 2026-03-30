@@ -21,7 +21,8 @@ func makeToolCall(toolName string) *conversation.ToolCall {
 
 func newCtx(toolDefs []tools.ToolDefinition) *executioncontext.ExecutionContext {
 	return executioncontext.NewExecutionContext(
-		executioncontext.Reflection{},
+		&executioncontext.Reflection{},
+		"",
 		executioncontext.Memory{},
 		executioncontext.AgentConfig{},
 		toolDefs,
@@ -103,7 +104,7 @@ func TestNextReasonParams_BudgetExhausted_ShouldFollowUpFalse(t *testing.T) {
 	}
 }
 
-// --- excludeFollowUpRequiredTools мутация ---
+// --- excludeFollowUpRequiredTools  ---
 
 func TestNextReasonParams_OnBudgetZero_FollowUpRequiredToolsExcluded(t *testing.T) {
 	ec := newCtx([]tools.ToolDefinition{

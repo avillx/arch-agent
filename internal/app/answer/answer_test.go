@@ -56,8 +56,8 @@ func (p *stubMemoryProvider) Snapshot(_ context.Context, _ []conversation.Messag
 
 type stubReflector struct{}
 
-func (r *stubReflector) Reflect(_ context.Context, _ []conversation.Message, _ string) executioncontext.Reflection {
-	return executioncontext.Reflection{}
+func (r *stubReflector) Reflect(_ context.Context, _ []conversation.Message, _ string) (*executioncontext.Reflection, error) {
+	return &executioncontext.Reflection{}, nil
 }
 
 // ---
@@ -96,7 +96,7 @@ func (r *stubReasoner) Reason(_ context.Context, _ executioncontext.ReasonParams
 
 func buildUseCase(reasoner answer.Reasoner, convRepo answer.ConversationRespository) *answer.AnswerUseCase {
 	factory := executioncontext.NewRequestContextFactory(&stubMemoryProvider{}, &stubReflector{})
-	return answer.NewAnswerUseCase(reasoner, convRepo, &stubAgentRepo{}, factory)
+	return answer.NewAnswerUseCase(reasoner, convRepo, &stubAgentRepo{}, factory, nil)
 }
 
 func noopSend(_ context.Context, _ string) error { return nil }
@@ -139,7 +139,7 @@ func TestHappyPath_SingleReason_NoToolCalls(t *testing.T) {
 	reasoner := &stubReasoner{responses: []*answer.ReasonResult{noToolCalls("hello")}}
 
 	err := buildUseCase(reasoner, convRepo).Execute(
-		context.Background(), "hi", spySend(&sent), receiver(),
+		context.Background(), "hi", spySend(&sent), "", receiver(),
 	)
 
 	assertNoError(t, err)
@@ -158,7 +158,7 @@ func TestAgenticLoop_TwoIterations(t *testing.T) {
 	}}
 
 	err := buildUseCase(reasoner, newConvRepo(0)).Execute(
-		context.Background(), "hi", noopSend,
+		context.Background(), "hi", noopSend, "",
 		receiver(toolDef(tool, false)),
 	)
 
@@ -174,7 +174,7 @@ func TestLoop_StopsWhenReasonOnce(t *testing.T) {
 	reasoner := &stubReasoner{responses: []*answer.ReasonResult{withToolCall(tool, "")}}
 
 	err := buildUseCase(reasoner, newConvRepo(0)).Execute(
-		context.Background(), "hi", noopSend,
+		context.Background(), "hi", noopSend, "",
 		receiver(toolDef(tool, true)),
 	)
 
@@ -188,7 +188,7 @@ func TestLoop_BudgetExhausted(t *testing.T) {
 	reasoner := &stubReasoner{responses: []*answer.ReasonResult{withToolCall(tool, "")}}
 
 	err := buildUseCase(reasoner, newConvRepo(0)).Execute(
-		context.Background(), "hi", noopSend,
+		context.Background(), "hi", noopSend, "",
 		receiver(toolDef(tool, false)),
 	)
 
@@ -203,7 +203,7 @@ func TestLoop_ContextCancelled_SaveStillCalled(t *testing.T) {
 	cancel()
 
 	err := buildUseCase(&stubReasoner{}, convRepo).Execute(
-		ctx, "hi", noopSend, receiver(),
+		ctx, "hi", noopSend, "", receiver(),
 	)
 
 	if err == nil {
@@ -220,7 +220,7 @@ func TestError_ReasonerFails_SaveNotCalled(t *testing.T) {
 	reasoner := &stubReasoner{err: errors.New("llm down")}
 
 	err := buildUseCase(reasoner, convRepo).Execute(
-		context.Background(), "hi", noopSend, receiver(),
+		context.Background(), "hi", noopSend, "", receiver(),
 	)
 
 	if err == nil {
@@ -236,7 +236,7 @@ func TestError_SendFails_ReturnsError(t *testing.T) {
 	failSend := func(_ context.Context, _ string) error { return errors.New("send failed") }
 
 	err := buildUseCase(reasoner, newConvRepo(0)).Execute(
-		context.Background(), "hi", failSend, receiver(),
+		context.Background(), "hi", failSend, "", receiver(),
 	)
 
 	if err == nil {
@@ -257,7 +257,7 @@ func TestError_ExecutorFails_ErrorJoinedLoopContinues(t *testing.T) {
 	}
 
 	err := buildUseCase(reasoner, newConvRepo(0)).Execute(
-		context.Background(), "hi", noopSend, failReceiver,
+		context.Background(), "hi", noopSend, "", failReceiver,
 	)
 
 	if err == nil {
@@ -275,7 +275,7 @@ func TestSave_ReceivesOnlyNewMessages(t *testing.T) {
 	reasoner := &stubReasoner{responses: []*answer.ReasonResult{noToolCalls("new response")}}
 
 	err := buildUseCase(reasoner, convRepo).Execute(
-		context.Background(), "new msg", noopSend, receiver(),
+		context.Background(), "new msg", noopSend, "", receiver(),
 	)
 
 	assertNoError(t, err)
@@ -291,7 +291,7 @@ func TestOptimize_CalledOnTokenOverflow(t *testing.T) {
 	reasoner := &stubReasoner{responses: []*answer.ReasonResult{noToolCalls("hi")}}
 
 	err := buildUseCase(reasoner, convRepo).Execute(
-		context.Background(), "hi", noopSend, receiver(),
+		context.Background(), "hi", noopSend, "", receiver(),
 	)
 
 	assertNoError(t, err)
@@ -305,7 +305,7 @@ func TestOptimize_NotCalledWhenWithinLimit(t *testing.T) {
 	reasoner := &stubReasoner{responses: []*answer.ReasonResult{noToolCalls("hi")}}
 
 	err := buildUseCase(reasoner, convRepo).Execute(
-		context.Background(), "hi", noopSend, receiver(),
+		context.Background(), "hi", noopSend, "", receiver(),
 	)
 
 	assertNoError(t, err)

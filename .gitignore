@@ -1,0 +1,5 @@
+config.toml
+.zed
+.vscode
+.env
+__debug_bin.exe

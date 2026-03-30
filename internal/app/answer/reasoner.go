@@ -18,6 +18,14 @@ type ReasonResult struct {
 	content   string
 }
 
+func (res *ReasonResult) Content() string {
+	return res.content
+}
+
+func (res *ReasonResult) ToolCalls() []*conversation.ToolCall {
+	return res.toolCalls
+}
+
 func NewReasonResult(tc []*conversation.ToolCall, content string) *ReasonResult {
 	return &ReasonResult{
 		content:   content,

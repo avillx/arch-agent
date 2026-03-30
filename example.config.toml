@@ -1,0 +1,38 @@
+[chrony]
+tasks = [
+  # { min = 1, hour = 10, weekday = 2, day = 10, month = 4, script = "~/do1.sh" },
+  { min = 1, hour = 10, day = 10, month = 4, script = "~/do1.sh" },
+  { min = 1, hour = 10, weekday = 4, month = 4, script = "~/do2.sh" },
+  { min = 1, hour = 10, weekday = 6, script = "~/do3.sh" },
+]
+
+[llm]
+[llm.reasoning]
+openai_api_url = ""
+model = ""
+tokenlimit = 10000
+api_key_env = "OPENROUTER_API_KEY"  # name reference of env bearer of key
+extras = { any = "Any extras"}  # any for OpenAI API request extras
+
+[llm.reflection]
+openai_api_url = ""
+model = ""
+token_limit = 10000
+api_key_env = "OPENROUTER_API_KEY"
+
+[agent]
+role = """
+You are ...
+"""
+personality = """
+Some for reflection
+"""
+preferences = """
+Any
+"""
+keyphrases = """
+When user ... answering like ...
+"""
+banned_slang = """
+Never say ...
+"""

@@ -16,7 +16,7 @@ type PropertyType string
 
 const (
 	TypeString  PropertyType = "string"
-	TypeNumber  PropertyType = "number"
+	TypeNumber  PropertyType = "integer"
 	TypeBoolean PropertyType = "boolean"
 )
 

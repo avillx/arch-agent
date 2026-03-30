@@ -19,11 +19,11 @@ const (
 type StickerMap map[string]string
 
 type BotConfig struct {
-	apiKey         string
-	host           string
-	port           int
-	stickerSetName string
-	logs           bool
+	APIKey         string
+	Host           string
+	Port           int
+	StickerSetName string
+	Logs           bool
 }
 
 type Bot struct {
@@ -37,12 +37,12 @@ type Bot struct {
 func NewBot(answerUC *answer.AnswerUseCase, cfg BotConfig) (*Bot, error) {
 
 	// build api
-	botAPI, err := tgbotapi.NewBotAPI(cfg.apiKey)
+	botAPI, err := tgbotapi.NewBotAPI(cfg.APIKey)
 	if err != nil {
 		return nil, err
 	}
 
-	if !cfg.logs {
+	if !cfg.Logs {
 		botAPI.Debug = false
 		tgbotapi.SetLogger(
 			slog.NewLogLogger(
@@ -60,8 +60,8 @@ func NewBot(answerUC *answer.AnswerUseCase, cfg BotConfig) (*Bot, error) {
 	}
 
 	// set stickers
-	if cfg.stickerSetName != "" {
-		stickers, err := p.getStickerMap(cfg.stickerSetName)
+	if cfg.StickerSetName != "" {
+		stickers, err := p.getStickerMap(cfg.StickerSetName)
 		switch {
 		case err != nil:
 			slog.Error("bot creation", "error", err)
@@ -73,8 +73,8 @@ func NewBot(answerUC *answer.AnswerUseCase, cfg BotConfig) (*Bot, error) {
 	// config update channel
 	switch {
 	// config web hook is not null
-	case cfg.host != "" && cfg.port != 0:
-		p.updateChannel, err = createWebhookUpdateChannelFor(p, cfg.host, cfg.port)
+	case cfg.Host != "" && cfg.Port != 0:
+		p.updateChannel, err = createWebhookUpdateChannelFor(p, cfg.Host, cfg.Port)
 		if err != nil {
 			return nil, err
 		}
