@@ -30,6 +30,7 @@ type ReasoningPromptParams struct {
 	Tone                 string
 	KeyPhrases           string
 	BannedSentences      string
+	Memory               string
 }
 
 type ReasoningPrompt = prompt[ReasoningPromptParams]
@@ -47,4 +48,13 @@ type ReflectionPrompt = prompt[ReflectionParams]
 
 func NewReflectionPrompt() ReflectionPrompt {
 	return mustLoadPrompt[ReflectionParams]("reflection.tmpl")
+}
+
+// summary
+type SummaryParams struct{}
+
+type SummaryPrompt = prompt[SummaryParams]
+
+func NewSummaryPrompt() SummaryPrompt {
+	return mustLoadPrompt[SummaryParams]("summary.tmpl")
 }

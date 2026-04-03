@@ -2,7 +2,7 @@ package logging
 
 import (
 	"arch-agent/internal/app/answer"
-	"arch-agent/internal/domain/conversation"
+	"arch-agent/internal/app/message"
 	"log/slog"
 )
 
@@ -52,7 +52,7 @@ func (tc *LogWrappedReasonResult) LogValue() slog.Value {
 }
 
 type LogWrappedToolCall struct {
-	*conversation.ToolCall
+	*message.ToolCall
 }
 
 func (tc *LogWrappedToolCall) LogValue() slog.Value {

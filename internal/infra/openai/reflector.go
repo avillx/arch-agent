@@ -2,7 +2,7 @@ package openaiadapter
 
 import (
 	"arch-agent/internal/app/executioncontext"
-	"arch-agent/internal/domain/conversation"
+	"arch-agent/internal/app/message"
 	"arch-agent/internal/infra/llm"
 	"context"
 	"encoding/json"
@@ -40,11 +40,11 @@ func (r *Reflector) buildPrompt(personality string) (string, error) {
 	return r.prompt.Render(llm.ReflectionParams{Personality: personality})
 }
 
-func (r *Reflector) builtMessages(conversation []conversation.Message, prompt string) []openai.ChatCompletionMessageParamUnion {
+func (r *Reflector) builtMessages(conversation []message.Message, prompt string) []openai.ChatCompletionMessageParamUnion {
 	return append([]openai.ChatCompletionMessageParamUnion{openai.SystemMessage(prompt)}, messagesToOpenAI(conversation)...)
 }
 
-func (r *Reflector) builtParams(conversation []conversation.Message, personality string) (openai.ChatCompletionNewParams, error) {
+func (r *Reflector) builtParams(conversation []message.Message, personality string) (openai.ChatCompletionNewParams, error) {
 	prompt, err := r.buildPrompt(personality)
 	if err != nil {
 		return openai.ChatCompletionNewParams{}, err
@@ -63,7 +63,7 @@ func (r *Reflector) builtParams(conversation []conversation.Message, personality
 	return params, nil
 }
 
-func (r *Reflector) Reflect(ctx context.Context, conversation []conversation.Message, personality string) (*executioncontext.Reflection, error) {
+func (r *Reflector) Reflect(ctx context.Context, conversation []message.Message, personality string) (*executioncontext.Reflection, error) {
 
 	params, err := r.builtParams(conversation, personality)
 	if err != nil {

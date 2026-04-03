@@ -59,7 +59,7 @@ func (b *Bot) createToolCallRecivier() *llm.ToolCallRecivier {
 						Name:        "chat_id",
 						Required:    true,
 						Type:        tools.TypeNumber,
-						Description: "",
+						Description: "chat id that sticker will be sended",
 					},
 					{
 						Name:     "emoji",
@@ -72,12 +72,12 @@ func (b *Bot) createToolCallRecivier() *llm.ToolCallRecivier {
 		},
 		CallRsolver: llm.WrapArgumentedCallResolver(
 			func(
-				ags struct {
+				args struct {
 					ChatID int64  `json:"chat_id"`
 					Emoji  string `json:"emoji"`
 				},
 			) (string, error) {
-				if err := b.SendSticker(ags.ChatID, ags.Emoji); err != nil {
+				if err := b.SendSticker(args.ChatID, args.Emoji); err != nil {
 					return "sticker is not sended", err
 				}
 				return "sticker sended", nil
@@ -93,6 +93,8 @@ func (b *Bot) createToolCallRecivier() *llm.ToolCallRecivier {
 // handlers
 func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 
+	const OriginContext = "This is message recived from telegram. You can answer organic with provided capabilities (stickers, messages etc...)"
+
 	stopAction := b.SetChatAction(message.Chat.ID, tgbotapi.ChatTyping)
 	defer stopAction()
 
@@ -101,7 +103,7 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 	}
 
 	content := messageToText(message)
-	return b.answerUC.Execute(context.Background(), content, contentRecivier, "", b.createToolCallRecivier())
+	return b.answerUC.Execute(context.Background(), content, contentRecivier, OriginContext, b.createToolCallRecivier())
 }
 
 func (b *Bot) handleCommand(update tgbotapi.Update) error {

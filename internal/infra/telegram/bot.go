@@ -170,6 +170,8 @@ func (b *Bot) SetChatAction(chatID int64, action string) context.CancelFunc {
 
 // blocking
 func (b *Bot) Run(ctx context.Context) {
+	defer b.unsetWebhook()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -230,4 +232,18 @@ func (b *Bot) setWebhook(host string, port int) error {
 	}
 
 	return nil
+}
+
+func (b *Bot) unsetWebhook() {
+	info, err := b.API.GetWebhookInfo()
+	if err != nil {
+		slog.Error("bad webhook check", "error", err)
+		return
+	}
+	if info.IsSet() {
+		wh := tgbotapi.DeleteWebhookConfig{DropPendingUpdates: false}
+		if _, err := b.API.Request(wh); err != nil {
+			slog.Error("bad webhook unsetting", "error", err)
+		}
+	}
 }

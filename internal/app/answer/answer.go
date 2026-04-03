@@ -1,9 +1,10 @@
 package answer
 
 import (
-	requestcontext "arch-agent/internal/app/executioncontext"
+	"arch-agent/internal/app/executioncontext"
+	"arch-agent/internal/app/memory"
+	"arch-agent/internal/app/session"
 	tools "arch-agent/internal/app/toolexecutor"
-	"arch-agent/internal/domain/conversation"
 	"context"
 	"errors"
 	"time"
@@ -11,11 +12,6 @@ import (
 
 const ExecutionTimeLimin = 3 * time.Minute
 
-type ConversationRespository interface {
-	Get() *conversation.Conversation
-	Save([]conversation.Message)
-	Optimize()
-}
 type AnswerUCLogger interface {
 	Error(string, ...any)
 	Debug(string, ...any)
@@ -24,25 +20,28 @@ type AnswerUCLogger interface {
 
 type AnswerUseCase struct {
 	reasoner                Reasoner
-	conversationRepo        ConversationRespository
-	agentRepo               requestcontext.AgentRepository
-	executionContextFactory *requestcontext.RequestContextFactory
+	sessionService          *session.SessionService
+	agentRepo               executioncontext.AgentRepository
+	executionContextFactory *executioncontext.RequestContextFactory
+	memoryService           *memory.MemoryService
 	logger                  AnswerUCLogger
 }
 
 func NewAnswerUseCase(
-	reasoner Reasoner,
-	conversationRepo ConversationRespository,
-	agentRepo requestcontext.AgentRepository,
-	executionContextFactory *requestcontext.RequestContextFactory,
-	logger AnswerUCLogger,
+	r Reasoner,
+	ss *session.SessionService,
+	ms *memory.MemoryService,
+	ar executioncontext.AgentRepository,
+	ecf *executioncontext.RequestContextFactory,
+	l AnswerUCLogger,
 ) *AnswerUseCase {
 	return &AnswerUseCase{
-		reasoner:                reasoner,
-		conversationRepo:        conversationRepo,
-		agentRepo:               agentRepo,
-		executionContextFactory: executionContextFactory,
-		logger:                  logger,
+		reasoner:                r,
+		sessionService:          ss,
+		agentRepo:               ar,
+		executionContextFactory: ecf,
+		memoryService:           ms,
+		logger:                  l,
 	}
 }
 
@@ -57,15 +56,19 @@ func (a *AnswerUseCase) Execute(
 
 	te := tools.NewExecutor(tcr)
 
-	ctx, cancel := context.WithTimeout(ctx, ExecutionTimeLimin)
-	defer cancel()
+	// ctx, cancel := context.WithTimeout(ctx, ExecutionTimeLimin)
+	// defer cancel()
 
-	conver := a.conversationRepo.Get()
-	conver.AddUserMessage(request)
+	runningMemory, err := a.memoryService.RunningMemory()
+	errs = errors.Join(errs, err)
+
+	session := a.sessionService.Session()
+	session.AddUserMessage(request)
 	executionContext, err := a.executionContextFactory.Build(
 		ctx,
 		a.agentRepo.Get(),
-		conver.Messages(),
+		runningMemory,
+		session.Messages(),
 		contextDescription,
 		tcr.Tools())
 	if err != nil {
@@ -83,7 +86,7 @@ func (a *AnswerUseCase) Execute(
 		default:
 		}
 
-		reasonParams := executionContext.NextReasonParams(ctx, conver.Messages())
+		reasonParams := executionContext.NextReasonParams(ctx, session.Messages())
 		a.logger.Debug("reason params created", "reflection", reasonParams.Reflection)
 
 		reasonResultValue, err := a.reasoner.Reason(ctx, reasonParams)
@@ -95,7 +98,7 @@ func (a *AnswerUseCase) Execute(
 		toolCalls := reasonResultValue.toolCalls
 		a.logger.Debug("reason is complete", "result", reasonResultValue)
 
-		conver.AddAgentMessage(reasonContent, toolCalls)
+		session.AddAgentMessage(reasonContent, toolCalls)
 
 		// resolve content
 		if reasonContent != "" {
@@ -107,7 +110,7 @@ func (a *AnswerUseCase) Execute(
 		// tool calls
 		toolExecutionResult, err := te.Execute(ctx, toolCalls)
 		errs = errors.Join(errs, err)
-		conver.AddToolCallResults(toolExecutionResult)
+		session.AddToolCallResults(toolExecutionResult)
 
 		if !executionContext.ShouldFollowUp(toolCalls) {
 			break
@@ -115,11 +118,7 @@ func (a *AnswerUseCase) Execute(
 
 	}
 
-	a.conversationRepo.Save(conver.NewMessages())
+	err = a.sessionService.Close(ctx, session)
 
-	if conver.IsOverflow() {
-		a.conversationRepo.Optimize()
-	}
-
-	return errs
+	return errors.Join(errs, err)
 }

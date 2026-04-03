@@ -1,38 +1,51 @@
-[chrony]
-tasks = [
-  # { min = 1, hour = 10, weekday = 2, day = 10, month = 4, script = "~/do1.sh" },
-  { min = 1, hour = 10, day = 10, month = 4, script = "~/do1.sh" },
-  { min = 1, hour = 10, weekday = 4, month = 4, script = "~/do2.sh" },
-  { min = 1, hour = 10, weekday = 6, script = "~/do3.sh" },
-]
+[telegram]
+api_key_env = "MY_ENV_TELEGRAM_BOT_VARIAVLE_NAME"  # name reference of env bearer of key
+sticker_set = "..." # sticker set name 
+logs = false # telegram logs
+host = ""
+port = 0
 
 [llm]
-[llm.reasoning]
-openai_api_url = ""
-model = ""
+[llm.summarization]
+openai_api_url = "..."
+model = "..."
 tokenlimit = 10000
-api_key_env = "OPENROUTER_API_KEY"  # name reference of env bearer of key
-extras = { any = "Any extras"}  # any for OpenAI API request extras
+api_key_env = "..."  # name reference of env bearer of key
+#extras = { } # extras that was attached for 
+
+[llm.reasoning]
+openai_api_url = "..."
+model = "..."
+tokenlimit = 10000
+api_key_env = "..."  # name reference of env bearer of key
 
 [llm.reflection]
-openai_api_url = ""
-model = ""
+openai_api_url = "..."
+model = "..."
 token_limit = 10000
-api_key_env = "OPENROUTER_API_KEY"
+api_key_env = "..." # name reference of env bearer of key
 
 [agent]
 role = """
 You are ...
 """
+
 personality = """
-Some for reflection
+<detailed description>
 """
+
 preferences = """
-Any
+# Likes
+this
+
+# Dislikes
+this
 """
+
 keyphrases = """
-When user ... answering like ...
+When user say ... answer ...
 """
+
 banned_slang = """
-Never say ...
+NEVER use ... words
 """

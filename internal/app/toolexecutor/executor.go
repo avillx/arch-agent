@@ -1,7 +1,7 @@
 package tools
 
 import (
-	"arch-agent/internal/domain/conversation"
+	"arch-agent/internal/app/message"
 	"context"
 	"sync"
 
@@ -9,7 +9,7 @@ import (
 )
 
 type ToolCallRecivier interface {
-	SendCall(ctx context.Context, toolName string, args conversation.ToolArguments) (string, error)
+	SendCall(ctx context.Context, toolName string, args message.ToolArguments) (string, error)
 	Tools() []ToolDefinition
 }
 
@@ -23,10 +23,10 @@ func NewExecutor(r ToolCallRecivier) *Executor {
 	}
 }
 
-func (e *Executor) Execute(ctx context.Context, calls []*conversation.ToolCall) ([]conversation.ToolCallResult, error) {
+func (e *Executor) Execute(ctx context.Context, calls []*message.ToolCall) ([]message.ToolCallResult, error) {
 	var mu sync.Mutex
 	g, ctx := errgroup.WithContext(ctx)
-	results := []conversation.ToolCallResult{}
+	results := []message.ToolCallResult{}
 
 	for _, c := range calls {
 		c := c // shadowing for avoid implicit racing
@@ -41,7 +41,7 @@ func (e *Executor) Execute(ctx context.Context, calls []*conversation.ToolCall) 
 			mu.Lock()
 			defer mu.Unlock()
 
-			results = append(results, conversation.NewToolCallResult(c.ID(), result))
+			results = append(results, message.NewToolCallResult(c.ID(), result))
 			return nil
 		})
 

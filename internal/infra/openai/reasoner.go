@@ -3,7 +3,7 @@ package openaiadapter
 import (
 	"arch-agent/internal/app/answer"
 	"arch-agent/internal/app/executioncontext"
-	"arch-agent/internal/domain/conversation"
+	internalmessage "arch-agent/internal/app/message"
 	"arch-agent/internal/infra/llm"
 	"context"
 	"errors"
@@ -40,6 +40,7 @@ func (r *Reasoner) RenderPrompt(params executioncontext.ReasonParams) (string, e
 		Tone:                 params.Reflection.Tone,
 		KeyPhrases:           params.Agent.Keyphrases,
 		BannedSentences:      params.Agent.BannedSlang,
+		Memory:               params.Memory,
 	})
 }
 
@@ -89,7 +90,7 @@ func OpenAICompletionToReasonResult(completion *openai.ChatCompletion) (*answer.
 	}
 
 	message := completion.Choices[0].Message
-	toolCalls := []*conversation.ToolCall{}
+	toolCalls := []*internalmessage.ToolCall{}
 
 	if len(message.ToolCalls) > 0 {
 		toolCalls = append(toolCalls, openAIToToolCalls(message.ToolCalls)...)

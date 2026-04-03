@@ -1,8 +1,8 @@
 package executioncontext
 
 import (
+	"arch-agent/internal/app/message"
 	tools "arch-agent/internal/app/toolexecutor"
-	"arch-agent/internal/domain/conversation"
 	"context"
 	"maps"
 	"slices"
@@ -14,8 +14,8 @@ type ReasonParams struct {
 	Agent              AgentConfig
 	Reflection         *Reflection
 	ContextDescription string
-	Memory             Memory
-	Messages           []conversation.Message
+	Memory             string
+	Messages           []message.Message
 	Tools              []tools.ToolDefinition
 }
 
@@ -23,7 +23,7 @@ type ExecutionContext struct {
 	agent              AgentConfig
 	ContextDescription string
 	reflection         *Reflection
-	memory             Memory
+	memory             string
 	followUpBudget     int
 	tools              map[string]tools.ToolDefinition
 }
@@ -31,7 +31,7 @@ type ExecutionContext struct {
 func NewExecutionContext(
 	reflection *Reflection,
 	ContextDescription string,
-	memory Memory,
+	memory string,
 	agent AgentConfig,
 	tools []tools.ToolDefinition,
 ) *ExecutionContext {
@@ -44,7 +44,7 @@ func NewExecutionContext(
 	}
 }
 
-func (r *ExecutionContext) NextReasonParams(ctx context.Context, messasges []conversation.Message) ReasonParams {
+func (r *ExecutionContext) NextReasonParams(ctx context.Context, messasges []message.Message) ReasonParams {
 
 	if r.followUpBudget--; r.followUpBudget == 0 {
 		r.excludeFollowUpRequiredTools()
@@ -61,9 +61,9 @@ func (r *ExecutionContext) NextReasonParams(ctx context.Context, messasges []con
 	}
 }
 
-func (r *ExecutionContext) ShouldFollowUp(calls []*conversation.ToolCall) bool {
+func (r *ExecutionContext) ShouldFollowUp(calls []*message.ToolCall) bool {
 
-	followUpByToolCall := slices.ContainsFunc(calls, func(c *conversation.ToolCall) bool {
+	followUpByToolCall := slices.ContainsFunc(calls, func(c *message.ToolCall) bool {
 		t, ok := r.tools[c.ToolName()]
 		return ok && !t.ReasonOnce
 	})

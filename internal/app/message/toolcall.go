@@ -1,4 +1,4 @@
-package conversation
+package message
 
 type ToolArguments []byte
 

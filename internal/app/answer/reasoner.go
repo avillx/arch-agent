@@ -1,8 +1,8 @@
 package answer
 
 import (
-	executioncontext "arch-agent/internal/app/executioncontext"
-	"arch-agent/internal/domain/conversation"
+	"arch-agent/internal/app/executioncontext"
+	"arch-agent/internal/app/message"
 	"context"
 )
 
@@ -14,7 +14,7 @@ type Reasoner interface {
 }
 
 type ReasonResult struct {
-	toolCalls []*conversation.ToolCall
+	toolCalls []*message.ToolCall
 	content   string
 }
 
@@ -22,11 +22,11 @@ func (res *ReasonResult) Content() string {
 	return res.content
 }
 
-func (res *ReasonResult) ToolCalls() []*conversation.ToolCall {
+func (res *ReasonResult) ToolCalls() []*message.ToolCall {
 	return res.toolCalls
 }
 
-func NewReasonResult(tc []*conversation.ToolCall, content string) *ReasonResult {
+func NewReasonResult(tc []*message.ToolCall, content string) *ReasonResult {
 	return &ReasonResult{
 		content:   content,
 		toolCalls: tc,

@@ -1,56 +1,36 @@
 package executioncontext
 
 import (
+	"arch-agent/internal/app/message"
 	tools "arch-agent/internal/app/toolexecutor"
-	"arch-agent/internal/domain/conversation"
 	"context"
 )
 
-type MemoryProvider interface {
-	Snapshot(ctx context.Context, conversation []conversation.Message) Memory
-}
-
 type RequestContextFactory struct {
-	memoryProvider MemoryProvider
-	reflector      Reflector
+	reflector Reflector
 }
 
-func NewRequestContextFactory(p MemoryProvider, reflector Reflector) *RequestContextFactory {
+func NewRequestContextFactory(reflector Reflector) *RequestContextFactory {
 	return &RequestContextFactory{
-		memoryProvider: p,
-		reflector:      reflector,
+		reflector: reflector,
 	}
 }
 
 func (f *RequestContextFactory) Build(
 	ctx context.Context,
 	a AgentConfig,
-	messages []conversation.Message,
+	memory string,
+	messages []message.Message,
 	contextDescription string,
 	tools []tools.ToolDefinition,
 ) (*ExecutionContext, error) {
 
-	memory := f.memoryProvider.Snapshot(ctx, messages)
-	reflection, err := f.reflector.Reflect(ctx, messages, a.Personality)
+	limit := min(len(messages), 6)
+
+	reflection, err := f.reflector.Reflect(ctx, messages[len(messages)-limit:], a.Personality)
 	if err != nil {
 		return nil, err
 	}
 
 	return NewExecutionContext(reflection, contextDescription, memory, a, tools), nil
 }
-
-// func AssymblyMemory(m *Memory) string {
-// 	var builder strings.Builder
-
-// 	for _, s := range m.Semantic {
-// 		builder.WriteString(s.String())
-// 		builder.WriteString("\n")
-// 	}
-
-// 	for _, e := range m.sortedEpisodes() {
-// 		builder.WriteString(e.String())
-// 		builder.WriteString("\n")
-// 	}
-
-// 	return builder.String()
-// }

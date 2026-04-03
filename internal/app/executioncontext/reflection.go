@@ -1,7 +1,7 @@
 package executioncontext
 
 import (
-	"arch-agent/internal/domain/conversation"
+	"arch-agent/internal/app/message"
 	"context"
 )
 
@@ -35,7 +35,7 @@ func NewReflection(
 type Reflector interface {
 	Reflect(
 		ctx context.Context,
-		conversation []conversation.Message,
+		conversation []message.Message,
 		personality string,
 	) (*Reflection, error)
 }

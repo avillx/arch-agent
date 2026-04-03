@@ -3,7 +3,9 @@ package config
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
+	"strconv"
 
 	"github.com/BurntSushi/toml"
 )
@@ -50,16 +52,41 @@ type Agent struct {
 	BannedSlang string `toml:"banned_slang"`
 }
 
+type Logging struct {
+	Pretty bool
+	Level  slog.Level
+}
+
+func LoadLogging() Logging {
+	l := Logging{
+		Pretty: false,
+		Level:  slog.LevelInfo,
+	}
+
+	if logPretty, ok := os.LookupEnv("LOG_PRETTY"); ok {
+		logPrettyBool, _ := strconv.ParseBool(logPretty)
+		l.Pretty = logPrettyBool
+	}
+
+	if LogLevel, ok := os.LookupEnv("LOG_LEVEL"); ok {
+		l.Level = toLogLevel(LogLevel)
+	}
+
+	return l
+}
+
 type Config struct {
 	LLM struct {
-		Reflection *LLM `toml:"reflection"`
-		Reasoning  *LLM `toml:"reasoning"`
+		Reflection    *LLM `toml:"reflection"`
+		Reasoning     *LLM `toml:"reasoning"`
+		Summarization *LLM `toml:"summarization"`
 	} `toml:"llm"`
 	Agent    *Agent    `toml:"agent"`
 	Telegram *Telegram `toml:"telegram"`
+	Logging  Logging
 }
 
-func LoadFile(configPath string) (Config, error) {
+func Load(configPath string) (Config, error) {
 	var config Config
 	if _, err := toml.DecodeFile(configPath, &config); err != nil {
 		return Config{}, err
@@ -73,5 +100,24 @@ func LoadFile(configPath string) (Config, error) {
 		return Config{}, errs
 	}
 
+	config.Logging = LoadLogging()
+
 	return config, nil
+}
+
+func toLogLevel(level string) slog.Level {
+	switch level {
+	case "debug":
+		return slog.LevelDebug
+	case "info":
+		return slog.LevelInfo
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+
+	default:
+		slog.Error("logging", "log level", level, "levels", "debug/info/warn/error")
+		return slog.LevelError
+	}
 }

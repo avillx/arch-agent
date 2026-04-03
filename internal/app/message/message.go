@@ -1,4 +1,4 @@
-package conversation
+package message
 
 type Role string
 
@@ -8,6 +8,11 @@ const (
 	Tool   Role = "tool"
 	System Role = "system"
 )
+
+type Message interface {
+	Role() Role
+	Content() string
+}
 
 type messageBase struct {
 	role    Role

@@ -4,19 +4,25 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"log"
 	"log/slog"
 	"os"
 )
 
-func NewCustomLogger() *slog.Logger {
-
-	file, err := os.OpenFile(".log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		log.Fatalf("Failed to open log file: %v", err)
+func Set(pretty bool, level slog.Level) {
+	switch {
+	case pretty:
+		slog.SetDefault(NewPrettyLogger())
+	default:
+		slog.SetDefault(DefaultLogger())
 	}
-	textHandler := slog.NewTextHandler(file, nil)
-	return slog.New(textHandler)
+
+	slog.SetLogLoggerLevel(level)
+}
+
+// default logger
+func DefaultLogger() *slog.Logger {
+	jsonHandler := slog.NewJSONHandler(os.Stdout, nil)
+	return slog.New(jsonHandler)
 }
 
 type prettyWriter struct {
@@ -32,7 +38,8 @@ func (w *prettyWriter) Write(p []byte) (int, error) {
 	return w.out.Write(buf.Bytes())
 }
 
-func NewConsoleLogger() *slog.Logger {
+// logs to stdout pretty json's
+func NewPrettyLogger() *slog.Logger {
 	opt := &slog.HandlerOptions{
 		Level:     slog.LevelDebug,
 		AddSource: true,

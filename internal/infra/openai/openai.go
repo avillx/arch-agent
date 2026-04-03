@@ -1,8 +1,8 @@
 package openaiadapter
 
 import (
+	"arch-agent/internal/app/message"
 	tools "arch-agent/internal/app/toolexecutor"
-	"arch-agent/internal/domain/conversation"
 	"reflect"
 
 	"github.com/invopop/jsonschema"
@@ -10,7 +10,7 @@ import (
 	"github.com/openai/openai-go/v3/shared"
 )
 
-func messagesToOpenAI(internalFromatMessages []conversation.Message) []openai.ChatCompletionMessageParamUnion {
+func messagesToOpenAI(internalFromatMessages []message.Message) []openai.ChatCompletionMessageParamUnion {
 	messages := make([]openai.ChatCompletionMessageParamUnion, 0, len(internalFromatMessages))
 	for _, msg := range internalFromatMessages {
 		messages = append(messages, messageToOpenAI(msg))
@@ -18,30 +18,30 @@ func messagesToOpenAI(internalFromatMessages []conversation.Message) []openai.Ch
 	return messages
 }
 
-func messageToOpenAI(internalFromatMessage conversation.Message) openai.ChatCompletionMessageParamUnion {
+func messageToOpenAI(internalFromatMessage message.Message) openai.ChatCompletionMessageParamUnion {
 
 	var result openai.ChatCompletionMessageParamUnion
 
 	switch msg := internalFromatMessage.(type) {
-	case *conversation.AgentMessage:
+	case *message.AgentMessage:
 		assistantMsg := openai.AssistantMessage(msg.Content())
 		toolCalls := msg.ToolCalls()
 		if len(toolCalls) > 0 {
 			assistantMsg.OfAssistant.ToolCalls = toolCallsToOpenAi(toolCalls)
 		}
 		result = assistantMsg
-	case *conversation.SystemMessage:
+	case *message.SystemMessage:
 		result = openai.SystemMessage(msg.Content())
-	case *conversation.UserMessage:
+	case *message.UserMessage:
 		result = openai.UserMessage(msg.Content())
-	case *conversation.ToolResultMessage:
+	case *message.ToolResultMessage:
 		result = openai.ToolMessage(msg.Content(), msg.ToolCallID())
 	}
 
 	return result
 }
 
-func toolCallsToOpenAi(toolCalls []*conversation.ToolCall) []openai.ChatCompletionMessageToolCallUnionParam {
+func toolCallsToOpenAi(toolCalls []*message.ToolCall) []openai.ChatCompletionMessageToolCallUnionParam {
 	openAIToolcalls := make([]openai.ChatCompletionMessageToolCallUnionParam, 0, len(toolCalls))
 	for _, call := range toolCalls {
 		openAIToolcalls = append(openAIToolcalls, toolCallToOpenAi(call))
@@ -49,7 +49,7 @@ func toolCallsToOpenAi(toolCalls []*conversation.ToolCall) []openai.ChatCompleti
 	return openAIToolcalls
 }
 
-func toolCallToOpenAi(toolCall *conversation.ToolCall) openai.ChatCompletionMessageToolCallUnionParam {
+func toolCallToOpenAi(toolCall *message.ToolCall) openai.ChatCompletionMessageToolCallUnionParam {
 	return openai.ChatCompletionMessageToolCallUnionParam{
 		OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
 			ID: toolCall.ID(),
@@ -61,13 +61,13 @@ func toolCallToOpenAi(toolCall *conversation.ToolCall) openai.ChatCompletionMess
 	}
 }
 
-func openAIToToolCalls(openaiToolCalls []openai.ChatCompletionMessageToolCallUnion) []*conversation.ToolCall {
-	toolCalls := []*conversation.ToolCall{}
+func openAIToToolCalls(openaiToolCalls []openai.ChatCompletionMessageToolCallUnion) []*message.ToolCall {
+	toolCalls := []*message.ToolCall{}
 	for _, tc := range openaiToolCalls {
-		newToolCall := conversation.NewToolCall(
+		newToolCall := message.NewToolCall(
 			tc.ID,
 			tc.Function.Name,
-			conversation.ToolArguments(
+			message.ToolArguments(
 				tc.Function.Arguments,
 			),
 		)

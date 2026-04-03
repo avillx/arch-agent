@@ -3,3 +3,4 @@ config.toml
 .vscode
 .env
 __debug_bin.exe
+cmd/memory

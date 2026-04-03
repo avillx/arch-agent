@@ -3,80 +3,25 @@ package main
 import (
 	"arch-agent/internal/app/answer"
 	"arch-agent/internal/app/executioncontext"
-	"arch-agent/internal/domain/conversation"
+	"arch-agent/internal/app/memory"
+	"arch-agent/internal/app/session"
 	"arch-agent/internal/infra/config"
+	"arch-agent/internal/infra/filestorage"
 	"arch-agent/internal/infra/logging"
 	openaiadapter "arch-agent/internal/infra/openai"
 	"arch-agent/internal/infra/telegram"
+	"arch-agent/internal/infra/tokenizer"
 	"context"
 	"flag"
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 )
-
-// tokenizer
-type nilTokenizer struct{}
-
-func (t *nilTokenizer) Calc(_ string) int {
-	return 0
-}
-
-// conversation
-type stubConversationRespository struct {
-	Messages  []conversation.Message
-	Tokenizer *nilTokenizer
-}
-
-func NewStubConversationRespository() *stubConversationRespository {
-	return &stubConversationRespository{
-		Messages:  []conversation.Message{},
-		Tokenizer: &nilTokenizer{},
-	}
-}
-func (r *stubConversationRespository) Get() *conversation.Conversation {
-	return conversation.NewConversation(r.Tokenizer, r.Messages)
-}
-func (r *stubConversationRespository) Save(msg []conversation.Message) {
-	r.Messages = append(r.Messages, msg...)
-}
-func (r *stubConversationRespository) Optimize() {}
-
-func (m *stubConversationRespository) LogValue() slog.Value {
-	return slog.GroupValue(
-		slog.Any("messages", m.Messages),
-		slog.Any("tokenizer", m.Tokenizer),
-		slog.Any("sample", some{
-			Val1: "123",
-			Val2: "321",
-			Val3: "4123",
-			Val4: "4325",
-		}),
-	)
-}
-
-type some struct {
-	Val1 string
-	Val2 string
-	Val3 string
-	Val4 string
-}
-
-// memory
-type stubMemoryProvider struct{}
-
-func (r *stubMemoryProvider) Snapshot(_ context.Context, _ []conversation.Message) executioncontext.Memory {
-	return executioncontext.Memory{
-		Semantic:         []executioncontext.SemanticData{},
-		RecentEpisodes:   []executioncontext.Episode{},
-		RelevantEpisodes: []executioncontext.Episode{},
-		RunningMemory:    "",
-	}
-}
 
 // Agent repo
 type stubAgentRepository struct {
@@ -94,11 +39,6 @@ func (r *stubAgentRepository) Get() executioncontext.AgentConfig {
 }
 
 func main() {
-	// logging
-	logger := logging.NewConsoleLogger()
-	slog.SetDefault(logger)
-	slog.SetLogLoggerLevel(slog.LevelDebug)
-
 	// context
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
@@ -108,14 +48,17 @@ func main() {
 	defer stop()
 
 	// configQ
-	configPath := flag.String("config", "xconfig.toml", "path to config file")
+	configPath := flag.String("config", "config.toml", "path to config file")
 	flag.Parse()
 
-	config, err := config.LoadFile(*configPath)
+	config, err := config.Load(*configPath)
 	if err != nil {
 		slog.Error("bad config", "error", err)
 		os.Exit(1)
 	}
+
+	// logging
+	logging.Set(config.Logging.Pretty, config.Logging.Level)
 
 	// root composing
 	reflector := openaiadapter.NewReflector(
@@ -126,7 +69,6 @@ func main() {
 		config.LLM.Reflection.Model,
 		config.LLM.Reflection.Extras,
 	)
-	contextFactory := executioncontext.NewRequestContextFactory(&stubMemoryProvider{}, reflector)
 
 	reasoner := openaiadapter.NewReasoner(
 		openai.NewClient(
@@ -137,11 +79,36 @@ func main() {
 		config.LLM.Reasoning.Extras,
 	)
 
+	summarizer := openaiadapter.NewSummarizer(
+		openai.NewClient(
+			option.WithBaseURL(config.LLM.Reasoning.OpenAIURL),
+			option.WithAPIKey(config.LLM.Reasoning.APIKey),
+		),
+		config.LLM.Reasoning.Model,
+		config.LLM.Reasoning.Extras,
+	)
+
+	absolutePath, _ := filepath.Abs(".")
+
+	dailyActivityLogger := filestorage.NewMDDailyActivityLogger(absolutePath + "/data/memory/daily_logs")
+
+	sessionService := session.NewSessionService(
+		filestorage.NewFileSessionRepository(absolutePath+"/data/memory"),
+		filestorage.NewJSONLTranscriber(absolutePath+"/data/memory/transciptions"),
+		tokenizer.NewTokenizer(),
+		summarizer,
+		dailyActivityLogger,
+	)
+
+	executionContextFactory := executioncontext.NewRequestContextFactory(reflector)
+	dailyActivityProvider := filestorage.NewDailyActivityProvider(dailyActivityLogger)
+
 	answerUseCase := answer.NewAnswerUseCase(
 		reasoner,
-		NewStubConversationRespository(),
+		sessionService,
+		memory.NewMemoryService(dailyActivityProvider),
 		&stubAgentRepository{config.Agent},
-		contextFactory,
+		executionContextFactory,
 		&logging.AnswerUCLogger{},
 	)
 
@@ -155,6 +122,7 @@ func main() {
 		},
 	)
 	if err != nil {
+		slog.Error("telegram", "init error", err)
 		os.Exit(1)
 	}
 	go bot.Run(ctx)
