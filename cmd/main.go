@@ -119,6 +119,8 @@ func main() {
 			APIKey:         config.Telegram.APIKey,
 			StickerSetName: config.Telegram.StickerSet,
 			Logs:           config.Telegram.Logs,
+			Host:           config.Telegram.Host,
+			Port:           config.Telegram.Port,
 		},
 	)
 	if err != nil {
