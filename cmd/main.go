@@ -13,7 +13,9 @@ import (
 	"arch-agent/internal/infra/tokenizer"
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -120,13 +122,17 @@ func main() {
 			StickerSetName: config.Telegram.StickerSet,
 			Logs:           config.Telegram.Logs,
 			Host:           config.Telegram.Host,
-			Port:           config.Telegram.Port,
 		},
 	)
 	if err != nil {
 		slog.Error("telegram", "init error", err)
 		os.Exit(1)
 	}
+
+	if config.Telegram.Host != "" {
+		go http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", config.Telegram.Port), nil)
+	}
+
 	go bot.Run(ctx)
 
 	// shutdown await

@@ -21,7 +21,6 @@ type StickerMap map[string]string
 type BotConfig struct {
 	APIKey         string
 	Host           string
-	Port           int
 	StickerSetName string
 	Logs           bool
 }
@@ -73,8 +72,8 @@ func NewBot(answerUC *answer.AnswerUseCase, cfg BotConfig) (*Bot, error) {
 	// config update channel
 	switch {
 	// config web hook is not null
-	case cfg.Host != "" && cfg.Port != 0:
-		p.updateChannel, err = createWebhookUpdateChannelFor(p, cfg.Host, cfg.Port)
+	case cfg.Host != "":
+		p.updateChannel, err = createWebhookUpdateChannelFor(p, cfg.Host)
 		if err != nil {
 			return nil, err
 		}
@@ -194,7 +193,7 @@ func createPollingUpdateChannelFor(b *Bot) tgbotapi.UpdatesChannel {
 	return b.API.GetUpdatesChan(u)
 }
 
-func createWebhookUpdateChannelFor(b *Bot, host string, port int) (tgbotapi.UpdatesChannel, error) {
+func createWebhookUpdateChannelFor(b *Bot, host string) (tgbotapi.UpdatesChannel, error) {
 	dwh := tgbotapi.DeleteWebhookConfig{DropPendingUpdates: true}
 	if _, err := b.API.Request(dwh); err != nil {
 		return nil, err
@@ -206,7 +205,7 @@ func createWebhookUpdateChannelFor(b *Bot, host string, port int) (tgbotapi.Upda
 	}
 
 	if !info.IsSet() {
-		if err := b.setWebhook(host, port); err != nil {
+		if err := b.setWebhook(host); err != nil {
 			return nil, err
 		}
 	}
@@ -214,8 +213,8 @@ func createWebhookUpdateChannelFor(b *Bot, host string, port int) (tgbotapi.Upda
 	return b.API.ListenForWebhook("/bots/" + b.API.Token), nil
 }
 
-func (b *Bot) setWebhook(host string, port int) error {
-	url := fmt.Sprintf("https://%s/bots/%d", host, port)
+func (b *Bot) setWebhook(host string) error {
+	url := fmt.Sprintf("https://%s/bots/%s", host, b.API.Token)
 	wh, _ := tgbotapi.NewWebhook(url)
 
 	if _, err := b.API.Request(wh); err != nil {
