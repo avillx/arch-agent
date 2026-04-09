@@ -30,17 +30,14 @@ func NewReasoner(client openai.Client, model string, extras map[string]any) *Rea
 func (r *Reasoner) RenderPrompt(params executioncontext.ReasonParams) (string, error) {
 	return r.prompt.Render(llm.ReasoningPromptParams{
 		Role:                 params.Agent.Role,
-		Feeling:              params.Reflection.Feeling,
-		Trigger:              params.Reflection.Trigger,
-		Desire:               params.Reflection.Desire,
-		Trait:                params.Reflection.Traits,
-		Thoughts:             params.Reflection.InnerMonologue,
+		Reflection:           params.Reflection,
 		CommunicationContext: params.ContextDescription,
 		Preferences:          params.Agent.Preferences,
-		Tone:                 params.Reflection.Tone,
 		KeyPhrases:           params.Agent.Keyphrases,
 		BannedSentences:      params.Agent.BannedSlang,
 		Memory:               params.Memory,
+		Strategy:             params.Strategy,
+		Time:                 params.Time.Format("15:04, 2 January of 2006"),
 	})
 }
 
@@ -76,6 +73,8 @@ func (r *Reasoner) builtCompletionParams(
 		Tools:           agentTools,
 		ReasoningEffort: openai.ReasoningEffortMedium,
 		ToolChoice:      OpenAIToolChoice(),
+		TopP:            openai.Float(1),
+		Temperature:     openai.Float(1),
 	}
 	if r.extras != nil {
 		completionParams.SetExtraFields(r.extras)

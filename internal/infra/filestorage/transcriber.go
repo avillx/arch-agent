@@ -10,17 +10,21 @@ import (
 )
 
 type JSONLTranscriber struct {
-	directory string
+	dirBase
 }
 
 func NewJSONLTranscriber(dir string) *JSONLTranscriber {
-	return &JSONLTranscriber{directory: dir}
+	return &JSONLTranscriber{
+		dirBase: dirBase{
+			directory: dir,
+		},
+	}
 }
 
 func (t *JSONLTranscriber) Transcribe(sessionID string, messages []message.Message) error {
 	path := t.filePath(sessionID)
 
-	touchPath(path)
+	t.touchDir(path)
 
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
@@ -32,12 +36,8 @@ func (t *JSONLTranscriber) Transcribe(sessionID string, messages []message.Messa
 }
 
 func (t *JSONLTranscriber) writeMessages(enc *json.Encoder, messages []message.Message) error {
-	for _, m := range messages {
-		record, err := messageToDTO(m)
-		if err != nil {
-			return err
-		}
-		if err := enc.Encode(record); err != nil {
+	for _, dto := range messagesToDTO(messages) {
+		if err := enc.Encode(dto); err != nil {
 			return fmt.Errorf("encode message: %w", err)
 		}
 	}
@@ -45,10 +45,10 @@ func (t *JSONLTranscriber) writeMessages(enc *json.Encoder, messages []message.M
 }
 
 func (t *JSONLTranscriber) filePath(sessionID string) string {
-	return filepath.Join(t.directory, sessionFileName(sessionID))
+	return filepath.Join(t.directory, transcriptionFileName(sessionID))
 }
 
-func sessionFileName(sessionID string) string {
+func transcriptionFileName(sessionID string) string {
 	date := time.Now().Format("02.01.06")
 	return fmt.Sprintf("%s_%s.jsonl", date, sessionID)
 }

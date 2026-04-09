@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const ExecutionTimeLimin = 3 * time.Minute
+const ExecutionTimeLimin = 40 * time.Second
 
 type AnswerUCLogger interface {
 	Error(string, ...any)
@@ -56,13 +56,16 @@ func (a *AnswerUseCase) Execute(
 
 	te := tools.NewExecutor(tcr)
 
-	// ctx, cancel := context.WithTimeout(ctx, ExecutionTimeLimin)
-	// defer cancel()
+	ctx, cancel := context.WithTimeout(ctx, ExecutionTimeLimin)
+	defer cancel()
 
 	runningMemory, err := a.memoryService.RunningMemory()
 	errs = errors.Join(errs, err)
 
-	session := a.sessionService.Session()
+	session, err := a.sessionService.Session()
+	if err != nil {
+		return err
+	}
 	session.AddUserMessage(request)
 	executionContext, err := a.executionContextFactory.Build(
 		ctx,

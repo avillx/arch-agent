@@ -92,23 +92,22 @@ func main() {
 
 	absolutePath, _ := filepath.Abs(".")
 
-	dailyActivityLogger := filestorage.NewMDDailyActivityLogger(absolutePath + "/data/memory/daily_logs")
+	dailyActivityStore := filestorage.NewMDDailyActivityStore(absolutePath + "/data/memory/daily_logs")
 
 	sessionService := session.NewSessionService(
 		filestorage.NewFileSessionRepository(absolutePath+"/data/memory"),
 		filestorage.NewJSONLTranscriber(absolutePath+"/data/memory/transciptions"),
 		tokenizer.NewTokenizer(),
 		summarizer,
-		dailyActivityLogger,
+		dailyActivityStore,
 	)
 
 	executionContextFactory := executioncontext.NewRequestContextFactory(reflector)
-	dailyActivityProvider := filestorage.NewDailyActivityProvider(dailyActivityLogger)
 
 	answerUseCase := answer.NewAnswerUseCase(
 		reasoner,
 		sessionService,
-		memory.NewMemoryService(dailyActivityProvider),
+		memory.NewMemoryService(dailyActivityStore),
 		&stubAgentRepository{config.Agent},
 		executionContextFactory,
 		&logging.AnswerUCLogger{},

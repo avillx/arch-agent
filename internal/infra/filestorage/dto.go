@@ -7,111 +7,91 @@ import (
 	"fmt"
 )
 
-type basicMessageDTO struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+type SessionDTO struct {
+	ID       string       `json:"id"`
+	Tokens   int          `json:"tokens"`
+	Messages []MessageDTO `json:"messages"`
+}
+
+type MessageDTO struct {
+	Role      string        `json:"role"`
+	Content   string        `json:"content"`
+	ToolCalls []ToolCallDTO `json:"tool_calls,omitempty"`
+	CallID    string        `json:"call_id,omitempty"`
 }
 
 type ToolCallDTO struct {
-	ID   string `json:"id"`
-	Tool string `json:"tool"`
-	Args string `json:"args"`
+	ID   string          `json:"id"`
+	Tool string          `json:"tool"`
+	Args json.RawMessage `json:"args"`
 }
 
-type AgentMessageDTO struct {
-	basicMessageDTO
-	ToolCalls []ToolCallDTO `json:"tool_calls"`
-}
+func messageToDTO(msg message.Message) MessageDTO {
+	dto := MessageDTO{
+		Role:    string(msg.Role()),
+		Content: msg.Content(),
+	}
 
-type ToolResultDTO struct {
-	basicMessageDTO
-	CallID string `json:"call_id"`
-}
-
-func messageToDTO(internalFromatMessage message.Message) (any, error) {
-	switch msg := internalFromatMessage.(type) {
+	switch typed := msg.(type) {
 	case *message.AgentMessage:
-		agentMsg := AgentMessageDTO{
-			basicMessageDTO: basicMessageDTO{
-				Role:    "agent",
-				Content: msg.Content(),
-			},
-		}
-
-		for _, tc := range msg.ToolCalls() {
-			agentMsg.ToolCalls = append(agentMsg.ToolCalls, ToolCallDTO{
-				ID:   tc.ID(),
-				Tool: tc.ToolName(),
-				Args: string(tc.Arguments()),
-			})
-		}
-
-		return agentMsg, nil
-
-	case *message.SystemMessage:
-		return basicMessageDTO{
-			Role:    "system",
-			Content: msg.Content(),
-		}, nil
-
-	case *message.UserMessage:
-		return basicMessageDTO{
-			Role:    "user",
-			Content: msg.Content(),
-		}, nil
+		dto.ToolCalls = toolcallsToDTO(typed.ToolCalls())
 	case *message.ToolResultMessage:
-		return ToolResultDTO{
-			CallID: msg.ToolCallID(),
-			basicMessageDTO: basicMessageDTO{
-				Role:    "tool",
-				Content: msg.Content(),
-			},
-		}, nil
-	default:
-		return nil, fmt.Errorf("unknown message type")
+		dto.CallID = typed.ToolCallID()
 	}
+
+	return dto
 }
 
-func dtoToMessage(raw []byte) (message.Message, error) {
-	var base basicMessageDTO
-	if err := json.Unmarshal(raw, &base); err != nil {
-		return nil, fmt.Errorf("unmarshal base: %w", err)
+func messagesToDTO(msgs []message.Message) []MessageDTO {
+	dtos := make([]MessageDTO, len(msgs))
+	for i, msg := range msgs {
+		dtos[i] = messageToDTO(msg)
 	}
+	return dtos
+}
 
-	switch base.Role {
+func toolcallsToDTO(calls []*message.ToolCall) []ToolCallDTO {
+	dto := make([]ToolCallDTO, 0, len(calls))
+	for _, tc := range calls {
+		dto = append(dto, ToolCallDTO{
+			ID:   tc.ID(),
+			Tool: tc.ToolName(),
+			Args: json.RawMessage(tc.Arguments()),
+		})
+	}
+	return dto
+}
+
+func dtoToMessage(dto MessageDTO) (message.Message, error) {
+	switch dto.Role {
 	case "user":
-		return message.NewUserMessage(base.Content), nil
+		return message.NewUserMessage(dto.Content), nil
 
 	case "system":
-		return message.NewSystemMessage(base.Content), nil
+		return message.NewSystemMessage(dto.Content), nil
 
 	case "agent":
-		var dto AgentMessageDTO
-		if err := json.Unmarshal(raw, &dto); err != nil {
-			return nil, fmt.Errorf("unmarshal agent: %w", err)
-		}
+
 		var toolCalls []*message.ToolCall
 		for _, tc := range dto.ToolCalls {
-			toolCalls = append(toolCalls, message.NewToolCall(tc.ID, tc.Tool, []byte(tc.Args)))
+			newToolCall := message.NewToolCall(tc.ID, tc.Tool, message.ToolArguments(tc.Args))
+			toolCalls = append(toolCalls, newToolCall)
 		}
-		return message.NewAgentMessage(base.Content, toolCalls), nil
+		return message.NewAgentMessage(dto.Content, toolCalls), nil
 
 	case "tool":
-		var dto ToolResultDTO
-		if err := json.Unmarshal(raw, &dto); err != nil {
-			return nil, fmt.Errorf("unmarshal tool result: %w", err)
-		}
-		return message.NewToolResultMessage(dto.CallID, base.Content), nil
+
+		return message.NewToolResultMessage(dto.CallID, dto.Content), nil
 
 	default:
-		return nil, fmt.Errorf("unknown role: %s", base.Role)
+		return nil, fmt.Errorf("unknown role: %s", dto.Role)
 	}
 }
 
-func dtoToMessages(raw []json.RawMessage) ([]message.Message, error) {
-	msgs := make([]message.Message, len(raw))
-	for i, rawMsg := range raw {
-		msg, err := dtoToMessage(rawMsg)
+func dtoToMessages(dtos []MessageDTO) ([]message.Message, error) {
+	msgs := make([]message.Message, len(dtos))
+	for i, dto := range dtos {
+		msg, err := dtoToMessage(dto)
 		if err != nil {
 			return nil, err
 		}
@@ -120,42 +100,17 @@ func dtoToMessages(raw []json.RawMessage) ([]message.Message, error) {
 	return msgs, nil
 }
 
-func UnmarshalSession(raw json.RawMessage) (*session.Session, error) {
-	var record struct {
-		ID       string            `json:"id"`
-		Tokens   int               `json:"tokens"`
-		Messages []json.RawMessage `json:"messages"`
-	}
-	if err := json.Unmarshal(raw, &record); err != nil {
-		return nil, err
-	}
-
-	messages, err := dtoToMessages(record.Messages)
+func dtoToSession(dto SessionDTO) (*session.Session, error) {
+	msgs, err := dtoToMessages(dto.Messages)
 	if err != nil {
 		return nil, err
 	}
-
-	return session.NewSession(record.ID, record.Tokens, messages), nil
-
+	return session.NewSession(dto.ID, dto.Tokens, msgs), nil
 }
-
-func MarshalSession(s *session.Session) (json.RawMessage, error) {
-	var rawMessages []any
-	for _, m := range s.Messages() {
-		dto, err := messageToDTO(m)
-		if err != nil {
-			return nil, err
-		}
-		rawMessages = append(rawMessages, dto)
-	}
-
-	return json.Marshal(struct {
-		ID       string `json:"id"`
-		Tokens   int    `json:"tokens"`
-		Messages []any  `json:"messages"`
-	}{
+func sessionToDTO(s *session.Session) SessionDTO {
+	return SessionDTO{
 		ID:       s.ID(),
 		Tokens:   s.Tokens,
-		Messages: rawMessages,
-	})
+		Messages: messagesToDTO(s.Messages()),
+	}
 }

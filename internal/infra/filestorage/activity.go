@@ -8,50 +8,39 @@ import (
 	"time"
 )
 
-type MDDailyActivityLogger struct {
-	directory string
+type MDDailyActivityStore struct {
+	dirBase
 }
 
-func NewMDDailyActivityLogger(dir string) *MDDailyActivityLogger {
-	return &MDDailyActivityLogger{directory: dir}
-}
-
-func (l *MDDailyActivityLogger) Log(summary string) error {
-	path := filepath.Join(l.directory, todayActivityFile())
-	touchPath(path)
-
-	timestamp := time.Now().Format("15:04")
-	entry := fmt.Sprintf("# %s\n%s\n\n", timestamp, summary)
-
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		return fmt.Errorf("open activity log: %w", err)
-	}
-	defer f.Close()
-
-	_, err = f.WriteString(entry)
-	return err
-}
-
-type DailyActivityProvider struct {
-	directory string
-}
-
-func NewDailyActivityProvider(l *MDDailyActivityLogger) *DailyActivityProvider {
-	return &DailyActivityProvider{
-		directory: l.directory,
+func NewMDDailyActivityStore(dir string) *MDDailyActivityStore {
+	return &MDDailyActivityStore{
+		dirBase: dirBase{
+			directory: dir,
+		},
 	}
 }
 
-func (p *DailyActivityProvider) Today() (string, error) {
-	return p.loadfile(todayActivityFile())
-}
-func (p *DailyActivityProvider) Yesterday() (string, error) {
-	return p.loadfile(yesterdayActivityFile())
+func (s *MDDailyActivityStore) Log(summary string) error {
+	s.touchDir(s.directory)
+	path := s.todayActivityFilePath()
+	record := createRecord(summary)
+
+	return appendToFile(path, record)
 }
 
-func (p *DailyActivityProvider) loadfile(filename string) (string, error) {
-	path := filepath.Join(p.directory, filename)
+func (s *MDDailyActivityStore) Today() (string, error) {
+	return s.loadfile(todayActivityFile())
+}
+func (s *MDDailyActivityStore) Yesterday() (string, error) {
+	return s.loadfile(yesterdayActivityFile())
+}
+
+func (s *MDDailyActivityStore) todayActivityFilePath() string {
+	return filepath.Join(s.directory, todayActivityFile())
+}
+
+func (s *MDDailyActivityStore) loadfile(filename string) (string, error) {
+	path := filepath.Join(s.directory, filename)
 	entry, err := os.ReadFile(path)
 
 	if err == nil {
@@ -65,6 +54,11 @@ func (p *DailyActivityProvider) loadfile(filename string) (string, error) {
 	return "", err
 }
 
+func createRecord(summary string) string {
+	timestamp := time.Now().Format("15:04")
+	return fmt.Sprintf("# %s\n%s\n\n", timestamp, summary)
+}
+
 // helpers
 func todayActivityFile() string {
 	date := time.Now().Format("02.01.06")
@@ -74,4 +68,15 @@ func todayActivityFile() string {
 func yesterdayActivityFile() string {
 	date := time.Now().AddDate(0, 0, -1).Format("02.01.06")
 	return fmt.Sprintf("%s.md", date)
+}
+
+func appendToFile(path, record string) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("open activity log: %w", err)
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(record)
+	return err
 }

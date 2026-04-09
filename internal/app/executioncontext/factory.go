@@ -6,6 +6,14 @@ import (
 	"context"
 )
 
+type Reflector interface {
+	Reflect(
+		ctx context.Context,
+		conversation []message.Message,
+		personality string,
+	) (string, error)
+}
+
 type RequestContextFactory struct {
 	reflector Reflector
 }

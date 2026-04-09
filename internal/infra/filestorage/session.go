@@ -1,11 +1,10 @@
 package filestorage
 
 import (
-	"arch-agent/internal/app/message"
 	"arch-agent/internal/app/session"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,72 +12,108 @@ import (
 )
 
 type FileSessionRepository struct {
-	directory string
+	dirBase
 }
 
 func NewFileSessionRepository(dir string) *FileSessionRepository {
-	return &FileSessionRepository{directory: dir}
+	return &FileSessionRepository{
+		dirBase: dirBase{
+			directory: dir,
+		},
+	}
 }
 
-func (r *FileSessionRepository) Load() *session.Session {
+func (r *FileSessionRepository) Load() (*session.Session, error) {
+	filepath, err := r.findActiveSessionPath()
+	if os.IsNotExist(err) {
+		filepath, err = r.createNewSession()
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	dto, err := r.loadDTO(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	return dtoToSession(dto)
+}
+func (r *FileSessionRepository) Save(s *session.Session) error {
+	dto := sessionToDTO(s)
+
+	filePath, err := r.findActiveSessionPath()
+	if err != nil {
+		return err
+	}
+
+	return r.saveDTO(dto, filePath)
+}
+
+func (r *FileSessionRepository) Drop() error {
+	filePath, err := r.findActiveSessionPath()
+	if err != nil {
+		return err
+	}
+	return os.Remove(filePath)
+}
+
+func (r *FileSessionRepository) saveDTO(s SessionDTO, filePath string) error {
+	data, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	return r.saveToFile(data, filePath)
+}
+
+func (r *FileSessionRepository) createNewSession() (string, error) {
+	r.touchDir(r.directory)
+
+	id := generateSessionID()
+	filePath := r.createSessionFilePath(id)
+
+	if err := r.saveDTO(
+		SessionDTO{
+			ID: id,
+		},
+		filePath,
+	); err != nil {
+		return "", err
+	}
+
+	return filePath, nil
+}
+
+func (r *FileSessionRepository) loadDTO(filePath string) (SessionDTO, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return SessionDTO{}, err
+	}
+	var dto SessionDTO
+	if err := json.Unmarshal(data, &dto); err != nil {
+		return SessionDTO{}, err
+	}
+	return dto, nil
+}
+
+func (r *FileSessionRepository) createSessionFilePath(id string) string {
+	return filepath.Join(r.directory, fmt.Sprintf("active_session_%s.json", id))
+}
+
+func (r *FileSessionRepository) findActiveSessionPath() (string, error) {
+	r.touchDir(r.directory)
+
 	entries, err := os.ReadDir(r.directory)
 	if err != nil {
-		slog.Error("read session dir", "err", err)
-		return r.create()
+		return "", err
 	}
 
 	for _, e := range entries {
 		if strings.HasPrefix(e.Name(), "active_session_") {
-			return r.loadFile(filepath.Join(r.directory, e.Name()))
+			return filepath.Join(r.directory, e.Name()), nil
 		}
 	}
-
-	return r.create()
-}
-
-func (r *FileSessionRepository) Update(s *session.Session) error {
-	data, err := MarshalSession(s)
-	if err != nil {
-		return err
-	}
-
-	path := r.filePath(s.ID())
-	touchPath(path)
-
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (r *FileSessionRepository) Drop(s *session.Session) {
-	if err := os.Remove(r.filePath(s.ID())); err != nil {
-		slog.Error("drop session", "err", err)
-	}
-}
-
-func (r *FileSessionRepository) create() *session.Session {
-	id := generateSessionID()
-	return session.NewSession(id, 0, []message.Message{})
-}
-
-func (r *FileSessionRepository) loadFile(path string) *session.Session {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		slog.Error("read session file", "err", err)
-		return r.create()
-	}
-	s, err := UnmarshalSession(data)
-	if err != nil {
-		slog.Error("unmarshal session", "err", err)
-		return r.create()
-	}
-	return s
-}
-
-func (r *FileSessionRepository) filePath(id string) string {
-	return filepath.Join(r.directory, fmt.Sprintf("active_session_%s.json", id))
+	return "", os.ErrNotExist
 }
 
 func generateSessionID() string {

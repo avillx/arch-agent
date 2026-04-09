@@ -16,9 +16,9 @@ type Transcriptor interface {
 }
 
 type SessionRepository interface {
-	Load() *Session
-	Update(*Session) error
-	Drop(*Session)
+	Load() (*Session, error)
+	Save(*Session) error
+	Drop() error
 }
 
 type Summarizer interface {
@@ -53,21 +53,35 @@ func NewSessionService(
 		summarizer:     sm,
 		activityLogger: al,
 	}
+	/////////////////
+	// active, err := s.repo.Load()
+
+	// if err != nil {
+	// 	slog.Error("bad idle session load", "error", err)
+	// }
+
+	// if err := s.drop(context.Background(), active); err != nil {
+	// 	slog.Error("bad session idle drop", "error", err)
+	// }
+	///////////////
 
 	s.idleDetector = NewIdleDetector(time.Minute*10, func() {
-		if active := s.repo.Load(); active != nil {
-			if err := s.drop(context.Background(), active); err != nil {
-				slog.Error("session bad drop", "error", err)
-			}
-			return
+		active, err := s.repo.Load()
+
+		if err != nil {
+			slog.Error("bad idle session load", "error", err)
 		}
-		slog.Warn("try to drop inactive session")
+
+		if err := s.drop(context.Background(), active); err != nil {
+			slog.Error("bad session idle drop", "error", err)
+		}
+
 	})
 
 	return s
 }
 
-func (r *SessionService) Session() *Session {
+func (r *SessionService) Session() (*Session, error) {
 	r.idleDetector.Touch()
 	return r.repo.Load()
 }
@@ -77,7 +91,7 @@ func (r *SessionService) Close(ctx context.Context, s *Session) error {
 
 	s.Tokens = r.tokenizer.Calc(extractMessagesContent(s.Messages()))
 
-	if err := r.repo.Update(s); err != nil {
+	if err := r.repo.Save(s); err != nil {
 		return err
 	}
 
@@ -111,9 +125,7 @@ func (r *SessionService) drop(ctx context.Context, s *Session) error {
 		return err
 	}
 
-	r.repo.Drop(s)
-
-	return nil
+	return r.repo.Drop()
 }
 
 // calls on overflow

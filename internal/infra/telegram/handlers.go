@@ -4,6 +4,7 @@ import (
 	tools "arch-agent/internal/app/toolexecutor"
 	"arch-agent/internal/infra/llm"
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -103,7 +104,27 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 	}
 
 	content := messageToText(message)
-	return b.answerUC.Execute(context.Background(), content, contentRecivier, OriginContext, b.createToolCallRecivier())
+
+	return Try(3, func() error {
+		return b.answerUC.Execute(
+			context.Background(),
+			content,
+			contentRecivier,
+			OriginContext,
+			b.createToolCallRecivier())
+	})
+}
+
+func Try(attmpts int, function func() error) error {
+	var errc error
+	for i := 0; i < attmpts; i++ {
+		if err := function(); err != nil {
+			errc = errors.Join(errc, err)
+			continue
+		}
+		return errc
+	}
+	return errors.Join(errc, errors.New("fallback attempts budget expires"))
 }
 
 func (b *Bot) handleCommand(update tgbotapi.Update) error {

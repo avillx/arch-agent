@@ -1,11 +1,9 @@
 package openaiadapter
 
 import (
-	"arch-agent/internal/app/executioncontext"
 	"arch-agent/internal/app/message"
 	"arch-agent/internal/infra/llm"
 	"context"
-	"encoding/json"
 	"errors"
 
 	"github.com/openai/openai-go/v3"
@@ -51,9 +49,14 @@ func (r *Reflector) builtParams(conversation []message.Message, personality stri
 	}
 
 	params := openai.ChatCompletionNewParams{
-		Model:          r.model,
-		Messages:       r.builtMessages(conversation, prompt),
-		ResponseFormat: openAIResponseFormat[ReflectionDTO](true),
+		Model:            r.model,
+		Messages:         r.builtMessages(conversation, prompt),
+		ReasoningEffort:  openai.ReasoningEffortLow,
+		FrequencyPenalty: openai.Float(1),
+		PresencePenalty:  openai.Float(1),
+		Temperature:      openai.Float(1),
+		TopP:             openai.Float(1),
+		// ResponseFormat: openAIResponseFormat[ReflectionDTO](true),
 	}
 
 	if r.extras != nil {
@@ -63,43 +66,24 @@ func (r *Reflector) builtParams(conversation []message.Message, personality stri
 	return params, nil
 }
 
-func (r *Reflector) Reflect(ctx context.Context, conversation []message.Message, personality string) (*executioncontext.Reflection, error) {
+func (r *Reflector) Reflect(ctx context.Context, conversation []message.Message, personality string) (string, error) {
 
 	params, err := r.builtParams(conversation, personality)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	completion, err := r.client.Chat.Completions.New(ctx, params)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	return completionToRefleciton(completion)
 }
 
-func completionToRefleciton(completion *openai.ChatCompletion) (*executioncontext.Reflection, error) {
+func completionToRefleciton(completion *openai.ChatCompletion) (string, error) {
 	if len(completion.Choices) == 0 {
-		return nil, errors.New("empty choices")
+		return "", errors.New("empty choices")
 	}
-
-	var resultDTO ReflectionDTO
-	if err := json.Unmarshal([]byte(completion.Choices[0].Message.Content), &resultDTO); err != nil {
-		return nil, err
-	}
-
-	result := ReflectionDTOToReflection(resultDTO)
-
-	return &result, nil
-}
-
-func ReflectionDTOToReflection(dto ReflectionDTO) executioncontext.Reflection {
-	return executioncontext.NewReflection(
-		dto.Trigger,
-		dto.Traits,
-		dto.Feeling,
-		dto.Desire,
-		dto.InnerMonologue,
-		dto.Tone,
-	)
+	return completion.Choices[0].Message.Content, nil
 }

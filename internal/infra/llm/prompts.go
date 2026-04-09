@@ -20,17 +20,14 @@ func mustLoadPrompt[T any](templatePath string) prompt[T] {
 // reasoning
 type ReasoningPromptParams struct {
 	Role                 string
-	Feeling              string
-	Trigger              string
-	Desire               string
-	Trait                string
-	Thoughts             string
+	Reflection           string
 	CommunicationContext string
 	Preferences          string
-	Tone                 string
 	KeyPhrases           string
 	BannedSentences      string
 	Memory               string
+	Strategy             string
+	Time                 string
 }
 
 type ReasoningPrompt = prompt[ReasoningPromptParams]
