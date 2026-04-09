@@ -1,6 +1,7 @@
 config.toml
 .zed
 .vscode
-.env
-__debug_bin.exe
-cmd/data
+*.env
+data/
+bin/
+*.exe

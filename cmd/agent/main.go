@@ -49,8 +49,9 @@ func main() {
 
 	defer stop()
 
-	// configQ
+	// config
 	configPath := flag.String("config", "config.toml", "path to config file")
+	dataPath := flag.String("datadir", ".", "path to data directory")
 	flag.Parse()
 
 	config, err := config.Load(*configPath)
@@ -90,13 +91,13 @@ func main() {
 		config.LLM.Reasoning.Extras,
 	)
 
-	absolutePath, _ := filepath.Abs(".")
+	absolutePath, _ := filepath.Abs(*dataPath)
 
-	dailyActivityStore := filestorage.NewMDDailyActivityStore(absolutePath + "/data/memory/daily_logs")
+	dailyActivityStore := filestorage.NewMDDailyActivityStore(absolutePath + "/memory/daily_logs")
 
 	sessionService := session.NewSessionService(
-		filestorage.NewFileSessionRepository(absolutePath+"/data/memory"),
-		filestorage.NewJSONLTranscriber(absolutePath+"/data/memory/transciptions"),
+		filestorage.NewFileSessionRepository(absolutePath+"/"),
+		filestorage.NewJSONLTranscriber(absolutePath+"/memory/transciptions"),
 		tokenizer.NewTokenizer(),
 		summarizer,
 		dailyActivityStore,

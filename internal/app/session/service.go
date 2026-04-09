@@ -72,7 +72,7 @@ func NewSessionService(
 			slog.Error("bad idle session load", "error", err)
 		}
 
-		if err := s.drop(context.Background(), active); err != nil {
+		if err := s.Drop(context.Background(), active); err != nil {
 			slog.Error("bad session idle drop", "error", err)
 		}
 
@@ -105,7 +105,7 @@ func (r *SessionService) Close(ctx context.Context, s *Session) error {
 }
 
 // calls on idle
-func (r *SessionService) drop(ctx context.Context, s *Session) error {
+func (r *SessionService) Drop(ctx context.Context, s *Session) error {
 
 	// TODO:
 	// - Drop and Recuce have a shared abstraction on writin process
