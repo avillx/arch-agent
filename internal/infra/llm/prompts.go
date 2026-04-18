@@ -1,57 +1,46 @@
 package llm
 
 import (
-	"embed"
-	"fmt"
-	"text/template"
+	"arch-agent/internal/app/reflection"
+	"arch-agent/internal/app/usecases/answer"
 )
 
-//go:embed prompts/*.tmpl
-var _promptTemplatesFS embed.FS // mebedded fs for prompt templates
+// answer prompt
+func NewAnswerPrompt() prompt[answer.AnswerPromptParams] {
+	return mustLoadPrompt[answer.AnswerPromptParams]("reasoning.tmpl")
+}
 
-func mustLoadPrompt[T any](templatePath string) prompt[T] {
-	templ, err := template.ParseFS(_promptTemplatesFS, "prompts/"+templatePath)
-	if err != nil {
-		panic(fmt.Errorf("must prompt: %w", err))
+// reflection prompt
+func NewReflectionPrompt() prompt[reflection.ReflectionParams] {
+	return mustLoadPrompt[reflection.ReflectionParams]("reflection.tmpl")
+}
+
+// summarizaton prompt
+type SummarizationPrompt struct {
+	prompt[struct{}]
+}
+
+func NewSummaryPrompt() *SummarizationPrompt {
+	return &SummarizationPrompt{
+		prompt: mustLoadPrompt[struct{}]("summary.tmpl"),
 	}
-	return newPrompt[T](templ)
 }
 
-// reasoning
-type ReasoningPromptParams struct {
-	Role                 string
-	Reflection           string
-	CommunicationContext string
-	Preferences          string
-	KeyPhrases           string
-	BannedSentences      string
-	Memory               string
-	Strategy             string
-	Time                 string
+func (p *SummarizationPrompt) Render() (string, error) {
+	return p.prompt.Render(struct{}{})
 }
 
-type ReasoningPrompt = prompt[ReasoningPromptParams]
-
-func NewReasoningPrompt() ReasoningPrompt {
-	return mustLoadPrompt[ReasoningPromptParams]("reasoning.tmpl")
+// dream prompt
+type DreamPrompt struct {
+	prompt[struct{}]
 }
 
-// reflection
-type ReflectionParams struct {
-	Personality string
+func NewDreamPrompt() DreamPrompt {
+	return DreamPrompt{
+		prompt: mustLoadPrompt[struct{}]("dreaming.tmpl"),
+	}
 }
 
-type ReflectionPrompt = prompt[ReflectionParams]
-
-func NewReflectionPrompt() ReflectionPrompt {
-	return mustLoadPrompt[ReflectionParams]("reflection.tmpl")
-}
-
-// summary
-type SummaryParams struct{}
-
-type SummaryPrompt = prompt[SummaryParams]
-
-func NewSummaryPrompt() SummaryPrompt {
-	return mustLoadPrompt[SummaryParams]("summary.tmpl")
+func (p *DreamPrompt) Render() (string, error) {
+	return p.prompt.Render(struct{}{})
 }

@@ -2,8 +2,21 @@ package llm
 
 import (
 	"bytes"
+	"embed"
+	"fmt"
 	"text/template"
 )
+
+//go:embed prompts/*.tmpl
+var _promptTemplatesFS embed.FS
+
+func mustLoadPrompt[T any](templatePath string) prompt[T] {
+	templ, err := template.ParseFS(_promptTemplatesFS, "prompts/"+templatePath)
+	if err != nil {
+		panic(fmt.Errorf("must prompt: %w", err))
+	}
+	return newPrompt[T](templ)
+}
 
 type prompt[PromptParams any] struct {
 	template *template.Template

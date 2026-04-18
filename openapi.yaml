@@ -1,0 +1,87 @@
+openapi: 3.0.0
+info:
+  title: Agent API
+  version: 1.0.0
+
+paths:
+  /sessions:
+    post:
+      summary: Создать сессию
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+      responses:
+        '201':
+          description: Сессия создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+
+  /session:
+    delete:
+      summary: Удалить сессию
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '404':
+          description: Has no session
+        '200':
+          description: session has been found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+
+components:
+  schemas:
+     
+  
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    Message:
+      type: object
+      properties:
+        index:
+          type: number
+        role:
+          type: string
+          enum:
+          - agent
+          - user
+          - system
+          - tool
+        content:
+          type: string
+        tool_call_id:
+          type: string
+        tool_calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolCall'
+    ToolCall:
+      type: object
+      properties:
+        id: 
+          type: string
+        tool:
+          type: string
+        arguments:
+          type: object
+        

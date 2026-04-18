@@ -1,8 +1,10 @@
 package openaiadapter
 
 import (
-	"arch-agent/internal/app/message"
-	tools "arch-agent/internal/app/toolexecutor"
+	"arch-agent/internal/app/reasoning"
+	"arch-agent/internal/app/types"
+	"errors"
+
 	"reflect"
 
 	"github.com/invopop/jsonschema"
@@ -10,7 +12,7 @@ import (
 	"github.com/openai/openai-go/v3/shared"
 )
 
-func messagesToOpenAI(internalFromatMessages []message.Message) []openai.ChatCompletionMessageParamUnion {
+func messagesToOpenAI(internalFromatMessages []types.Message) []openai.ChatCompletionMessageParamUnion {
 	messages := make([]openai.ChatCompletionMessageParamUnion, 0, len(internalFromatMessages))
 	for _, msg := range internalFromatMessages {
 		messages = append(messages, messageToOpenAI(msg))
@@ -18,30 +20,30 @@ func messagesToOpenAI(internalFromatMessages []message.Message) []openai.ChatCom
 	return messages
 }
 
-func messageToOpenAI(internalFromatMessage message.Message) openai.ChatCompletionMessageParamUnion {
+func messageToOpenAI(internalFromatMessage types.Message) openai.ChatCompletionMessageParamUnion {
 
 	var result openai.ChatCompletionMessageParamUnion
 
 	switch msg := internalFromatMessage.(type) {
-	case *message.AgentMessage:
+	case *types.AgentMessage:
 		assistantMsg := openai.AssistantMessage(msg.Content())
 		toolCalls := msg.ToolCalls()
 		if len(toolCalls) > 0 {
 			assistantMsg.OfAssistant.ToolCalls = toolCallsToOpenAi(toolCalls)
 		}
 		result = assistantMsg
-	case *message.SystemMessage:
+	case *types.SystemMessage:
 		result = openai.SystemMessage(msg.Content())
-	case *message.UserMessage:
+	case *types.UserMessage:
 		result = openai.UserMessage(msg.Content())
-	case *message.ToolResultMessage:
+	case *types.ToolResultMessage:
 		result = openai.ToolMessage(msg.Content(), msg.ToolCallID())
 	}
 
 	return result
 }
 
-func toolCallsToOpenAi(toolCalls []*message.ToolCall) []openai.ChatCompletionMessageToolCallUnionParam {
+func toolCallsToOpenAi(toolCalls []*types.ToolCall) []openai.ChatCompletionMessageToolCallUnionParam {
 	openAIToolcalls := make([]openai.ChatCompletionMessageToolCallUnionParam, 0, len(toolCalls))
 	for _, call := range toolCalls {
 		openAIToolcalls = append(openAIToolcalls, toolCallToOpenAi(call))
@@ -49,7 +51,7 @@ func toolCallsToOpenAi(toolCalls []*message.ToolCall) []openai.ChatCompletionMes
 	return openAIToolcalls
 }
 
-func toolCallToOpenAi(toolCall *message.ToolCall) openai.ChatCompletionMessageToolCallUnionParam {
+func toolCallToOpenAi(toolCall *types.ToolCall) openai.ChatCompletionMessageToolCallUnionParam {
 	return openai.ChatCompletionMessageToolCallUnionParam{
 		OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
 			ID: toolCall.ID(),
@@ -61,13 +63,13 @@ func toolCallToOpenAi(toolCall *message.ToolCall) openai.ChatCompletionMessageTo
 	}
 }
 
-func openAIToToolCalls(openaiToolCalls []openai.ChatCompletionMessageToolCallUnion) []*message.ToolCall {
-	toolCalls := []*message.ToolCall{}
+func openAIToToolCalls(openaiToolCalls []openai.ChatCompletionMessageToolCallUnion) []*types.ToolCall {
+	toolCalls := []*types.ToolCall{}
 	for _, tc := range openaiToolCalls {
-		newToolCall := message.NewToolCall(
+		newToolCall := types.NewToolCall(
 			tc.ID,
 			tc.Function.Name,
-			message.ToolArguments(
+			types.ToolArguments(
 				tc.Function.Arguments,
 			),
 		)
@@ -76,7 +78,7 @@ func openAIToToolCalls(openaiToolCalls []openai.ChatCompletionMessageToolCallUni
 	return toolCalls
 }
 
-func toolDefenitionsToOpenAI(toolDefs []tools.ToolDefinition) []openai.ChatCompletionToolUnionParam {
+func toolDefenitionsToOpenAI(toolDefs []types.ToolDefinition) []openai.ChatCompletionToolUnionParam {
 	toolParams := make([]openai.ChatCompletionToolUnionParam, 0, len(toolDefs))
 
 	for _, def := range toolDefs {
@@ -87,26 +89,26 @@ func toolDefenitionsToOpenAI(toolDefs []tools.ToolDefinition) []openai.ChatCompl
 	return toolParams
 }
 
-func toolDefenitionToOpenAI(def tools.ToolDefinition) openai.ChatCompletionToolUnionParam {
+func toolDefenitionToOpenAI(def types.ToolDefinition) openai.ChatCompletionToolUnionParam {
 	return openai.ChatCompletionToolUnionParam{
 		OfFunction: &openai.ChatCompletionFunctionToolParam{
 			Function: shared.FunctionDefinitionParam{
 				Name: def.Name,
-				// Strict:      openai.Bool(def.Strict),
-				Description: openai.String(def.Schema.Description),
-				Parameters:  schemaToOpenAI(def.Schema),
+				// Strict:      openai.Bool(true),
+				Description: openai.String(def.Description),
+				Parameters:  propertiesToOpenAI(def.Properties),
 			},
 		},
 	}
 }
 
-func schemaToOpenAI(schema tools.Schema) shared.FunctionParameters {
+func propertiesToOpenAI(internalProps []types.ToolProperty) shared.FunctionParameters {
 	functionParams := shared.FunctionParameters{"type": "object"}
 
 	properties := map[string]any{}
 	required := []string{}
 
-	for _, prop := range schema.Properties {
+	for _, prop := range internalProps {
 		properties[prop.Name] = propertyToOpenAI(prop)
 
 		if prop.Required {
@@ -120,7 +122,7 @@ func schemaToOpenAI(schema tools.Schema) shared.FunctionParameters {
 	return functionParams
 }
 
-func propertyToOpenAI(prop tools.ToolProperty) map[string]any {
+func propertyToOpenAI(prop types.ToolProperty) map[string]any {
 	propRepresntation := map[string]any{
 		"type":        prop.Type,
 		"description": prop.Description,
@@ -154,4 +156,50 @@ func generateScheme[T any]() *jsonschema.Schema {
 
 	scheme := reflector.Reflect(v).Definitions[typeName]
 	return scheme
+}
+
+func OpenAIToolChoice(tc string) openai.ChatCompletionToolChoiceOptionUnionParam {
+	return openai.ChatCompletionToolChoiceOptionUnionParam{
+		OfAuto: openai.String(tc),
+	}
+}
+
+func builtMessages(conversation []types.Message, prompt string) []openai.ChatCompletionMessageParamUnion {
+	return append([]openai.ChatCompletionMessageParamUnion{openai.SystemMessage(prompt)}, messagesToOpenAI(conversation)...)
+}
+
+func OpenAICompletionToContent(completion *openai.ChatCompletion) (string, error) {
+	if len(completion.Choices) == 0 {
+		return "", errors.New("empty choices")
+	}
+	return completion.Choices[0].Message.Content, nil
+}
+
+func OpenAICompletionToReasonResult(completion *openai.ChatCompletion) (*reasoning.ReasonResult, error) {
+
+	if len(completion.Choices) == 0 {
+		return nil, errors.New("empty choices")
+	}
+
+	message := completion.Choices[0].Message
+	toolCalls := []*types.ToolCall{}
+
+	if len(message.ToolCalls) > 0 {
+		toolCalls = append(toolCalls, openAIToToolCalls(message.ToolCalls)...)
+	}
+
+	result := &reasoning.ReasonResult{
+		ToolCalls: toolCalls,
+		Content:   message.Content,
+		Done:      IsDoneOpenAI(completion.Choices[0].FinishReason),
+	}
+
+	return result, nil
+}
+
+func IsDoneOpenAI(finishReason string) bool {
+	if finishReason == "stop" {
+		return true
+	}
+	return false
 }

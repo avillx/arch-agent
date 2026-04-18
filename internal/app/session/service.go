@@ -1,18 +1,15 @@
 package session
 
 import (
-	"arch-agent/internal/app/message"
+	"arch-agent/internal/app/activity"
+	"arch-agent/internal/app/types"
 	"context"
 	"log/slog"
 	"time"
 )
 
-type ActivityLogger interface {
-	Log(summary string) error
-}
-
 type Transcriptor interface {
-	Transcribe(sessionID string, messages []message.Message) error
+	Transcribe(messages []types.Message) error
 }
 
 type SessionRepository interface {
@@ -21,49 +18,31 @@ type SessionRepository interface {
 	Drop() error
 }
 
-type Summarizer interface {
-	Sum(ctx context.Context, data []message.Message) (string, error)
-}
-
 type Tokenizer interface {
 	Calc(string) int
 }
 
-type SessionService struct {
-	repo           SessionRepository
-	idleDetector   *IdleDetector
-	transcriptor   Transcriptor
-	tokenizer      Tokenizer
-	summarizer     Summarizer
-	activityLogger ActivityLogger
+type Service struct {
+	repo            SessionRepository
+	idleDetector    *IdleDetector
+	transcriptor    Transcriptor
+	tokenizer       Tokenizer
+	activityService *activity.Service
 }
 
 func NewSessionService(
 	repo SessionRepository,
 	tr Transcriptor,
 	tk Tokenizer,
-	sm Summarizer,
-	al ActivityLogger,
-) *SessionService {
+	as *activity.Service,
+) *Service {
 
-	s := &SessionService{
-		repo:           repo,
-		transcriptor:   tr,
-		tokenizer:      tk,
-		summarizer:     sm,
-		activityLogger: al,
+	s := &Service{
+		repo:            repo,
+		transcriptor:    tr,
+		tokenizer:       tk,
+		activityService: as,
 	}
-	/////////////////
-	// active, err := s.repo.Load()
-
-	// if err != nil {
-	// 	slog.Error("bad idle session load", "error", err)
-	// }
-
-	// if err := s.drop(context.Background(), active); err != nil {
-	// 	slog.Error("bad session idle drop", "error", err)
-	// }
-	///////////////
 
 	s.idleDetector = NewIdleDetector(time.Minute*10, func() {
 		active, err := s.repo.Load()
@@ -81,19 +60,15 @@ func NewSessionService(
 	return s
 }
 
-func (r *SessionService) Session() (*Session, error) {
+func (r *Service) Session() (*Session, error) {
 	r.idleDetector.Touch()
 	return r.repo.Load()
 }
 
-func (r *SessionService) Close(ctx context.Context, s *Session) error {
+func (r *Service) Close(ctx context.Context, s *Session) error {
 	r.idleDetector.Touch()
 
 	s.Tokens = r.tokenizer.Calc(extractMessagesContent(s.Messages()))
-
-	if err := r.repo.Save(s); err != nil {
-		return err
-	}
 
 	if s.IsOverflow() {
 		if err := r.reduce(ctx, s); err != nil {
@@ -101,27 +76,22 @@ func (r *SessionService) Close(ctx context.Context, s *Session) error {
 		}
 	}
 
+	if err := r.repo.Save(s); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 // calls on idle
-func (r *SessionService) Drop(ctx context.Context, s *Session) error {
-
-	// TODO:
-	// - Drop and Recuce have a shared abstraction on writin process
-
+func (r *Service) Drop(ctx context.Context, s *Session) error {
 	messages := s.Messages()
 
-	if err := r.transcriptor.Transcribe(s.id, messages); err != nil {
+	if err := r.transcriptor.Transcribe(messages); err != nil {
 		return err
 	}
 
-	summary, err := r.summarizer.Sum(ctx, messages)
-	if err != nil {
-		return err
-	}
-
-	if err := r.activityLogger.Log(summary); err != nil {
+	if err := r.activityService.LogActiviy(ctx, messages); err != nil {
 		return err
 	}
 
@@ -129,32 +99,27 @@ func (r *SessionService) Drop(ctx context.Context, s *Session) error {
 }
 
 // calls on overflow
-func (r *SessionService) reduce(ctx context.Context, s *Session) error {
+func (r *Service) reduce(ctx context.Context, s *Session) error {
 
 	front := len(s.messages) * 2 / 3
 	head := s.Messages()[:front]
 
-	if err := r.transcriptor.Transcribe(s.id, head); err != nil {
+	if err := r.transcriptor.Transcribe(head); err != nil {
 		return err
 	}
 
-	summary, err := r.summarizer.Sum(ctx, head)
-	if err != nil {
-		return err
-	}
-
-	if err := r.activityLogger.Log(summary); err != nil {
+	if err := r.activityService.LogActiviy(ctx, head); err != nil {
 		return err
 	}
 
 	tail := s.Messages()[front:]
-	s.Reduce(tail)
+	s.OverwriteMessages(tail)
 
 	return nil
 }
 
 // helpers
-func extractMessagesContent(msgs []message.Message) string {
+func extractMessagesContent(msgs []types.Message) string {
 	content := ""
 	for _, m := range msgs {
 		content += m.Content()

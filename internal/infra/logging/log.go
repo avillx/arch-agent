@@ -8,9 +8,9 @@ import (
 	"os"
 )
 
-func Set(pretty bool, level slog.Level) {
+func Set(isPretty bool, level slog.Level) {
 	switch {
-	case pretty:
+	case isPretty:
 		slog.SetDefault(NewPrettyLogger())
 	default:
 		slog.SetDefault(DefaultLogger())

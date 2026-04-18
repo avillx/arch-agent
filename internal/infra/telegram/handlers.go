@@ -1,38 +1,35 @@
 package telegram
 
 import (
-	tools "arch-agent/internal/app/toolexecutor"
+	"arch-agent/internal/app/types"
 	"arch-agent/internal/infra/llm"
 	"context"
 	"errors"
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func (b *Bot) createToolCallRecivier() *llm.ToolCallRecivier {
+func (b *Bot) Tools() []llm.Tool {
 	sendMessage := llm.Tool{
-		ToolDefinition: tools.ToolDefinition{
-			Name:       "send_message",
-			ReasonOnce: true,
-			Strict:     true,
-			Schema: tools.Schema{
-				Description: "send messages in chat",
-				Properties: []tools.ToolProperty{
-					{
-						Name:        "chat_id",
-						Required:    true,
-						Type:        tools.TypeNumber,
-						Description: "chat id that message will be sended",
-					},
-					{
-						Name:        "text",
-						Required:    true,
-						Type:        tools.TypeString,
-						Description: "text content of your message",
-					},
+		ToolDefinition: types.ToolDefinition{
+			Name:        "send_message",
+			Description: "send messages in chat",
+			Properties: []types.ToolProperty{
+				{
+					Name:        "chat_id",
+					Required:    true,
+					Type:        types.TypeNumber,
+					Description: "chat id that message will be sended",
+				},
+				{
+					Name:        "text",
+					Required:    true,
+					Type:        types.TypeString,
+					Description: "text content of your message",
 				},
 			},
 		},
@@ -49,25 +46,21 @@ func (b *Bot) createToolCallRecivier() *llm.ToolCallRecivier {
 	}
 
 	sendSticker := llm.Tool{
-		ToolDefinition: tools.ToolDefinition{
-			Name:       "send_sticker",
-			Strict:     true,
-			ReasonOnce: true,
-			Schema: tools.Schema{
-				Description: "send sticker in chat",
-				Properties: []tools.ToolProperty{
-					{
-						Name:        "chat_id",
-						Required:    true,
-						Type:        tools.TypeNumber,
-						Description: "chat id that sticker will be sended",
-					},
-					{
-						Name:     "emoji",
-						Required: true,
-						Type:     tools.TypeString,
-						Enum:     slices.Collect(maps.Keys(b.stickers)),
-					},
+		ToolDefinition: types.ToolDefinition{
+			Name:        "send_sticker",
+			Description: "send sticker in chat",
+			Properties: []types.ToolProperty{
+				{
+					Name:        "chat_id",
+					Required:    true,
+					Type:        types.TypeNumber,
+					Description: "chat id that sticker will be sended",
+				},
+				{
+					Name:     "emoji",
+					Required: true,
+					Type:     types.TypeString,
+					Enum:     slices.Collect(maps.Keys(b.stickers)),
 				},
 			},
 		},
@@ -85,22 +78,30 @@ func (b *Bot) createToolCallRecivier() *llm.ToolCallRecivier {
 			}),
 	}
 
-	return llm.NewToolCallRecivier([]llm.Tool{
-		sendMessage,
-		sendSticker,
-	})
+	return slices.Concat([]llm.Tool{sendMessage, sendSticker})
 }
 
 // handlers
 func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 
-	const OriginContext = "This is message recived from telegram. You can answer organic with provided capabilities (stickers, messages etc...)"
+	const OriginContext = `This is message recived from telegram. 
+	You should act as human, answer organic with provided capabilities (stickers, messages etc...). 
+	When you write \\n\\n this is diffirent message. 
+	You should divide text on a several messages for organic and natural dialogue in messager.
+	Never repeat previus answer structure
+	At first it's chatting.`
 
 	stopAction := b.SetChatAction(message.Chat.ID, tgbotapi.ChatTyping)
 	defer stopAction()
 
 	contentRecivier := func(ctx context.Context, content string) error {
-		return b.SendMessage(message.From.ID, content, 0)
+
+		var errc error
+		for _, line := range strings.Split(content, "\n\n") {
+			err := b.SendMessage(message.From.ID, line, 0)
+			errc = errors.Join(errc, err)
+		}
+		return errc
 	}
 
 	content := messageToText(message)
@@ -110,8 +111,7 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 			context.Background(),
 			content,
 			contentRecivier,
-			OriginContext,
-			b.createToolCallRecivier())
+			OriginContext)
 	})
 }
 

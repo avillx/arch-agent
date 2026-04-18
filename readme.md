@@ -19,7 +19,18 @@ All memory stores in `/agent/data/...`
 - tui as external client
 - chrony is a external client
 - tg ui as extranal client
-- refactor prompting to blocks over temlates
+- determinated emo engine
+- create a react entity that includes:
+    - messages
+    - reflection
+- create a dynamic config
+
+## tech debt:
 - tool description must be on definition on an schema.
 - drop schema from app layer, only properties array. shema is a infra concept.
-- tool choice sets via api and reciviers
+- execution context too complex
+- need a llm op's DI constructors
+- main is too large
+- logging must be polished
+- simplify config, and key injections
+- use case divide on services

@@ -1,0 +1,40 @@
+package transcribtions
+
+import (
+	"arch-agent/internal/app/types"
+	"arch-agent/internal/infra/storage"
+	"arch-agent/internal/infra/storage/filesystem"
+	"crypto/rand"
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+type JSONLTranscriber struct {
+	fs filesystem.FileSystem
+}
+
+func NewJSONLTranscriber(dir string) *JSONLTranscriber {
+	return &JSONLTranscriber{
+		fs: filesystem.New(dir),
+	}
+}
+
+func (t *JSONLTranscriber) Transcribe(messages []types.Message) error {
+	data, err := json.Marshal(storage.MessagesToDTO(messages))
+	if err != nil {
+		return err
+	}
+	return t.fs.WriteToFile(transcriptionFileName(), data)
+}
+
+func transcriptionFileName() string {
+	date := time.Now().Format("06-01-02")
+	return fmt.Sprintf("%s_%s.jsonl", date, generateUUID())
+}
+
+func generateUUID() string {
+	b := make([]byte, 2)
+	rand.Read(b)
+	return fmt.Sprintf("%x%x", time.Now().Unix(), b)
+}
