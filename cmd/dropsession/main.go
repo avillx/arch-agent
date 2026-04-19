@@ -26,8 +26,17 @@ func main() {
 
 	absolutePath, _ := filepath.Abs(*dataPath)
 
-	activityServce := di.CreateActivityService(cfg.LLMS.Summarization, absolutePath)
-	sessionService := di.CreateSessionService(activityServce, absolutePath)
+	activityServce, err := di.CreateActivityService(cfg.LLMS.Summarization, absolutePath)
+	if err != nil {
+		log.Fatalf("activity di %e", err)
+		return
+	}
+
+	sessionService, err := di.CreateSessionService(activityServce, absolutePath)
+	if err != nil {
+		log.Fatalf("session di %e", err)
+		return
+	}
 
 	session, err := sessionService.Session()
 	if err != nil {

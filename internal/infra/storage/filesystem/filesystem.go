@@ -11,8 +11,11 @@ type FileSystem struct {
 	dir string
 }
 
-func New(dir string) FileSystem {
-	return FileSystem{dir: dir}
+func New(dir string) (FileSystem, error) {
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return FileSystem{}, err
+	}
+	return FileSystem{dir: dir}, nil
 }
 
 func (fs FileSystem) ReadDir() ([]string, error) {

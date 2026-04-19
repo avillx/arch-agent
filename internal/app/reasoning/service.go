@@ -8,6 +8,16 @@ import (
 	"slices"
 )
 
+type stubToolCallRecivier struct {
+}
+
+func (s *stubToolCallRecivier) ReciveCall(_ context.Context, _ *types.ToolCall) (string, error) {
+	return "", nil
+}
+func (s *stubToolCallRecivier) Tools() ([]types.ToolDefinition, error) {
+	return []types.ToolDefinition{}, nil
+}
+
 type ToolCallRecivier interface {
 	ReciveCall(ctx context.Context, call *types.ToolCall) (string, error)
 	Tools() ([]types.ToolDefinition, error)
@@ -39,6 +49,10 @@ func NewService(
 	reasoner reasoner,
 	toolCallReciver ToolCallRecivier,
 ) *Service {
+	if toolCallReciver == nil {
+		toolCallReciver = &stubToolCallRecivier{}
+	}
+
 	return &Service{
 		recallBudget:    recallBudget,
 		reasoner:        reasoner,

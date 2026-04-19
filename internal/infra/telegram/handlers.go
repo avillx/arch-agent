@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -89,19 +88,23 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 	When you write \\n\\n this is diffirent message. 
 	You should divide text on a several messages for organic and natural dialogue in messager.
 	Never repeat previus answer structure
-	At first it's chatting.`
+	At first it's chatting.
+	User never see your output, for communicate you should use send_message, send_stciker or other tools
+	`
 
 	stopAction := b.SetChatAction(message.Chat.ID, tgbotapi.ChatTyping)
 	defer stopAction()
 
 	contentRecivier := func(ctx context.Context, content string) error {
 
-		var errc error
-		for _, line := range strings.Split(content, "\n\n") {
-			err := b.SendMessage(message.From.ID, line, 0)
-			errc = errors.Join(errc, err)
-		}
-		return errc
+		fmt.Print("### Output: ", content)
+		return nil
+		// var errc error
+		// for _, line := range strings.Split(content, "\n\n") {
+		// 	err := b.SendMessage(message.From.ID, line, 0)
+		// 	errc = errors.Join(errc, err)
+		// }
+		// return errc
 	}
 
 	content := messageToText(message)

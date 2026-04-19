@@ -62,28 +62,44 @@ func CreateReasonerFromConfig(cfg *config.LLM) *openaiadapter.Reasoner {
 	})
 }
 
-func CreateActivityService(summarizerConfig *config.LLM, absolutePath string) *activity.Service {
+func CreateActivityService(summarizerConfig *config.LLM, absolutePath string) (*activity.Service, error) {
 	summarizationService := CreateSummarizationService(summarizerConfig)
+	activityfiles, err := activityadapter.NewActivityFiles(absolutePath + "/activities")
+	if err != nil {
+		return nil, err
+	}
+
 	return activity.NewService(
 		summarizationService,
-		activityadapter.NewActivityFiles(absolutePath+"/activities"),
-	)
+		activityfiles,
+	), nil
 }
 
-func CreateSessionService(activityService *activity.Service, absolutePath string) *session.Service {
+func CreateSessionService(activityService *activity.Service, absolutePath string) (*session.Service, error) {
+
+	sessionfiles, err := sessionadapter.NewFileSessionRepository(absolutePath)
+	if err != nil {
+		return nil, err
+	}
+	transcribtionfiles, err := transcribtions.NewJSONLTranscriber(absolutePath + "/transciptions")
+	if err != nil {
+		return nil, err
+	}
 
 	return session.NewSessionService(
-		// data dir
-		sessionadapter.NewFileSessionRepository(absolutePath),
-		transcribtions.NewJSONLTranscriber(absolutePath+"/transciptions"),
+		sessionfiles,
+		transcribtionfiles,
 		tokenizer.NewTokenizer(),
 		activityService,
-	)
+	), nil
 }
 
-func CreateKnowledgeService(path string) *knowledge.Service {
-	adapter := knowledgeadapter.New(path + "/knowledges")
-	return knowledge.NewService(adapter)
+func CreateKnowledgeService(path string) (*knowledge.Service, error) {
+	adapter, err := knowledgeadapter.New(path + "/knowledges")
+	if err != nil {
+		return nil, err
+	}
+	return knowledge.NewService(adapter), err
 }
 
 // Agent repo
@@ -101,12 +117,23 @@ func (s *stubAgentRepository) Personality() string { return s.Agent.Personality 
 func (s *stubAgentRepository) KeyPhrases() string  { return s.Agent.Keyphrases }
 func (s *stubAgentRepository) BannedSlang() string { return s.Agent.BannedSlang }
 
-func NewAnswerUseCase(cfg config.Config, dataPath string, tools []llm.Tool) *answer.AnswerUseCase {
+func NewAnswerUseCase(cfg config.Config, dataPath string, tools []llm.Tool) (*answer.AnswerUseCase, error) {
 	absolutePath, _ := filepath.Abs(dataPath)
 
-	knowledgeService := CreateKnowledgeService(absolutePath)
-	activityService := CreateActivityService(cfg.LLMS.Summarization, absolutePath)
-	sessionService := CreateSessionService(activityService, absolutePath)
+	knowledgeService, err := CreateKnowledgeService(absolutePath)
+	if err != nil {
+		return nil, err
+	}
+
+	activityService, err := CreateActivityService(cfg.LLMS.Summarization, absolutePath)
+	if err != nil {
+		return nil, err
+	}
+
+	sessionService, err := CreateSessionService(activityService, absolutePath)
+	if err != nil {
+		return nil, err
+	}
 
 	agentRepo := NewStubAgentRepo(cfg.Agent)
 	contextAssembler := answer.NewContextAssembler(
@@ -121,5 +148,5 @@ func NewAnswerUseCase(cfg config.Config, dataPath string, tools []llm.Tool) *ans
 		CreateReasoningService(cfg.LLMS.Reasoning, tools), // append knowledgeService.ReadTool()
 		sessionService,
 		contextAssembler,
-	)
+	), nil
 }

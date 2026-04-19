@@ -16,10 +16,14 @@ type SessionFiles struct {
 	fs filesystem.FileSystem
 }
 
-func NewFileSessionRepository(dir string) *SessionFiles {
-	return &SessionFiles{
-		fs: filesystem.New(dir),
+func NewFileSessionRepository(dir string) (*SessionFiles, error) {
+	fs, err := filesystem.New(dir)
+	if err != nil {
+		return nil, err
 	}
+	return &SessionFiles{
+		fs: fs,
+	}, nil
 }
 
 func (r *SessionFiles) Load() (*session.Session, error) {

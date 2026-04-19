@@ -53,7 +53,11 @@ func main() {
 	}
 
 	// root composing
-	uc := di.NewAnswerUseCase(cfg, *dataPath, bot.Tools())
+	uc, err := di.NewAnswerUseCase(cfg, *dataPath, bot.Tools())
+	if err != nil {
+		slog.Error("bad di", "error", err)
+		os.Exit(1)
+	}
 
 	bot.WireAnswerUC(uc)
 

@@ -14,10 +14,14 @@ type ActivityFiles struct {
 	fs filesystem.FileSystem
 }
 
-func NewActivityFiles(dir string) *ActivityFiles {
-	return &ActivityFiles{
-		fs: filesystem.New(dir),
+func NewActivityFiles(dir string) (*ActivityFiles, error) {
+	fs, err := filesystem.New(dir)
+	if err != nil {
+		return nil, err
 	}
+	return &ActivityFiles{
+		fs: fs,
+	}, nil
 }
 
 func (f *ActivityFiles) Log(r activity.Record) error {

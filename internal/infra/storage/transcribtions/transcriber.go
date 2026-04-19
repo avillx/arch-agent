@@ -14,10 +14,14 @@ type JSONLTranscriber struct {
 	fs filesystem.FileSystem
 }
 
-func NewJSONLTranscriber(dir string) *JSONLTranscriber {
-	return &JSONLTranscriber{
-		fs: filesystem.New(dir),
+func NewJSONLTranscriber(dir string) (*JSONLTranscriber, error) {
+	fs, err := filesystem.New(dir)
+	if err != nil {
+		return nil, err
 	}
+	return &JSONLTranscriber{
+		fs: fs,
+	}, nil
 }
 
 func (t *JSONLTranscriber) Transcribe(messages []types.Message) error {
@@ -29,7 +33,7 @@ func (t *JSONLTranscriber) Transcribe(messages []types.Message) error {
 }
 
 func transcriptionFileName() string {
-	date := time.Now().Format("06-01-02")
+	date := time.Now().Format("2006-01-02")
 	return fmt.Sprintf("%s_%s.jsonl", date, generateUUID())
 }
 

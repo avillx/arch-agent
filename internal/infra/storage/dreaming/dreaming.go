@@ -16,10 +16,14 @@ type DreamingFiles struct {
 	fs filesystem.FileSystem
 }
 
-func NewDreamingFiles(dir string) *DreamingFiles {
-	return &DreamingFiles{
-		fs: filesystem.New(dir),
+func NewDreamingFiles(dir string) (*DreamingFiles, error) {
+	fs, err := filesystem.New(dir)
+	if err != nil {
+		return nil, err
 	}
+	return &DreamingFiles{
+		fs: fs,
+	}, nil
 }
 
 func (f *DreamingFiles) UpdateLastDreaming() error {

@@ -4,6 +4,7 @@ import (
 	"arch-agent/internal/app/knowledge"
 	"arch-agent/internal/infra/storage/filesystem"
 	"encoding/json"
+	"os"
 )
 
 const IndexFile = "knowledge.json"
@@ -12,10 +13,14 @@ type KnowledgeFiles struct {
 	filesystem filesystem.FileSystem
 }
 
-func New(dir string) *KnowledgeFiles {
-	return &KnowledgeFiles{
-		filesystem: filesystem.New(dir),
+func New(dir string) (*KnowledgeFiles, error) {
+	fs, err := filesystem.New(dir)
+	if err != nil {
+		return nil, err
 	}
+	return &KnowledgeFiles{
+		filesystem: fs,
+	}, nil
 }
 
 func (f *KnowledgeFiles) Read(name string) (string, error) {
@@ -41,6 +46,9 @@ func (f *KnowledgeFiles) Override(name, content string) error {
 func (f *KnowledgeFiles) LoadIndex() (*knowledge.KnowledgeIndex, error) {
 	data, err := f.filesystem.ReadFile(IndexFile)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return &knowledge.KnowledgeIndex{}, nil
+		}
 		return nil, err
 	}
 
