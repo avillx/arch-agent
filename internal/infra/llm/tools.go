@@ -37,11 +37,11 @@ func (b *ToolCallRecivier) Tools() ([]types.ToolDefinition, error) {
 }
 
 func (b *ToolCallRecivier) ReciveCall(ctx context.Context, call *types.ToolCall) (string, error) {
-	tool, ok := b.toolBundle[call.ToolName()]
+	tool, ok := b.toolBundle[call.ToolName]
 	if !ok {
-		return fmt.Sprintf("error. have no %s", call.ToolName()), fmt.Errorf("Tool is not found %s", call.ToolName())
+		return fmt.Sprintf("error. have no %s", call.ToolName), fmt.Errorf("Tool is not found %s", call.ToolName)
 	}
-	return tool.CallRsolver(call.Arguments())
+	return tool.CallRsolver(call.Arguments)
 }
 
 // helpers

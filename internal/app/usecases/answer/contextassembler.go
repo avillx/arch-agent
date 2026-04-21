@@ -49,7 +49,7 @@ func NewContextAssembler(
 }
 
 func (b *ContextAssembler) BuildPrompt(ctx context.Context, communicationContext string, msgs []types.Message) (string, error) {
-	reflection, err := b.reflectionService.Reflect(ctx, msgs)
+	refl, err := b.reflectionService.Feelings(ctx, msgs)
 	if err != nil {
 		return "", err
 	}
@@ -66,7 +66,7 @@ func (b *ContextAssembler) BuildPrompt(ctx context.Context, communicationContext
 
 	return b.promptRenderer.Render(AnswerPromptParams{
 		Role:                 b.agentRepo.Role(),
-		Reflection:           reflection,
+		Reflection:           refl,
 		CommunicationContext: communicationContext,
 		Preferences:          b.agentRepo.Preferences(),
 		KeyPhrases:           b.agentRepo.KeyPhrases(),

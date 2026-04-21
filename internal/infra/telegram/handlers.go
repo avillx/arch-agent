@@ -1,95 +1,24 @@
 package telegram
 
 import (
-	"arch-agent/internal/app/types"
-	"arch-agent/internal/infra/llm"
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"slices"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func (b *Bot) Tools() []llm.Tool {
-	sendMessage := llm.Tool{
-		ToolDefinition: types.ToolDefinition{
-			Name:        "send_message",
-			Description: "send messages in chat",
-			Properties: []types.ToolProperty{
-				{
-					Name:        "chat_id",
-					Required:    true,
-					Type:        types.TypeNumber,
-					Description: "chat id that message will be sended",
-				},
-				{
-					Name:        "text",
-					Required:    true,
-					Type:        types.TypeString,
-					Description: "text content of your message",
-				},
-			},
-		},
-		CallRsolver: llm.WrapArgumentedCallResolver(
-			func(args struct {
-				ChatID int64  `json:"chat_id"`
-				Text   string `json:"text"`
-			}) (string, error) {
-				if err := b.SendMessage(args.ChatID, args.Text, 0); err != nil {
-					return "message is not sended", err
-				}
-				return "message sended", nil
-			}),
-	}
-
-	sendSticker := llm.Tool{
-		ToolDefinition: types.ToolDefinition{
-			Name:        "send_sticker",
-			Description: "send sticker in chat",
-			Properties: []types.ToolProperty{
-				{
-					Name:        "chat_id",
-					Required:    true,
-					Type:        types.TypeNumber,
-					Description: "chat id that sticker will be sended",
-				},
-				{
-					Name:     "emoji",
-					Required: true,
-					Type:     types.TypeString,
-					Enum:     slices.Collect(maps.Keys(b.stickers)),
-				},
-			},
-		},
-		CallRsolver: llm.WrapArgumentedCallResolver(
-			func(
-				args struct {
-					ChatID int64  `json:"chat_id"`
-					Emoji  string `json:"emoji"`
-				},
-			) (string, error) {
-				if err := b.SendSticker(args.ChatID, args.Emoji); err != nil {
-					return "sticker is not sended", err
-				}
-				return "sticker sended", nil
-			}),
-	}
-
-	return slices.Concat([]llm.Tool{sendMessage, sendSticker})
-}
-
 // handlers
 func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 
-	const OriginContext = `This is message recived from telegram. 
+	const OriginContext = `At first it's chatting telegram.
 	You should act as human, answer organic with provided capabilities (stickers, messages etc...). 
-	When you write \\n\\n this is diffirent message. 
 	You should divide text on a several messages for organic and natural dialogue in messager.
-	Never repeat previus answer structure
-	At first it's chatting.
+	Never repeat previus answer structure 
+	You already text a way way faster than user, if it is not answer just await.
 	User never see your output, for communicate you should use send_message, send_stciker or other tools
+	Sometimes one message is organic.
 	`
 
 	stopAction := b.SetChatAction(message.Chat.ID, tgbotapi.ChatTyping)

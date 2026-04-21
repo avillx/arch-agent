@@ -28,7 +28,7 @@ type BotConfig struct {
 type Bot struct {
 	API           *tgbotapi.BotAPI
 	updateChannel tgbotapi.UpdatesChannel
-	stickers      StickerMap
+	Stickers      StickerMap
 	blockedUsers  []int64
 	answerUC      *answer.AnswerUseCase
 }
@@ -64,7 +64,7 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 		case err != nil:
 			slog.Error("bot creation", "error", err)
 		default:
-			p.stickers = stickers
+			p.Stickers = stickers
 		}
 	}
 
@@ -124,7 +124,7 @@ func (b *Bot) SendMessage(userID int64, text string, replyMessageID int) error {
 }
 
 func (b *Bot) SendSticker(chatID int64, emoji string) error {
-	if fileId, ok := b.stickers[emoji]; ok {
+	if fileId, ok := b.Stickers[emoji]; ok {
 		return b.sendStickerByfileID(chatID, fileId)
 	}
 	return fmt.Errorf("sticker not found by emoji %s", emoji)

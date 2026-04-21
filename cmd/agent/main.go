@@ -3,8 +3,10 @@ package main
 import (
 	"arch-agent/internal/di"
 	"arch-agent/internal/infra/config"
+	"arch-agent/internal/infra/llm"
 	"arch-agent/internal/infra/logging"
 	"arch-agent/internal/infra/telegram"
+	"arch-agent/internal/infra/tools"
 	"context"
 	"flag"
 	"fmt"
@@ -53,7 +55,10 @@ func main() {
 	}
 
 	// root composing
-	uc, err := di.NewAnswerUseCase(cfg, *dataPath, bot.Tools())
+	uc, err := di.NewAnswerUseCase(cfg, *dataPath, []llm.Tool{
+		tools.SendMessage(bot),
+		tools.SendSticker(bot),
+	})
 	if err != nil {
 		slog.Error("bad di", "error", err)
 		os.Exit(1)

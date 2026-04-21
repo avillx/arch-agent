@@ -1,4 +1,10 @@
-package knowledgeadapter
+package tools
+
+import (
+	"arch-agent/internal/app/knowledge"
+	"arch-agent/internal/app/types"
+	"arch-agent/internal/infra/llm"
+)
 
 // // TODO rename filestorage to storage
 
@@ -6,6 +12,28 @@ package knowledgeadapter
 // 	"arch-agent/internal/app/types"
 // 	"arch-agent/internal/infra/llm"
 // )
+
+func ReadKnowledge(s *knowledge.Service) llm.Tool {
+	return llm.Tool{
+		ToolDefinition: types.ToolDefinition{
+			Name:        "read",
+			Description: "Read the full content of a knowledge file by its filename.",
+			Properties: []types.ToolProperty{
+				{
+					Name:        "filename",
+					Required:    true,
+					Type:        types.TypeString,
+					Description: "Name of the knowledge file to read (e.g. some_topic.md)",
+				},
+			},
+		},
+		CallRsolver: llm.WrapArgumentedCallResolver(func(args struct {
+			FileName string `json:"filename"`
+		}) (string, error) {
+			return s.Read(args.FileName)
+		}),
+	}
+}
 
 // // TODO: Tool wrappers must be in dream service because is a app logic
 // func KnowledgeExplorerTools(e *KnowledgeExplorer) []llm.Tool {
@@ -16,28 +44,6 @@ package knowledgeadapter
 // 		AppendKnowledgeTool(e),
 // 		DeleteKnowledgeTool(e),
 // 		EditKnowledgeIndexTool(e),
-// 	}
-// }
-
-// func ReadKnowledgeTool(e *KnowledgeExplorer) llm.Tool {
-// 	return llm.Tool{
-// 		ToolDefinition: types.ToolDefinition{
-// 			Name:        "read",
-// 			Description: "Read the full content of a knowledge file by its filename.",
-// 			Properties: []types.ToolProperty{
-// 				{
-// 					Name:        "filename",
-// 					Required:    true,
-// 					Type:        types.TypeString,
-// 					Description: "Name of the knowledge file to read (e.g. some_topic.md)",
-// 				},
-// 			},
-// 		},
-// 		CallRsolver: llm.WrapArgumentedCallResolver(func(args struct {
-// 			FileName string `json:"filename"`
-// 		}) (string, error) {
-// 			return e.Read(args.FileName)
-// 		}),
 // 	}
 // }
 

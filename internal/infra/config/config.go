@@ -66,6 +66,7 @@ func (c *LLM) InjectKeys() error {
 }
 
 type Agent struct {
+	Name        string `toml:"name"`
 	Role        string `toml:"role"`
 	Personality string `toml:"personality"`
 	Preferences string `toml:"preferences"`
@@ -103,7 +104,12 @@ type LLMS struct {
 	Dreaming      *LLM `toml:"dreaming"`
 }
 
+type MCP struct {
+	Servers []string `toml:"servers"`
+}
+
 type Config struct {
+	MCP      MCP       `toml:"mcp"`
 	LLMS     LLMS      `toml:"llm"`
 	Agent    *Agent    `toml:"agent"`
 	Telegram *Telegram `toml:"telegram"`

@@ -159,7 +159,7 @@ func (s *Service) processToolCalls(ctx context.Context, calls []*types.ToolCall)
 
 func (s *Service) processToolCall(ctx context.Context, call *types.ToolCall) (types.Message, error) {
 	if s.toolCallReciver == nil {
-		slog.Error("model call tool, but have not tool call Recivier", "tool", call.ToolName(), "args", call.Arguments())
+		slog.Error("model call tool, but have not tool call Recivier", "tool", call.ToolName, "args", call.Arguments)
 		return nil, nil
 	}
 
@@ -170,7 +170,7 @@ func (s *Service) processToolCall(ctx context.Context, call *types.ToolCall) (ty
 	if err != nil {
 		result += err.Error()
 	}
-	return types.NewToolResultMessage(call.ID(), result), nil
+	return types.NewToolResultMessage(call.ID, result), nil
 }
 
 var ErrAgentToolCallMistake = errors.New("agent bad toolcall")

@@ -47,9 +47,9 @@ func ToolcallsToDTO(calls []*types.ToolCall) []ToolCallDTO {
 	dto := make([]ToolCallDTO, 0, len(calls))
 	for _, tc := range calls {
 		dto = append(dto, ToolCallDTO{
-			ID:   tc.ID(),
-			Tool: tc.ToolName(),
-			Args: json.RawMessage(tc.Arguments()),
+			ID:   tc.ID,
+			Tool: tc.ToolName,
+			Args: json.RawMessage(tc.Arguments),
 		})
 	}
 	return dto

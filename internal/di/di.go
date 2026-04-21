@@ -10,12 +10,15 @@ import (
 	"arch-agent/internal/app/usecases/answer"
 	"arch-agent/internal/infra/config"
 	"arch-agent/internal/infra/llm"
+	mcpadapter "arch-agent/internal/infra/mcp"
 	openaiadapter "arch-agent/internal/infra/openai"
 	activityadapter "arch-agent/internal/infra/storage/activity"
 	knowledgeadapter "arch-agent/internal/infra/storage/knowledge"
 	sessionadapter "arch-agent/internal/infra/storage/session"
 	"arch-agent/internal/infra/storage/transcribtions"
 	"arch-agent/internal/infra/tokenizer"
+	"arch-agent/internal/infra/tools"
+	"log/slog"
 	"path/filepath"
 
 	"github.com/openai/openai-go/v3"
@@ -30,18 +33,21 @@ func CreateSummarizationService(cfg *config.LLM) *summarization.Service {
 }
 
 func CreateReflectionService(cfg *config.LLM, personality string) *reflection.Service {
+	emoService := reflection.NewEmotionalService()
+	serviceTools := tools.BoostEmotion(emoService)
 	return reflection.NewService(
 		personality,
 		llm.NewReflectionPrompt(),
-		CreateReasoningService(cfg, nil),
+		emoService,
+		CreateReasoningService(cfg, llm.NewToolCallRecivier([]llm.Tool{serviceTools})),
 	)
 }
 
-func CreateReasoningService(cfg *config.LLM, tools []llm.Tool) *reasoning.Service {
+func CreateReasoningService(cfg *config.LLM, recivier reasoning.ToolCallRecivier) *reasoning.Service {
 	return reasoning.NewService(
-		20,
+		10,
 		CreateReasonerFromConfig(cfg),
-		llm.NewToolCallRecivier(tools),
+		recivier,
 	)
 }
 
@@ -117,7 +123,7 @@ func (s *stubAgentRepository) Personality() string { return s.Agent.Personality 
 func (s *stubAgentRepository) KeyPhrases() string  { return s.Agent.Keyphrases }
 func (s *stubAgentRepository) BannedSlang() string { return s.Agent.BannedSlang }
 
-func NewAnswerUseCase(cfg config.Config, dataPath string, tools []llm.Tool) (*answer.AnswerUseCase, error) {
+func NewAnswerUseCase(cfg config.Config, dataPath string, toolBundle []llm.Tool) (*answer.AnswerUseCase, error) {
 	absolutePath, _ := filepath.Abs(dataPath)
 
 	knowledgeService, err := CreateKnowledgeService(absolutePath)
@@ -144,8 +150,25 @@ func NewAnswerUseCase(cfg config.Config, dataPath string, tools []llm.Tool) (*an
 		knowledgeService,
 	)
 
+	mcpRecivier := mcpadapter.NewMCPRecivier(cfg.Agent.Name)
+
+	// connect internal mcp server
+	answerTools := append(toolBundle, tools.ReadKnowledge(knowledgeService))
+	mcpserver := mcpadapter.NewInternalServer("internal")
+	mcpserver.AddTools(answerTools)
+	if err := mcpRecivier.AddIntenalServer(mcpserver); err != nil {
+		return nil, err
+	}
+
+	// connect external mcp servers
+	for _, s := range cfg.MCP.Servers {
+		if err := mcpRecivier.AddHTTPServer(s); err != nil {
+			slog.Error("mcp server connection", "error", err)
+		}
+	}
+
 	return answer.NewAnswerUseCase(
-		CreateReasoningService(cfg.LLMS.Reasoning, tools), // append knowledgeService.ReadTool()
+		CreateReasoningService(cfg.LLMS.Reasoning, mcpRecivier),
 		sessionService,
 		contextAssembler,
 	), nil

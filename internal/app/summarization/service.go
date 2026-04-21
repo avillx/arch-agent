@@ -84,5 +84,5 @@ func toolCallsRecord(calls []*types.ToolCall) string {
 }
 
 func toolcallToRecord(tc *types.ToolCall) string {
-	return fmt.Sprintf("tool:%s, args:%s", tc.ToolName(), tc.Arguments())
+	return fmt.Sprintf("tool:%s, args:%s", tc.ToolName, tc.Arguments)
 }

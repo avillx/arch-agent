@@ -54,10 +54,10 @@ func toolCallsToOpenAi(toolCalls []*types.ToolCall) []openai.ChatCompletionMessa
 func toolCallToOpenAi(toolCall *types.ToolCall) openai.ChatCompletionMessageToolCallUnionParam {
 	return openai.ChatCompletionMessageToolCallUnionParam{
 		OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
-			ID: toolCall.ID(),
+			ID: toolCall.ID,
 			Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
-				Name:      toolCall.ToolName(),
-				Arguments: string(toolCall.Arguments()),
+				Name:      toolCall.ToolName,
+				Arguments: string(toolCall.Arguments),
 			},
 		},
 	}
