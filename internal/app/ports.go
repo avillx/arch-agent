@@ -13,8 +13,8 @@ type ActivityRepo interface {
 }
 
 type SessionsRepo interface {
-	List(agent.ID) []session.Session
-	Session(SessionID session.ID) session.Session
-	Save(SessionVO session.Session)
-	Delete(SessionID session.ID)
+	List(agent.ID) ([]*session.Session, error)
+	Session(SessionID session.ID) (*session.Session, error)
+	Save(Session *session.Session) error
+	Delete(SessionID session.ID) error
 }
