@@ -5,3 +5,4 @@ config.toml
 data/
 bin/
 *.exe
+.secrets

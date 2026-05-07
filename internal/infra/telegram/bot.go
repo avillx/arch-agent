@@ -1,7 +1,7 @@
 package telegram
 
 import (
-	"arch-agent/internal/app/usecases/answer"
+	"arch-agent/internal/app/agent"
 	"context"
 	"errors"
 	"fmt"
@@ -30,7 +30,7 @@ type Bot struct {
 	updateChannel tgbotapi.UpdatesChannel
 	Stickers      StickerMap
 	blockedUsers  []int64
-	answerUC      *answer.AnswerUseCase
+	agentRecivier *agent.ArchAgent
 }
 
 func NewBot(cfg BotConfig) (*Bot, error) {
@@ -86,10 +86,8 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 
 }
 
-func (b *Bot) WireAnswerUC(uc *answer.AnswerUseCase) {
-	// TODO:
-	// It should wire bot tools into uc reasoner tool call recivier here
-	b.answerUC = uc
+func (b *Bot) WireAgent(a *agent.ArchAgent) {
+	b.agentRecivier = a
 }
 
 func (b *Bot) SendMessage(userID int64, text string, replyMessageID int) error {

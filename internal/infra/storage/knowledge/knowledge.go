@@ -1,29 +1,34 @@
-package knowledgeadapter
+package knowledgefiles
 
 import (
 	"arch-agent/internal/app/knowledge"
 	"arch-agent/internal/infra/storage/filesystem"
 	"encoding/json"
 	"os"
+	"sync"
 )
 
 const IndexFile = "knowledge.json"
 
-type KnowledgeFiles struct {
+type Storage struct {
 	filesystem filesystem.FileSystem
+	mu         sync.RWMutex
 }
 
-func New(dir string) (*KnowledgeFiles, error) {
+func New(dir string) (*Storage, error) {
 	fs, err := filesystem.New(dir)
 	if err != nil {
 		return nil, err
 	}
-	return &KnowledgeFiles{
+	return &Storage{
 		filesystem: fs,
 	}, nil
 }
 
-func (f *KnowledgeFiles) Read(name string) (string, error) {
+func (f *Storage) Read(name string) (string, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
 	data, err := f.filesystem.ReadFile(name)
 	if err != nil {
 		return "", err
@@ -31,19 +36,31 @@ func (f *KnowledgeFiles) Read(name string) (string, error) {
 	return string(data), nil
 }
 
-func (f *KnowledgeFiles) AddNew(name, content string) error {
+func (f *Storage) AddNew(name, content string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	return f.filesystem.WriteToFile(name, []byte(content))
 }
 
-func (f *KnowledgeFiles) Delete(name string) error {
+func (f *Storage) Delete(name string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	return f.filesystem.DeleteFile(name)
 }
 
-func (f *KnowledgeFiles) Override(name, content string) error {
+func (f *Storage) Override(name, content string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	return f.filesystem.WriteToFile(name, []byte(content))
 }
 
-func (f *KnowledgeFiles) LoadIndex() (*knowledge.KnowledgeIndex, error) {
+func (f *Storage) LoadIndex() (*knowledge.KnowledgeIndex, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
 	data, err := f.filesystem.ReadFile(IndexFile)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -60,8 +77,11 @@ func (f *KnowledgeFiles) LoadIndex() (*knowledge.KnowledgeIndex, error) {
 	return &index, nil
 }
 
-func (f *KnowledgeFiles) SaveIndex(idx *knowledge.KnowledgeIndex) error {
-	data, err := json.Marshal(idx)
+func (f *Storage) SaveIndex(idx *knowledge.KnowledgeIndex) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	data, err := json.MarshalIndent(idx, "", "	")
 	if err != nil {
 		return err
 	}

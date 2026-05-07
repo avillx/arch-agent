@@ -1,9 +1,10 @@
-package mcpadapter
+package mcprecivier
 
 import (
 	"arch-agent/internal/app/types"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -162,4 +163,30 @@ func CreateResult(value string, err error) *mcp.CallToolResult {
 		result.SetError(err)
 	}
 	return result
+}
+
+func createToolMap(defs []types.ToolDefinition) map[string]types.ToolDefinition {
+	toolMap := make(map[string]types.ToolDefinition, len(defs))
+	for _, def := range defs {
+		toolMap[def.Name] = def
+	}
+	return toolMap
+}
+
+func extractAgentPrompt(session *mcp.ClientSession, promptName string) (string, error) {
+	promptsResult, err := session.GetPrompt(context.Background(), &mcp.GetPromptParams{
+		Name: promptName,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if len(promptsResult.Messages) > 0 {
+		if textContent, ok := promptsResult.Messages[0].Content.(*mcp.TextContent); ok {
+			return textContent.Text, nil
+		}
+		return "", fmt.Errorf("mcp server %s return bad prompt %s", session.ID(), promptName)
+	}
+
+	return "", errors.Join(ErrNoMCPPrompt, fmt.Errorf("server - %s \n prompt name - %s", session.ID(), promptName))
 }

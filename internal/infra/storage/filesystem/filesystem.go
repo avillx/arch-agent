@@ -1,12 +1,15 @@
 package filesystem
 
 import (
+	"arch-agent/internal/app/types"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
+// TODO: make a thread safe gauranty on a filesystem bt map[filename]mutex for all files in dir
 type FileSystem struct {
 	dir string
 }
@@ -32,6 +35,7 @@ func (fs FileSystem) ReadDir() ([]string, error) {
 
 func (fs FileSystem) ReadFile(name string) ([]byte, error) {
 	return os.ReadFile(fs.pathTo(name))
+
 }
 
 func (fs FileSystem) WriteToFile(name string, data []byte) error {
@@ -45,6 +49,9 @@ func (fs FileSystem) WriteToFile(name string, data []byte) error {
 func (fs FileSystem) AppendToFile(name string, data []byte) error {
 	f, err := os.OpenFile(fs.pathTo(name), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return errors.Join(types.ErrMistake, err)
+		}
 		return fmt.Errorf("can't open file %s: %w", name, err)
 	}
 	defer f.Close()
@@ -55,17 +62,26 @@ func (fs FileSystem) AppendToFile(name string, data []byte) error {
 func (fs FileSystem) ReplaceInFile(name, old, new string) error {
 	data, err := os.ReadFile(fs.pathTo(name))
 	if err != nil {
+		if os.IsNotExist(err) {
+			return errors.Join(types.ErrMistake, err)
+		}
 		return err
 	}
 	return fs.WriteToFile(name, []byte(strings.Replace(string(data), old, new, 1)))
 }
 
 func (fs FileSystem) DeleteFile(name string) error {
-	return os.Remove(fs.pathTo(name))
+	if err := os.Remove(fs.pathTo(name)); os.IsNotExist(err) {
+		return errors.Join(types.ErrMistake, err)
+	}
+	return nil
 }
 
 func (fs FileSystem) RenameFile(name, newName string) error {
-	return os.Rename(fs.pathTo(name), fs.pathTo(newName))
+	if err := os.Rename(fs.pathTo(name), fs.pathTo(newName)); os.IsNotExist(err) {
+		return errors.Join(types.ErrMistake, err)
+	}
+	return nil
 }
 
 // helpers

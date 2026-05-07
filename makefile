@@ -22,4 +22,4 @@ dream:
 
 dropsession:
 	go build -o bin/dropsession ./cmd/dropsession
-	go run ./cmd/dropsession -config=$(CONFIG) -datadir=$(DATADIR)
+	go run ./cmd/dropsession -datadir=$(DATADIR)

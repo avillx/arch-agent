@@ -1,4 +1,4 @@
-package sessionadapter
+package sessionfiles
 
 import (
 	"arch-agent/internal/app/session"

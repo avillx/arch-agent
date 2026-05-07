@@ -1,6 +1,7 @@
 package telegram
 
 import (
+	"arch-agent/internal/app/agent"
 	"context"
 	"errors"
 	"fmt"
@@ -12,38 +13,23 @@ import (
 // handlers
 func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 
-	const OriginContext = `At first it's chatting telegram.
-	You should act as human, answer organic with provided capabilities (stickers, messages etc...). 
-	You should divide text on a several messages for organic and natural dialogue in messager.
-	Never repeat previus answer structure 
-	You already text a way way faster than user, if it is not answer just await.
-	User never see your output, for communicate you should use send_message, send_stciker or other tools
-	Sometimes one message is organic.
-	`
-
 	stopAction := b.SetChatAction(message.Chat.ID, tgbotapi.ChatTyping)
 	defer stopAction()
 
 	contentRecivier := func(ctx context.Context, content string) error {
-
-		fmt.Print("### Output: ", content)
 		return nil
-		// var errc error
-		// for _, line := range strings.Split(content, "\n\n") {
-		// 	err := b.SendMessage(message.From.ID, line, 0)
-		// 	errc = errors.Join(errc, err)
-		// }
-		// return errc
 	}
 
 	content := messageToText(message)
 
 	return Try(3, func() error {
-		return b.answerUC.Execute(
+		return b.agentRecivier.Request(
 			context.Background(),
-			content,
-			contentRecivier,
-			OriginContext)
+			agent.AgentRequest{
+				Request:         content,
+				ContentRecivier: contentRecivier,
+			},
+		)
 	})
 }
 
