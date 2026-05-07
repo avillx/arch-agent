@@ -1,9 +1,17 @@
 package service
 
 import (
+	"arch-agent/internal/domain/agent"
 	"arch-agent/internal/domain/session"
 	"arch-agent/internal/domain/types"
 )
+
+type SessionsRepo interface {
+	List(agent.ID) ([]*session.ID, error)
+	Session(SessionID session.ID) (*session.Session, error)
+	Save(Session *session.Session) error
+	Delete(SessionID session.ID) error
+}
 
 type UUIDGenerator interface {
 	New() string

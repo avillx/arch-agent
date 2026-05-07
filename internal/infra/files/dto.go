@@ -1,7 +1,7 @@
-package storage
+package files
 
 import (
-	"arch-agent/internal/app/types"
+	"arch-agent/internal/domain/types"
 	"encoding/json"
 	"fmt"
 )
@@ -64,7 +64,6 @@ func DtoToMessage(dto MessageDTO) (types.Message, error) {
 		return types.NewSystemMessage(dto.Content), nil
 
 	case "agent":
-
 		var toolCalls []*types.ToolCall
 		for _, tc := range dto.ToolCalls {
 			newToolCall := types.NewToolCall(tc.ID, tc.Tool, types.ToolArguments(tc.Args))
@@ -73,7 +72,6 @@ func DtoToMessage(dto MessageDTO) (types.Message, error) {
 		return types.NewAgentMessage(dto.Content, toolCalls), nil
 
 	case "tool":
-
 		return types.NewToolResultMessage(dto.CallID, dto.Content), nil
 
 	default:

@@ -1,7 +1,6 @@
-package secretfiles
+package files
 
 import (
-	"arch-agent/internal/infra/storage/filesystem"
 	"encoding/json"
 	"maps"
 	"os"
@@ -9,64 +8,52 @@ import (
 	"sync"
 )
 
-const secretsFile = ".secrets"
-
-type Storage struct {
+type SecretsFiles struct {
 	mu      sync.RWMutex
 	secrets map[string]string
-	fs      filesystem.FileSystem
+	fs      *FileSystem
 }
 
-func New(dir string) (*Storage, error) {
-	fs, err := filesystem.New(dir)
-	if err != nil {
-		return nil, err
-	}
-
-	sf := &Storage{
+func NewSecretsFiles(fs *FileSystem) (*SecretsFiles, error) {
+	sf := &SecretsFiles{
 		fs: fs,
 	}
-
 	if err := sf.load(); err != nil {
 		return nil, err
 	}
-
 	return sf, nil
 }
 
-func (sf *Storage) load() error {
-	data, err := sf.fs.ReadFile(secretsFile)
+func (sf *SecretsFiles) load() error {
+	data, err := sf.fs.ReadFile(".secrets")
 	if err != nil && os.IsNotExist(err) {
-		return sf.fs.WriteToFile(secretsFile, []byte{})
+		return sf.fs.WriteToFile(".secrets", []byte{})
 	}
 	if err != nil {
 		return err
 	}
-
 	if err := json.Unmarshal(data, &sf.secrets); err != nil {
 		return err
 	}
-
 	return nil
 }
 
-func (sf *Storage) GetNames() []string {
+func (sf *SecretsFiles) GetNames() []string {
 	sf.mu.RLock()
 	defer sf.mu.RUnlock()
 
 	return slices.Collect(maps.Keys(sf.secrets))
 }
 
-func (sf *Storage) Remove(name string) error {
+func (sf *SecretsFiles) Remove(name string) error {
 	sf.mu.Lock()
 	defer sf.mu.Unlock()
 
 	delete(sf.secrets, name)
-
-	return sf.saveSecrets()
+	return sf.save()
 }
 
-func (sf *Storage) Get(name string) (string, bool) {
+func (sf *SecretsFiles) Get(name string) (string, bool) {
 	sf.mu.RLock()
 	defer sf.mu.RUnlock()
 
@@ -74,18 +61,18 @@ func (sf *Storage) Get(name string) (string, bool) {
 	return val, ok
 }
 
-func (sf *Storage) Set(name, value string) error {
+func (sf *SecretsFiles) Set(name, value string) error {
 	sf.mu.Lock()
 	defer sf.mu.Unlock()
 
 	sf.secrets[name] = value
-	return sf.saveSecrets()
+	return sf.save()
 }
 
-func (sf *Storage) saveSecrets() error {
+func (sf *SecretsFiles) save() error {
 	data, err := json.Marshal(sf.secrets)
 	if err != nil {
 		return err
 	}
-	return sf.fs.WriteToFile(secretsFile, data)
+	return sf.fs.WriteToFile(".secrets", data)
 }

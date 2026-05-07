@@ -1,8 +1,7 @@
 package externaltools
 
 import (
-	"arch-agent/internal/app/tools"
-	"arch-agent/internal/app/types"
+	"arch-agent/internal/domain/types"
 	"arch-agent/internal/infra/telegram"
 	"maps"
 	"slices"

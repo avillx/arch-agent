@@ -6,11 +6,11 @@ import (
 )
 
 type AgentConfig struct {
-	ID           agent.ID
-	Description  string
-	SystemPrompt string
-	reasoner     LLMID
-	toolServers  []string
+	ID           agent.ID `json:"id"`
+	Description  string   `json:"description,omitempty"`
+	SystemPrompt string   `json:"system_prompt,omitempty"`
+	Reasoner     LLMID    `json:"reasoner"`
+	ToolServers  []string `json:"tool_servers,omitempty"`
 }
 
 type AgentConfigRepo interface {
@@ -66,7 +66,7 @@ func (s *AgentService) DeleteAgent(id agent.ID) error {
 func (s *AgentService) SaveAgent(cfg AgentConfig) error {
 
 	// validate llm
-	if _, err := s.llmRepo.Get(cfg.reasoner); err != nil {
+	if _, err := s.llmRepo.Get(cfg.Reasoner); err != nil {
 		return err
 	}
 
@@ -76,7 +76,7 @@ func (s *AgentService) SaveAgent(cfg AgentConfig) error {
 		toolServersMap[server.Name()] = struct{}{}
 	}
 
-	for _, serverID := range cfg.toolServers {
+	for _, serverID := range cfg.ToolServers {
 		if _, ok := toolServersMap[serverID]; !ok {
 			return fmt.Errorf("server %s is not exist", serverID)
 		}
@@ -92,12 +92,12 @@ func (s *AgentService) GetAgent(id agent.ID) (*agent.Agent, error) {
 		return nil, err
 	}
 
-	llm, err := s.llmRepo.Get(config.reasoner)
+	llm, err := s.llmRepo.Get(config.Reasoner)
 	if err != nil {
 		return nil, err
 	}
 
-	toolKit := s.toolService.ToolKit(config.ID, config.toolServers)
+	toolKit := s.toolService.ToolKit(config.ID, config.ToolServers)
 
 	return agent.NewAgent(
 		config.ID,
