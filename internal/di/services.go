@@ -1,90 +1,63 @@
 package di
 
 import (
-	"arch-agent/internal/app/activity"
-	"arch-agent/internal/app/knowledge"
-	"arch-agent/internal/app/reasoning"
-	"arch-agent/internal/app/session"
-	"arch-agent/internal/app/summarization"
-	"arch-agent/internal/app/tools"
+	service "arch-agent/internal/app"
+	"arch-agent/internal/app/usecases"
+	"arch-agent/internal/infra/files"
 	openaiadapter "arch-agent/internal/infra/openai"
-	activityfiles "arch-agent/internal/infra/storage/activity"
-	knowledgefiles "arch-agent/internal/infra/storage/knowledge"
 	"arch-agent/internal/infra/tokenizer"
+	"arch-agent/internal/infra/uuid"
 )
 
-// activity
-func BuildActivityService(
-	summarizationService *summarization.Service,
-	activityStorage *activityfiles.Storage,
-) *activity.Service {
-	return activity.NewService(
-		summarizationService,
-		activityStorage,
-	)
-}
-
-// kownledge
-func BuildKnowledgeService(storage *knowledgefiles.Storage) *knowledge.Service {
-	return knowledge.NewService(
-		storage,
+func BuildSessionService(fs *files.FileSystem) *service.SessionService {
+	return service.NewSessionService(
+		files.NewSessionFiles(fs),
+		uuid.NewUUIDGenerator(),
 		tokenizer.NewTokenizer(),
 	)
 }
 
-// reasoning
-func BuildReasoningService(
-	reasoningSettings openaiadapter.SettingsRepo,
-	secrets openaiadapter.SecretsStorage,
-	maxFollowUps int,
-) (*reasoning.Service, error) {
+func BuildLLMService(fs *files.FileSystem) (*service.LLMService, error) {
 
-	reasoner, err := openaiadapter.NewReasoner(reasoningSettings, secrets)
+	secretsRepo, err := files.NewSecretsFiles(fs)
 	if err != nil {
 		return nil, err
 	}
 
-	return reasoning.NewService(
-		maxFollowUps,
-		reasoner,
-	), nil
-}
-
-// session
-func BuildSessionService(
-	repo session.SessionRepository,
-	tr session.Transcriptor,
-	as *activity.Service,
-) *session.Service {
-	return session.NewSessionService(
-		repo,
-		tr,
-		tokenizer.NewTokenizer(),
-		as,
+	return service.NewLLMService(
+		files.NewLLMFiles(fs),
+		openaiadapter.NewOpenAIFactory(secretsRepo),
 	)
 }
 
-// summarization
-func BuildSummarizationService(
-	sumSettings openaiadapter.SettingsRepo,
-	secretsRepo openaiadapter.SecretsStorage,
-) (*summarization.Service, error) {
+func BuildAgentService(fs *files.FileSystem, toolServers ...service.ToolServer) (*service.AgentService, error) {
 
-	reasoningService, err := BuildReasoningService(sumSettings, secretsRepo, 5)
+	llmService, err := BuildLLMService(fs)
 	if err != nil {
 		return nil, err
 	}
 
-	return summarization.NewService(
-		reasoningService,
+	toolService := service.NewToolService()
+	for _, tc := range toolServers {
+		toolService.Connect(tc)
+	}
+
+	return service.NewAgentService(
+		files.NewAgentFiles(fs),
+		llmService,
+		toolService,
 	), nil
 }
 
-// tools
-func BuildToolService(servers []tools.Server) *tools.Service {
-	orchestra := tools.NewToolService()
-	for _, s := range servers {
-		orchestra.Connect(s)
+func BuildUseCase(fs *files.FileSystem, toolServers ...service.ToolServer) (*usecases.ChatLoop, error) {
+
+	agentService, err := BuildAgentService(fs, toolServers...)
+	if err != nil {
+		return nil, err
 	}
-	return orchestra
+
+	return usecases.NewChatLoop(
+		agentService,
+		BuildSessionService(fs),
+	), nil
 }

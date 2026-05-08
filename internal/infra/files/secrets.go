@@ -70,7 +70,7 @@ func (sf *SecretsFiles) Set(name, value string) error {
 }
 
 func (sf *SecretsFiles) save() error {
-	data, err := json.Marshal(sf.secrets)
+	data, err := json.MarshalIndent(sf.secrets, "", "	")
 	if err != nil {
 		return err
 	}

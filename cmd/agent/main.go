@@ -1,10 +1,9 @@
 package main
 
 import (
-	"arch-agent/internal/app/tools"
 	"arch-agent/internal/di"
 	"arch-agent/internal/infra/config"
-	"arch-agent/internal/infra/externaltools"
+	"arch-agent/internal/infra/files"
 	"arch-agent/internal/infra/logging"
 	"arch-agent/internal/infra/telegram"
 	"context"
@@ -54,16 +53,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	tgToolServer := externaltools.TelegramTS(bot)
-
-	// root composing
-	aa, err := di.BuildArchAgent(cfg, *dataPath, []tools.Server{tgToolServer})
+	fs, err := files.NewFS(*dataPath)
 	if err != nil {
-		slog.Error("bad di", "error", err)
+		slog.Error("telegram", "init error", err)
 		os.Exit(1)
 	}
 
-	bot.WireAgent(aa)
+	// root composing
+	chatLoopUc, err := di.BuildUseCase(
+		fs,
+		telegram.TelegramTS(bot),
+	)
+	if err != nil {
+		slog.Error("telegram", "init error", err)
+		os.Exit(1)
+	}
+
+	bot.WireUC(chatLoopUc)
 
 	// TODO:
 	// Remove this shit to diff container

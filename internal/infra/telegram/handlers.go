@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -13,6 +14,11 @@ import (
 func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 	stopAction := b.SetChatAction(message.Chat.ID, tgbotapi.ChatTyping)
 	defer stopAction()
+
+	if b.chatUC == nil {
+		slog.Error("not wired uc")
+		return nil
+	}
 
 	return b.chatUC.Chat(
 		context.Background(),

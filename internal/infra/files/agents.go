@@ -4,6 +4,7 @@ import (
 	service "arch-agent/internal/app"
 	"arch-agent/internal/domain/agent"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -55,17 +56,15 @@ func (s *AgentFiles) Save(cfg service.AgentConfig) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	agentFS := s.fs.Sub(string(cfg.ID))
-
-	data, err := json.Marshal(cfg)
+	data, err := json.MarshalIndent(cfg, "", "	")
 	if err != nil {
 		return err
 	}
-	if err := agentFS.WriteToFile("agent.json", data); err != nil {
+	if err := s.fs.WriteToFile(fmt.Sprintf("/%s/agent.json", cfg.ID), data); err != nil {
 		return err
 	}
 
-	return agentFS.WriteToFile("agent.md", []byte(cfg.SystemPrompt))
+	return s.fs.WriteToFile(fmt.Sprintf("/%s/agent.md", cfg.ID), []byte(cfg.SystemPrompt))
 }
 
 func (s *AgentFiles) Delete(id agent.ID) error {
@@ -76,9 +75,7 @@ func (s *AgentFiles) Delete(id agent.ID) error {
 }
 
 func (s *AgentFiles) readConfig(id agent.ID) (service.AgentConfig, error) {
-	agentFS := s.fs.Sub(string(id))
-
-	data, err := agentFS.ReadFile("agent.json")
+	data, err := s.fs.ReadFile(fmt.Sprintf("/%s/agent.json", id))
 	if err != nil {
 		return service.AgentConfig{}, err
 	}
@@ -88,22 +85,10 @@ func (s *AgentFiles) readConfig(id agent.ID) (service.AgentConfig, error) {
 		return service.AgentConfig{}, err
 	}
 
-	prompt, err := agentFS.ReadFile("agent.md")
+	prompt, err := s.fs.ReadFile(fmt.Sprintf("/%s/agent.md", id))
 	if err == nil {
 		cfg.SystemPrompt = string(prompt)
 	}
 
 	return cfg, nil
-}
-
-func (s *AgentFiles) Knowledges(id agent.ID) *KnowledgeFiles {
-	return NewKnowledgeFiles(s.fs.Sub(filepath.Join(string(id), "knowledges")))
-}
-
-func (s *AgentFiles) Activity(id agent.ID) *ActivityFiles {
-	return NewActivityFiles(s.fs.Sub(filepath.Join(string(id), "activity")))
-}
-
-func (s *AgentFiles) Sessions(id agent.ID) *SessionFiles {
-	return NewSessionFiles(s.fs.Sub(filepath.Join(string(id), "sessions")))
 }

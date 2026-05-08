@@ -244,11 +244,13 @@ func getInt(settings map[string]any, key string) (int, bool, error) {
 	if !ok {
 		return 0, false, nil
 	}
-	i, ok := v.(int)
-	if !ok {
-		return 0, true, fmt.Errorf("%s must be int, got %T", key, v)
+	switch n := v.(type) {
+	case int:
+		return n, true, nil
+	case float64:
+		return int(n), true, nil
 	}
-	return i, true, nil
+	return 0, true, fmt.Errorf("%s must be int, got %T", key, v)
 }
 
 func getInt64(settings map[string]any, key string) (int64, bool, error) {
@@ -256,11 +258,13 @@ func getInt64(settings map[string]any, key string) (int64, bool, error) {
 	if !ok {
 		return 0, false, nil
 	}
-	i, ok := v.(int64)
-	if !ok {
-		return 0, true, fmt.Errorf("%s must be int64, got %T", key, v)
+	switch n := v.(type) {
+	case int64:
+		return n, true, nil
+	case float64:
+		return int64(n), true, nil
 	}
-	return i, true, nil
+	return 0, true, fmt.Errorf("%s must be int64, got %T", key, v)
 }
 
 func getFloat32(settings map[string]any, key string) (float32, bool, error) {
@@ -268,11 +272,13 @@ func getFloat32(settings map[string]any, key string) (float32, bool, error) {
 	if !ok {
 		return 0, false, nil
 	}
-	f, ok := v.(float32)
-	if !ok {
-		return 0, true, fmt.Errorf("%s must be float32, got %T", key, v)
+	switch n := v.(type) {
+	case float32:
+		return n, true, nil
+	case float64:
+		return float32(n), true, nil
 	}
-	return f, true, nil
+	return 0, true, fmt.Errorf("%s must be float32, got %T", key, v)
 }
 
 func getExtras(settings map[string]any, key string) (map[string]any, bool, error) {

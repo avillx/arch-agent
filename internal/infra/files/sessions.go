@@ -17,16 +17,16 @@ func NewSessionFiles(fs *FileSystem) *SessionFiles {
 	return &SessionFiles{fs: fs}
 }
 
-func (r *SessionFiles) Session(agentID agent.ID, id session.ID) (*session.Session, error) {
+func (r *SessionFiles) Session(agentID agent.ID, sesstionID session.ID) (*session.Session, error) {
 
-	sessionFilePath := fmt.Sprintf("/agents/%s/sessions/%s.json", agentID, id)
+	sessionFilePath := fmt.Sprintf("/%s/sessions/%s.json", agentID, sesstionID)
 
 	data, err := r.fs.ReadFile(sessionFilePath)
 	if err != nil {
 		return nil, err
 	}
 
-	return unmarshalSession(data)
+	return unmarshalSession(sesstionID, data)
 }
 
 func (r *SessionFiles) Save(agentID agent.ID, s *session.Session) error {
@@ -35,18 +35,18 @@ func (r *SessionFiles) Save(agentID agent.ID, s *session.Session) error {
 		return err
 	}
 
-	sessionFilePath := fmt.Sprintf("/agents/%s/sessions/%s.json", agentID, string(s.ID))
+	sessionFilePath := fmt.Sprintf("/%s/sessions/%s.json", agentID, string(s.ID))
 	return r.fs.WriteToFile(sessionFilePath, data)
 }
 
 func (r *SessionFiles) Delete(agentID agent.ID, id session.ID) error {
-	sessionFilePath := fmt.Sprintf("/agents/%s/sessions/%s.json", agentID, string(id))
+	sessionFilePath := fmt.Sprintf("/%s/sessions/%s.json", agentID, string(id))
 	return r.fs.DeleteFile(sessionFilePath)
 }
 
 func (r *SessionFiles) List(agentID agent.ID) ([]session.ID, error) {
 
-	sessionDir := fmt.Sprintf("/agents/%s/sessions", agentID)
+	sessionDir := fmt.Sprintf("/%s/sessions", agentID)
 
 	filenames, err := r.fs.ReadDir(sessionDir)
 	if err != nil {
@@ -63,31 +63,29 @@ func (r *SessionFiles) List(agentID agent.ID) ([]session.ID, error) {
 }
 
 type SessionDTO struct {
-	ID       string       `json:"id"`
 	Tokens   int          `json:"tokens"`
 	Messages []MessageDTO `json:"messages"`
 }
 
-func unmarshalSession(data []byte) (*session.Session, error) {
+func unmarshalSession(id session.ID, data []byte) (*session.Session, error) {
 	var dto SessionDTO
 	if err := json.Unmarshal(data, &dto); err != nil {
 		return nil, err
 	}
-	return dtoToSession(dto)
+	return dtoToSession(id, dto)
 }
 
-func dtoToSession(dto SessionDTO) (*session.Session, error) {
+func dtoToSession(id session.ID, dto SessionDTO) (*session.Session, error) {
 	msgs, err := DtoToMessages(dto.Messages)
 	if err != nil {
 		return nil, err
 	}
-	return session.NewRestoredSession(dto.Tokens, msgs, nil), nil
+	return session.NewRestoredSession(id, dto.Tokens, msgs, nil), nil
 }
 
 func marshalSession(s *session.Session) ([]byte, error) {
-	return json.Marshal(SessionDTO{
-		ID:       string(s.ID),
+	return json.MarshalIndent(SessionDTO{
 		Tokens:   s.Tokens,
 		Messages: MessagesToDTO(s.Messages()),
-	})
+	}, "", "	")
 }

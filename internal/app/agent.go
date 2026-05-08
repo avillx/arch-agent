@@ -23,13 +23,13 @@ type AgentConfigRepo interface {
 // Agent service
 type AgentService struct {
 	agentRepo   AgentConfigRepo
-	llmService  LLMService
+	llmService  *LLMService
 	toolService *ToolService
 }
 
 func NewAgentService(
 	agentRepo AgentConfigRepo,
-	llmService LLMService,
+	llmService *LLMService,
 	toolService *ToolService,
 ) *AgentService {
 	return &AgentService{

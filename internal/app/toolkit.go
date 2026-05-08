@@ -11,6 +11,7 @@ import (
 
 type AgentToolKit struct {
 	agentID agent.ID
+	servers []ToolServer
 	routes  map[string]ToolServer
 }
 
@@ -26,12 +27,13 @@ func NewAgentToolKit(id agent.ID, servers ...ToolServer) *AgentToolKit {
 	return &AgentToolKit{
 		agentID: id,
 		routes:  routes,
+		servers: servers,
 	}
 }
 
 func (s *AgentToolKit) ToolGuides() string {
 	var instructions strings.Builder
-	for _, server := range s.routes {
+	for _, server := range s.servers {
 		instructions.WriteString(server.ToolGuide(s.agentID) + "\n\n")
 	}
 	return instructions.String()
@@ -39,7 +41,7 @@ func (s *AgentToolKit) ToolGuides() string {
 
 func (s *AgentToolKit) Tools() []types.ToolDefinition {
 	toolDefs := []types.ToolDefinition{}
-	for _, server := range s.routes {
+	for _, server := range s.servers {
 		toolDefs = append(toolDefs, server.Tools()...)
 	}
 	return toolDefs

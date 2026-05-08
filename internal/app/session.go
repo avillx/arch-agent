@@ -7,7 +7,7 @@ import (
 )
 
 type SessionsRepo interface {
-	List(agent.ID) ([]*session.ID, error)
+	List(agent.ID) ([]session.ID, error)
 	Session(agentID agent.ID, SessionID session.ID) (*session.Session, error)
 	Save(agentID agent.ID, Session *session.Session) error
 	Delete(agentID agent.ID, SessionID session.ID) error

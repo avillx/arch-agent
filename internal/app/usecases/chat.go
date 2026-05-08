@@ -6,6 +6,7 @@ import (
 	"arch-agent/internal/domain/session"
 	"arch-agent/internal/domain/types"
 	"context"
+	"errors"
 )
 
 type ChatLoop struct {
@@ -45,10 +46,16 @@ func (uc *ChatLoop) Chat(
 
 	a.OnContent(onContent)
 
+	var errc error
 	newMsgs, err := a.Chat(ctx, conversation)
 	if err != nil {
-		return err
+		errc = errors.Join(errc, err)
 	}
 
-	return uc.sessionService.AppendMessages(agentID, sess, append([]types.Message{userMsg}, newMsgs...))
+	err = uc.sessionService.AppendMessages(agentID, sess, append([]types.Message{userMsg}, newMsgs...))
+	if err != nil {
+		errc = errors.Join(errc, err)
+	}
+
+	return errc
 }

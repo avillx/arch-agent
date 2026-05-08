@@ -4,6 +4,7 @@ import (
 	service "arch-agent/internal/app"
 	"encoding/json"
 	"maps"
+	"os"
 	"sync"
 )
 
@@ -28,6 +29,12 @@ func (s *LLMFiles) Load() (map[service.LLMID]service.LLMSettings, error) {
 
 	data, err := s.fs.ReadFile(llmSettingsFile)
 	if err != nil {
+		if os.IsNotExist(err) {
+			if err := s.fs.touchFile("llms.json"); err != nil {
+				return nil, err
+			}
+			return map[service.LLMID]service.LLMSettings{}, nil
+		}
 		return nil, err
 	}
 
@@ -52,7 +59,7 @@ func (s *LLMFiles) Save(id service.LLMID, settingsUpdate service.LLMSettings) er
 
 	maps.Insert(settings[id], maps.All(settingsUpdate))
 
-	data, err := json.Marshal(settings)
+	data, err := json.MarshalIndent(settings, "", "	")
 	if err != nil {
 		return err
 	}
@@ -71,7 +78,7 @@ func (s *LLMFiles) Delete(id service.LLMID) error {
 
 	delete(settings, id)
 
-	data, err := json.Marshal(settings)
+	data, err := json.MarshalIndent(settings, "", "	")
 	if err != nil {
 		return err
 	}

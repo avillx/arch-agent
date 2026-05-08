@@ -62,10 +62,10 @@ func (a *Agent) Chat(ctx context.Context, conversation []types.Message) (newMsgs
 			return newMessages, err
 		}
 
+		newMessages = append(newMessages, types.NewAgentMessage(result.Content, result.ToolCalls))
+
 		// process content
 		if result.Content != "" {
-			newMessages = append(newMessages, types.NewAgentMessage(result.Content, result.ToolCalls))
-
 			// TODO
 			// Remove on content channel and create a ReasonResult channel
 			if a.contentChannel != nil {

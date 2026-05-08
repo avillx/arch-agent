@@ -28,8 +28,9 @@ func NewSession(id string) *Session {
 	}
 }
 
-func NewRestoredSession(tokens int, messages []types.Message, subsessions map[string]*Session) *Session {
+func NewRestoredSession(id ID, tokens int, messages []types.Message, subsessions map[string]*Session) *Session {
 	return &Session{
+		ID:          id,
 		Tokens:      tokens,
 		messages:    messages,
 		subsessions: subsessions,

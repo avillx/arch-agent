@@ -44,11 +44,7 @@ func (fs *FileSystem) WriteToFile(path string, data []byte) error {
 	e := fs.locks.RLock(path)
 	defer fs.locks.RUnlock(path, e)
 
-	path = fs.pathTo(path)
-	if err := fs.touchFile(path); err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(fs.pathTo(path), data, 0644)
 }
 
 func (fs *FileSystem) AppendToFile(path string, data []byte) error {
@@ -71,13 +67,6 @@ func (fs *FileSystem) DeleteFile(path string) error {
 	return os.Remove(fs.pathTo(path))
 }
 
-func (fs *FileSystem) Sub(dir string) *FileSystem {
-	return &FileSystem{
-		locks: fs.locks,
-		dir:   filepath.Join(fs.dir, dir),
-	}
-}
-
 func (fs *FileSystem) Dir() string {
 	return fs.dir
 }
@@ -87,7 +76,7 @@ func (fs *FileSystem) pathTo(name string) string {
 }
 
 func (fs *FileSystem) touchFile(path string) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL, 0644)
+	f, err := os.OpenFile(fs.pathTo(path), os.O_CREATE|os.O_EXCL, 0644)
 	if os.IsExist(err) {
 		return nil
 	}
