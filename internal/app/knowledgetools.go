@@ -54,8 +54,8 @@ func NewKnowledgeTS(s *KnowldegeService) *InternalServer {
 	)
 }
 
-func ReadKnowledge(s *KnowldegeService) InternalTool {
-	return InternalTool{
+func ReadKnowledge(s *KnowldegeService) *InternalTool {
+	return &InternalTool{
 		ToolDefinition: types.ToolDefinition{
 			Name:        "read_knowledge",
 			Description: "Read the full content of a knowledge file by its filename.",
@@ -76,8 +76,8 @@ func ReadKnowledge(s *KnowldegeService) InternalTool {
 	}
 }
 
-func KnowledgesList(s *KnowldegeService) InternalTool {
-	return InternalTool{
+func KnowledgesList(s *KnowldegeService) *InternalTool {
+	return &InternalTool{
 		ToolDefinition: types.ToolDefinition{
 			Name:        "knowledges_list",
 			Description: "Get a list of all available knowledge files.",
@@ -94,8 +94,8 @@ func KnowledgesList(s *KnowldegeService) InternalTool {
 	}
 }
 
-func CreateKnowledge(s *KnowldegeService) InternalTool {
-	return InternalTool{
+func CreateKnowledge(s *KnowldegeService) *InternalTool {
+	return &InternalTool{
 		ToolDefinition: types.ToolDefinition{
 			Name:        "create_knowledge",
 			Description: "Create a new knowledge file with a name, description and content.",
@@ -119,8 +119,8 @@ func CreateKnowledge(s *KnowldegeService) InternalTool {
 	}
 }
 
-func EditKnowledgeContent(s *KnowldegeService) InternalTool {
-	return InternalTool{
+func EditKnowledgeContent(s *KnowldegeService) *InternalTool {
+	return &InternalTool{
 		ToolDefinition: types.ToolDefinition{
 			Name:        "edit_knowledge_content",
 			Description: "Replace the content of an existing knowledge file.",
@@ -142,8 +142,8 @@ func EditKnowledgeContent(s *KnowldegeService) InternalTool {
 	}
 }
 
-func EditKnowledgeDescription(s *KnowldegeService) InternalTool {
-	return InternalTool{
+func EditKnowledgeDescription(s *KnowldegeService) *InternalTool {
+	return &InternalTool{
 		ToolDefinition: types.ToolDefinition{
 			Name:        "edit_knowledge_description",
 			Description: "Update the description of an existing knowledge file.",
@@ -164,8 +164,8 @@ func EditKnowledgeDescription(s *KnowldegeService) InternalTool {
 	}
 }
 
-func EditKnowledgeName(s *KnowldegeService) InternalTool {
-	return InternalTool{
+func EditKnowledgeName(s *KnowldegeService) *InternalTool {
+	return &InternalTool{
 		ToolDefinition: types.ToolDefinition{
 			Name:        "edit_knowledge_name",
 			Description: "Rename an existing knowledge file.",
@@ -188,8 +188,8 @@ func EditKnowledgeName(s *KnowldegeService) InternalTool {
 	}
 }
 
-func DeleteKnowledge(s *KnowldegeService) InternalTool {
-	return InternalTool{
+func DeleteKnowledge(s *KnowldegeService) *InternalTool {
+	return &InternalTool{
 		ToolDefinition: types.ToolDefinition{
 			Name:        "delete_knowledge",
 			Description: "Delete a knowledge file by its filename.",

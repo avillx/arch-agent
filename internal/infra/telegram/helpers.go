@@ -3,6 +3,7 @@ package telegram
 import (
 	service "arch-agent/internal/app"
 	"fmt"
+	"strconv"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -61,7 +62,7 @@ func textChunkDivide(t string) []string {
 func messageToText(msg *tgbotapi.Message) string {
 	return service.ConcatStrings(
 		"<telegram_message>",
-		"chat_id:"+string(msg.From.ID),
+		"chat_id:"+strconv.FormatInt(msg.From.ID, 10),
 		"time:"+msg.Time().Format("15:04 02.01.06"),
 		"name:"+msg.From.FirstName,
 		"text:"+msg.Text,

@@ -1,9 +1,17 @@
 package files
 
 import (
+	service "arch-agent/internal/app"
 	"encoding/json"
+	"maps"
 	"sync"
 )
+
+// Load() ([]LLMSettings, error)
+// Save(LLMSettings) error
+// Delete(LLMID) error
+
+const llmSettingsFile = "llms.json"
 
 type LLMFiles struct {
 	fs *FileSystem
@@ -14,48 +22,59 @@ func NewLLMFiles(fs *FileSystem) *LLMFiles {
 	return &LLMFiles{fs: fs}
 }
 
-func (s *LLMFiles) Read(id string, v any) error {
+func (s *LLMFiles) Load() (map[service.LLMID]service.LLMSettings, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	data, err := s.fs.ReadFile(id + ".json")
+	data, err := s.fs.ReadFile(llmSettingsFile)
+	if err != nil {
+		return nil, err
+	}
+
+	var settings map[service.LLMID]service.LLMSettings
+
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return nil, err
+	}
+
+	return settings, nil
+}
+
+func (s *LLMFiles) Save(id service.LLMID, settingsUpdate service.LLMSettings) error {
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	settings, err := s.Load()
 	if err != nil {
 		return err
 	}
 
-	return json.Unmarshal(data, v)
-}
+	maps.Insert(settings[id], maps.All(settingsUpdate))
 
-func (s *LLMFiles) Write(id string, v any) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	data, err := json.Marshal(v)
+	data, err := json.Marshal(settings)
 	if err != nil {
 		return err
 	}
 
-	return s.fs.WriteToFile(id+".json", data)
+	return s.fs.WriteToFile(llmSettingsFile, data)
 }
 
-func (s *LLMFiles) Delete(id string) error {
+func (s *LLMFiles) Delete(id service.LLMID) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.fs.DeleteFile(id + ".json")
-}
-
-func (s *LLMFiles) ListIDs() ([]string, error) {
-	names, err := s.fs.ReadDir()
+	settings, err := s.Load()
 	if err != nil {
-		return nil, nil
+		return err
 	}
 
-	ids := make([]string, 0, len(names))
-	for _, n := range names {
-		if len(n) > 5 && n[len(n)-5:] == ".json" {
-			ids = append(ids, n[:len(n)-5])
-		}
+	delete(settings, id)
+
+	data, err := json.Marshal(settings)
+	if err != nil {
+		return err
 	}
-	return ids, nil
+
+	return s.fs.WriteToFile(llmSettingsFile, data)
 }

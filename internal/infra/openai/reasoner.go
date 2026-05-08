@@ -1,11 +1,13 @@
 package openaiadapter
 
 import (
-	"arch-agent/internal/app/reasoning"
-	"arch-agent/internal/app/types"
+	service "arch-agent/internal/app"
+	"arch-agent/internal/domain/agent"
+	"arch-agent/internal/domain/types"
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"sync"
 
 	"github.com/openai/openai-go/v3"
@@ -13,78 +15,120 @@ import (
 	"github.com/openai/openai-go/v3/shared"
 )
 
-const NotProvidedFloat = -200
-const NotProvidedString = "NotProvided"
+type OpenAIReasoner struct {
+	id service.LLMID
+	openai.Client
 
-type Reasoner struct {
-	mu      sync.Mutex
-	client  *openai.Client
-	repo    SettingsRepo
-	secrets SecretsStorage
-	params  ModelSettings
+	settings    map[string]any
+	settingsMu  sync.RWMutex
+	secretsRepo Screts
 }
 
-func NewReasoner(repo SettingsRepo, secrets SecretsStorage) (*Reasoner, error) {
-	r := &Reasoner{
-		repo:    repo,
-		secrets: secrets,
-	}
-	if err := r.ApplySettings(repo.Value()); err != nil {
-		return nil, err
-	}
-	repo.OnChange(func(t LLMSettings) {
-		if err := r.ApplySettings(t); err != nil {
-			slog.Error("apply reasoner setting", "error", err)
-		}
-	})
-
-	return r, nil
+type Screts interface {
+	Get(string) (string, bool)
 }
 
-func (r *Reasoner) ApplySettings(s LLMSettings) error {
-	apiKey, found := r.secrets.Get(s.Client.APIKeyName)
+func NewOpenAIReasoner(secrets Screts, settings map[string]any) (*OpenAIReasoner, error) {
+	url, ok := settings["url"].(string)
+	if !ok {
+		return nil, fmt.Errorf("open ai reasoner base url is not exist")
+	}
+
+	keyName, ok := settings["key_name"].(string)
+	if !ok {
+		return nil, fmt.Errorf("open ai reasoner key name must be non nil")
+	}
+
+	apiKey, found := secrets.Get(keyName)
 	if !found {
-		return fmt.Errorf("api key %s is not exist", s.Client.APIKeyName)
+		return nil, fmt.Errorf("api key %s is not exist", keyName)
 	}
 
-	client := openai.NewClient(
-		option.WithAPIKey(apiKey),
-		option.WithBaseURL(s.Client.OpenAIURL),
-	)
-	r.client = &client
+	id, ok := settings["id"].(string)
+	if !ok {
+		return nil, fmt.Errorf("open ai reasoner has no ID")
+	}
 
-	r.params = s.Params
+	return &OpenAIReasoner{
+		id: service.LLMID(id),
+		Client: openai.NewClient(
+			option.WithAPIKey(apiKey),
+			option.WithBaseURL(url),
+		),
+		settings:    settings,
+		secretsRepo: secrets,
+	}, nil
+}
+
+func (r *OpenAIReasoner) ID() service.LLMID { return r.id }
+func (r *OpenAIReasoner) Settings() service.LLMSettings {
+	r.settingsMu.RLock()
+	defer r.settingsMu.RUnlock()
+	return r.settings
+}
+
+func (r *OpenAIReasoner) SetSettings(newSettings service.LLMSettings) error {
+
+	r.settingsMu.Lock()
+	defer r.settingsMu.Unlock()
+
+	_, newUrlFound := newSettings["url"]
+	_, newKeyFound := newSettings["key_name"]
+	if newUrlFound && newKeyFound {
+
+		pathedSettings := maps.Clone(r.settings)
+		maps.Insert(pathedSettings, maps.All(newSettings))
+
+		newReasoner, err := NewOpenAIReasoner(r.secretsRepo, pathedSettings)
+		if err != nil {
+			return err
+		}
+
+		newReasoner.settingsMu.Lock()
+		r = newReasoner
+		newReasoner.settingsMu.Unlock()
+	}
 
 	return nil
 }
 
-func (r *Reasoner) Reason(
+func (r *OpenAIReasoner) Reason(
 	ctx context.Context,
 	toolDefs []types.ToolDefinition,
 	internalMsgs []types.Message,
-) (*reasoning.ReasonResult, error) {
+) (*agent.ReasonResult, error) {
 
 	messages := messagesToOpenAI(internalMsgs)
 	agentTools := toolDefenitionsToOpenAI(toolDefs)
-	completionParams := r.builtCompletionParams(messages, agentTools)
-
-	// TODO Create a fallbacks for unexpected end of json
-	res, err := r.client.Chat.Completions.New(ctx, completionParams)
+	completionParams, err := r.buildCompletionParams(messages, agentTools)
 	if err != nil {
 		return nil, err
 	}
 
-	return OpenAICompletionToReasonResult(res)
+	// TODO Create a fallbacks for unexpected end of json
+	res, err := r.Client.Chat.Completions.New(ctx, *completionParams)
+	if err != nil {
+		return nil, err
+	}
+
+	castedRes, err := OpenAICompletionToReasonResult(res)
+
+	slog.Debug("reasoning", "result", castedRes)
+
+	return castedRes, err
 }
 
-// TODO - find a way to avoid strict default values and constant stubs
-func (r *Reasoner) builtCompletionParams(
+func (r *OpenAIReasoner) buildCompletionParams(
 	messages []openai.ChatCompletionMessageParamUnion,
 	agentTools []openai.ChatCompletionToolUnionParam,
-) openai.ChatCompletionNewParams {
+) (*openai.ChatCompletionNewParams, error) {
+	model, _, err := getString(r.settings, "model")
+	if err != nil {
+		return nil, err
+	}
 
 	completionParams := openai.ChatCompletionNewParams{
-		Model:    r.params.Model,
+		Model:    model,
 		Messages: messages,
 	}
 
@@ -92,41 +136,59 @@ func (r *Reasoner) builtCompletionParams(
 		completionParams.Tools = agentTools
 	}
 
-	if r.params.MaxOutputTokens != nil {
-		completionParams.MaxTokens = openai.Int(*r.params.MaxOutputTokens)
+	if v, ok, err := getInt64(r.settings, "max_output_tokens"); err != nil {
+		return nil, err
+	} else if ok {
+		completionParams.MaxTokens = openai.Int(v)
 	}
 
-	// MaxCompletionTokens incudes reasonuing tokens
-	if r.params.MaxCompletionTokens != nil {
-		completionParams.MaxCompletionTokens = openai.Int(*r.params.MaxCompletionTokens)
+	if v, ok, err := getInt64(r.settings, "max_completion_tokens"); err != nil {
+		return nil, err
+	} else if ok {
+		completionParams.MaxCompletionTokens = openai.Int(v)
 	}
 
-	if r.params.ReasoningEffort != nil {
-		completionParams.ReasoningEffort = shared.ReasoningEffort(*r.params.ReasoningEffort)
+	if v, ok, err := getString(r.settings, "reasoning_effort"); err != nil {
+		return nil, err
+	} else if ok {
+		completionParams.ReasoningEffort = shared.ReasoningEffort(v)
 	}
 
-	if r.params.ToolChoice != nil {
-		completionParams.ToolChoice = OpenAIToolChoice(*r.params.ToolChoice)
+	if v, ok, err := getString(r.settings, "tool_choice"); err != nil {
+		return nil, err
+	} else if ok {
+		completionParams.ToolChoice = OpenAIToolChoice(v)
 	}
 
-	if r.params.TopP != nil {
-		completionParams.TopP = openai.Float(float64(*r.params.TopP))
+	if v, ok, err := getFloat32(r.settings, "top_p"); err != nil {
+		return nil, err
+	} else if ok {
+		completionParams.TopP = openai.Float(float64(v))
 	}
 
-	if r.params.Temperature != nil {
-		completionParams.Temperature = openai.Float(float64(*r.params.Temperature))
+	if v, ok, err := getFloat32(r.settings, "temperature"); err != nil {
+		return nil, err
+	} else if ok {
+		completionParams.Temperature = openai.Float(float64(v))
 	}
 
-	if r.params.FrequencyPenalty != nil {
-		completionParams.FrequencyPenalty = openai.Float(float64(*r.params.FrequencyPenalty))
+	if v, ok, err := getFloat32(r.settings, "frequency_penalty"); err != nil {
+		return nil, err
+	} else if ok {
+		completionParams.FrequencyPenalty = openai.Float(float64(v))
 	}
 
-	if r.params.PresencePenalty != nil {
-		completionParams.PresencePenalty = openai.Float(float64(*r.params.PresencePenalty))
+	if v, ok, err := getFloat32(r.settings, "presence_penalty"); err != nil {
+		return nil, err
+	} else if ok {
+		completionParams.PresencePenalty = openai.Float(float64(v))
 	}
 
-	if r.params.Extras != nil {
-		completionParams.SetExtraFields(*r.params.Extras)
+	if v, ok, err := getExtras(r.settings, "extras"); err != nil {
+		return nil, err
+	} else if ok {
+		completionParams.SetExtraFields(v)
 	}
-	return completionParams
+
+	return &completionParams, nil
 }

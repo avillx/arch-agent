@@ -1,16 +1,18 @@
-package externaltools
+package telegram
 
 import (
+	service "arch-agent/internal/app"
+	"arch-agent/internal/domain/agent"
 	"arch-agent/internal/domain/types"
-	"arch-agent/internal/infra/telegram"
 	"maps"
 	"slices"
 )
 
-func TelegramTS(b *telegram.Bot) tools.Server {
-	return tools.NewToolServer(
+func TelegramTS(b *Bot) *service.InternalServer {
+	return service.NewInternalServer(
 		"telegram",
-		`<telegram>
+		func(_ agent.ID) string {
+			return `<telegram>
 For chatting in Telegram. Act like a real human — casual, organic, imperfect.
 
 Message count per response:
@@ -33,16 +35,15 @@ Organic tone:
   
 User never sees your raw output only sended messages.
 Never repeat previous response structure (message count, sentence structure and thought that you can provide).
-<telegram>`,
-		[]tools.Tool{
-			SendMessage(b),
-			SendSticker(b),
+<telegram>`
 		},
+		SendMessage(b),
+		SendSticker(b),
 	)
 }
 
-func SendMessage(b *telegram.Bot) tools.Tool {
-	return tools.Tool{
+func SendMessage(b *Bot) *service.InternalTool {
+	return &service.InternalTool{
 		ToolDefinition: types.ToolDefinition{
 			Name:        "send_message",
 			Description: "send messages in chat",
@@ -61,11 +62,14 @@ func SendMessage(b *telegram.Bot) tools.Tool {
 				},
 			},
 		},
-		CallRsolver: tools.WrapArgumentedCallResolver(
-			func(args struct {
-				ChatID int64  `json:"chat_id"`
-				Text   string `json:"text"`
-			}) (string, error) {
+		CallRsolver: service.WrapArgumentedCallResolver(
+			func(
+				args struct {
+					ChatID int64  `json:"chat_id"`
+					Text   string `json:"text"`
+				},
+				_ string,
+			) (string, error) {
 				if err := b.SendMessage(args.ChatID, args.Text, 0); err != nil {
 					return "message is not sended", err
 				}
@@ -73,8 +77,8 @@ func SendMessage(b *telegram.Bot) tools.Tool {
 			}),
 	}
 }
-func SendSticker(b *telegram.Bot) tools.Tool {
-	return tools.Tool{
+func SendSticker(b *Bot) *service.InternalTool {
+	return &service.InternalTool{
 		ToolDefinition: types.ToolDefinition{
 			Name:        "send_sticker",
 			Description: "send sticker in chat",
@@ -93,12 +97,13 @@ func SendSticker(b *telegram.Bot) tools.Tool {
 				},
 			},
 		},
-		CallRsolver: tools.WrapArgumentedCallResolver(
+		CallRsolver: service.WrapArgumentedCallResolver(
 			func(
 				args struct {
 					ChatID int64  `json:"chat_id"`
 					Emoji  string `json:"emoji"`
 				},
+				_ string,
 			) (string, error) {
 				if err := b.SendSticker(args.ChatID, args.Emoji); err != nil {
 					return "sticker is not sended", err

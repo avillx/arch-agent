@@ -30,11 +30,11 @@ func WrapArgumentedCallResolver[T any](
 type InternalServer struct {
 	name         string
 	instructions func(agentID agent.ID) string
-	toolMap      map[string]InternalTool
+	toolMap      map[string]*InternalTool
 }
 
-func NewInternalServer(name string, intructions func(agentID agent.ID) string, internalTools ...InternalTool) *InternalServer {
-	toolMap := map[string]InternalTool{}
+func NewInternalServer(name string, intructions func(agentID agent.ID) string, internalTools ...*InternalTool) *InternalServer {
+	toolMap := map[string]*InternalTool{}
 	for _, t := range internalTools {
 		toolMap[t.Name] = t
 	}

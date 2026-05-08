@@ -1,9 +1,10 @@
 package openaiadapter
 
 import (
-	"arch-agent/internal/app/reasoning"
-	"arch-agent/internal/app/types"
+	"arch-agent/internal/domain/agent"
+	"arch-agent/internal/domain/types"
 	"errors"
+	"fmt"
 
 	"reflect"
 
@@ -175,7 +176,7 @@ func OpenAICompletionToContent(completion *openai.ChatCompletion) (string, error
 	return completion.Choices[0].Message.Content, nil
 }
 
-func OpenAICompletionToReasonResult(completion *openai.ChatCompletion) (*reasoning.ReasonResult, error) {
+func OpenAICompletionToReasonResult(completion *openai.ChatCompletion) (*agent.ReasonResult, error) {
 
 	if len(completion.Choices) == 0 {
 		return nil, errors.New("empty choices")
@@ -188,7 +189,7 @@ func OpenAICompletionToReasonResult(completion *openai.ChatCompletion) (*reasoni
 		toolCalls = append(toolCalls, openAIToToolCalls(message.ToolCalls)...)
 	}
 
-	result := &reasoning.ReasonResult{
+	result := &agent.ReasonResult{
 		ToolCalls: toolCalls,
 		Content:   message.Content,
 		Done:      IsDoneOpenAI(completion.Choices[0].FinishReason),
@@ -202,4 +203,54 @@ func IsDoneOpenAI(finishReason string) bool {
 		return true
 	}
 	return false
+}
+
+// validators
+
+func getString(settings map[string]any, key string) (string, bool, error) {
+	v, ok := settings[key]
+	if !ok {
+		return "", false, nil
+	}
+	s, ok := v.(string)
+	if !ok {
+		return "", true, fmt.Errorf("%s must be a string, got %T", key, v)
+	}
+	return s, true, nil
+}
+
+func getInt64(settings map[string]any, key string) (int64, bool, error) {
+	v, ok := settings[key]
+	if !ok {
+		return 0, false, nil
+	}
+	i, ok := v.(int64)
+	if !ok {
+		return 0, true, fmt.Errorf("%s must be int64, got %T", key, v)
+	}
+	return i, true, nil
+}
+
+func getFloat32(settings map[string]any, key string) (float32, bool, error) {
+	v, ok := settings[key]
+	if !ok {
+		return 0, false, nil
+	}
+	f, ok := v.(float32)
+	if !ok {
+		return 0, true, fmt.Errorf("%s must be float32, got %T", key, v)
+	}
+	return f, true, nil
+}
+
+func getExtras(settings map[string]any, key string) (map[string]any, bool, error) {
+	v, ok := settings[key]
+	if !ok {
+		return nil, false, nil
+	}
+	m, ok := v.(map[string]any)
+	if !ok {
+		return nil, true, fmt.Errorf("%s must be map[string]any, got %T", key, v)
+	}
+	return m, true, nil
 }

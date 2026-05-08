@@ -1,7 +1,7 @@
 package mcprecivier
 
 import (
-	"arch-agent/internal/app/types"
+	"arch-agent/internal/domain/types"
 	"context"
 	"encoding/json"
 	"errors"

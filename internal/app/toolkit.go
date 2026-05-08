@@ -11,11 +11,11 @@ import (
 
 type AgentToolKit struct {
 	agentID agent.ID
-	routes  map[string]Server
+	routes  map[string]ToolServer
 }
 
-func NewAgentToolKit(id agent.ID, servers ...Server) *AgentToolKit {
-	routes := map[string]Server{}
+func NewAgentToolKit(id agent.ID, servers ...ToolServer) *AgentToolKit {
+	routes := map[string]ToolServer{}
 
 	for _, server := range servers {
 		for _, serverTool := range server.Tools() {

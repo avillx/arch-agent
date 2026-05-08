@@ -1,7 +1,6 @@
 package telegram
 
 import (
-	"arch-agent/internal/app/agent"
 	"context"
 	"errors"
 	"fmt"
@@ -12,25 +11,16 @@ import (
 
 // handlers
 func (b *Bot) handleMessage(message *tgbotapi.Message) error {
-
 	stopAction := b.SetChatAction(message.Chat.ID, tgbotapi.ChatTyping)
 	defer stopAction()
 
-	contentRecivier := func(ctx context.Context, content string) error {
-		return nil
-	}
-
-	content := messageToText(message)
-
-	return Try(3, func() error {
-		return b.agentRecivier.Request(
-			context.Background(),
-			agent.AgentRequest{
-				Request:         content,
-				ContentRecivier: contentRecivier,
-			},
-		)
-	})
+	return b.chatUC.Chat(
+		context.Background(),
+		"oneSession",
+		"luvlace",
+		messageToText(message),
+		nil,
+	)
 }
 
 func Try(attmpts int, function func() error) error {

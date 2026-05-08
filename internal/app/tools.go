@@ -9,7 +9,7 @@ import (
 	"slices"
 )
 
-type Server interface {
+type ToolServer interface {
 	Name() string
 	ToolGuide(agent.ID) string
 	Tools() []types.ToolDefinition
@@ -17,23 +17,23 @@ type Server interface {
 }
 
 type ToolService struct {
-	servers map[string]Server
+	servers map[string]ToolServer
 }
 
 func NewToolService() *ToolService {
 	return &ToolService{
-		servers: map[string]Server{},
+		servers: map[string]ToolServer{},
 	}
 }
 
-func (s *ToolService) Servers() []Server { return slices.Collect(maps.Values(s.servers)) }
+func (s *ToolService) Servers() []ToolServer { return slices.Collect(maps.Values(s.servers)) }
 
 func (s *ToolService) Disconnect(serverID string) {
 	delete(s.servers, serverID)
 }
 
 func (s *ToolService) ToolKit(id agent.ID, serverNames []string) *AgentToolKit {
-	servers := []Server{}
+	servers := []ToolServer{}
 	for _, serverName := range serverNames {
 		if server, ok := s.servers[serverName]; ok {
 			servers = append(servers, server)
@@ -44,6 +44,6 @@ func (s *ToolService) ToolKit(id agent.ID, serverNames []string) *AgentToolKit {
 	return NewAgentToolKit(id, servers...)
 }
 
-func (s *ToolService) Connect(server Server) {
+func (s *ToolService) Connect(server ToolServer) {
 	s.servers[server.Name()] = server
 }

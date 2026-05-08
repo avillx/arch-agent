@@ -20,37 +20,21 @@ type AgentConfigRepo interface {
 	Delete(agent.ID) error
 }
 
-type LLMID string
-
-type LLM interface {
-	ID() LLMID
-	Settings() any
-	SetSettings(any) error
-	agent.Reasoner
-}
-
-type LLMRepo interface {
-	List() ([]LLMID, error)
-	Get(LLMID) (LLM, error)
-	Save(LLM) error
-	Delete(LLMID) error
-}
-
 // Agent service
 type AgentService struct {
 	agentRepo   AgentConfigRepo
-	llmRepo     LLMRepo
+	llmService  LLMService
 	toolService *ToolService
 }
 
 func NewAgentService(
 	agentRepo AgentConfigRepo,
-	llmRepo LLMRepo,
+	llmService LLMService,
 	toolService *ToolService,
 ) *AgentService {
 	return &AgentService{
 		agentRepo:   agentRepo,
-		llmRepo:     llmRepo,
+		llmService:  llmService,
 		toolService: toolService,
 	}
 }
@@ -66,7 +50,7 @@ func (s *AgentService) DeleteAgent(id agent.ID) error {
 func (s *AgentService) SaveAgent(cfg AgentConfig) error {
 
 	// validate llm
-	if _, err := s.llmRepo.Get(cfg.Reasoner); err != nil {
+	if _, err := s.llmService.GetLLM(cfg.Reasoner); err != nil {
 		return err
 	}
 
@@ -92,7 +76,7 @@ func (s *AgentService) GetAgent(id agent.ID) (*agent.Agent, error) {
 		return nil, err
 	}
 
-	llm, err := s.llmRepo.Get(config.Reasoner)
+	llm, err := s.llmService.GetLLM(config.Reasoner)
 	if err != nil {
 		return nil, err
 	}
