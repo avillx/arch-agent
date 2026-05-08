@@ -4,7 +4,9 @@ import (
 	"arch-agent/internal/domain/agent"
 	"arch-agent/internal/domain/session"
 	"encoding/json"
-	"os"
+	"fmt"
+	"path/filepath"
+	"strings"
 )
 
 type SessionFiles struct {
@@ -15,53 +17,49 @@ func NewSessionFiles(fs *FileSystem) *SessionFiles {
 	return &SessionFiles{fs: fs}
 }
 
-func (r *SessionFiles) Session(id session.ID) (session.Session, error) {
-	data, err := r.fs.ReadFile(string(id) + ".json")
+func (r *SessionFiles) Session(agentID agent.ID, id session.ID) (*session.Session, error) {
+
+	sessionFilePath := fmt.Sprintf("/agents/%s/sessions/%s.json", agentID, id)
+
+	data, err := r.fs.ReadFile(sessionFilePath)
 	if err != nil {
-		return session.Session{}, err
+		return nil, err
 	}
 
 	return unmarshalSession(data)
 }
 
-func (r *SessionFiles) Save(s session.Session) error {
+func (r *SessionFiles) Save(agentID agent.ID, s *session.Session) error {
 	data, err := marshalSession(s)
 	if err != nil {
 		return err
 	}
 
-	return r.fs.WriteToFile(string(s.ID)+".json", data)
+	sessionFilePath := fmt.Sprintf("/agents/%s/sessions/%s.json", agentID, string(s.ID))
+	return r.fs.WriteToFile(sessionFilePath, data)
 }
 
-func (r *SessionFiles) Delete(id session.ID) error {
-	return r.fs.DeleteFile(string(id) + ".json")
+func (r *SessionFiles) Delete(agentID agent.ID, id session.ID) error {
+	sessionFilePath := fmt.Sprintf("/agents/%s/sessions/%s.json", agentID, string(id))
+	return r.fs.DeleteFile(sessionFilePath)
 }
 
-func (r *SessionFiles) List(_ agent.ID) ([]session.Session, error) {
-	names, err := r.fs.ReadDir()
+func (r *SessionFiles) List(agentID agent.ID) ([]session.ID, error) {
+
+	sessionDir := fmt.Sprintf("/agents/%s/sessions", agentID)
+
+	filenames, err := r.fs.ReadDir(sessionDir)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
 		return nil, err
 	}
 
-	sessions := make([]session.Session, 0, len(names))
-	for _, n := range names {
-		if len(n) <= 5 || n[len(n)-5:] != ".json" {
-			continue
-		}
-		data, err := r.fs.ReadFile(n)
-		if err != nil {
-			continue
-		}
-		s, err := unmarshalSession(data)
-		if err != nil {
-			continue
-		}
-		sessions = append(sessions, s)
+	sessionIDs := make([]session.ID, len(filenames))
+	for _, filename := range filenames {
+		sessionID := strings.TrimRight(filename, filepath.Ext(filename))
+		sessionIDs = append(sessionIDs, session.ID(sessionID))
 	}
-	return sessions, nil
+
+	return sessionIDs, nil
 }
 
 type SessionDTO struct {
@@ -70,23 +68,23 @@ type SessionDTO struct {
 	Messages []MessageDTO `json:"messages"`
 }
 
-func unmarshalSession(data []byte) (session.Session, error) {
+func unmarshalSession(data []byte) (*session.Session, error) {
 	var dto SessionDTO
 	if err := json.Unmarshal(data, &dto); err != nil {
-		return session.Session{}, err
+		return nil, err
 	}
 	return dtoToSession(dto)
 }
 
-func dtoToSession(dto SessionDTO) (session.Session, error) {
+func dtoToSession(dto SessionDTO) (*session.Session, error) {
 	msgs, err := DtoToMessages(dto.Messages)
 	if err != nil {
-		return session.Session{}, err
+		return nil, err
 	}
-	return *session.NewRestoredSession(dto.Tokens, msgs, nil), nil
+	return session.NewRestoredSession(dto.Tokens, msgs, nil), nil
 }
 
-func marshalSession(s session.Session) ([]byte, error) {
+func marshalSession(s *session.Session) ([]byte, error) {
 	return json.Marshal(SessionDTO{
 		ID:       string(s.ID),
 		Tokens:   s.Tokens,

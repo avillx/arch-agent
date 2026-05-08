@@ -62,7 +62,7 @@ func (s *InternalServer) Tools() []types.ToolDefinition {
 	return defs
 }
 
-func (s *InternalServer) SendCall(ctx context.Context, call *types.ToolCall, sign string) (string, error) {
+func (s *InternalServer) SendCall(ctx context.Context, call *types.ToolCall, agentID agent.ID) (string, error) {
 	tool, ok := s.toolMap[call.ToolName]
 	if !ok {
 		return "",
@@ -72,5 +72,5 @@ func (s *InternalServer) SendCall(ctx context.Context, call *types.ToolCall, sig
 			)
 	}
 
-	return tool.CallRsolver(call.Arguments, sign)
+	return tool.CallRsolver(call.Arguments, string(agentID))
 }

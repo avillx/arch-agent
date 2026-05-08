@@ -1,6 +1,7 @@
 package openaiadapter
 
 import (
+	service "arch-agent/internal/app"
 	"arch-agent/internal/domain/agent"
 	"arch-agent/internal/domain/types"
 	"errors"
@@ -12,6 +13,25 @@ import (
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/shared"
 )
+
+type SecretsRepo interface {
+	Get(string) (string, bool)
+}
+
+type openAIFactory struct {
+	secrets SecretsRepo
+}
+
+func NewOpenAIFactory(s SecretsRepo) *openAIFactory {
+	return &openAIFactory{
+		secrets: s,
+	}
+}
+
+func (f *openAIFactory) Type() string { return "open_ai" }
+func (f *openAIFactory) Produce(settings service.LLMSettings) (service.LLM, error) {
+	return NewOpenAIReasoner(f.secrets, settings)
+}
 
 func messagesToOpenAI(internalFromatMessages []types.Message) []openai.ChatCompletionMessageParamUnion {
 	messages := make([]openai.ChatCompletionMessageParamUnion, 0, len(internalFromatMessages))
@@ -217,6 +237,18 @@ func getString(settings map[string]any, key string) (string, bool, error) {
 		return "", true, fmt.Errorf("%s must be a string, got %T", key, v)
 	}
 	return s, true, nil
+}
+
+func getInt(settings map[string]any, key string) (int, bool, error) {
+	v, ok := settings[key]
+	if !ok {
+		return 0, false, nil
+	}
+	i, ok := v.(int)
+	if !ok {
+		return 0, true, fmt.Errorf("%s must be int, got %T", key, v)
+	}
+	return i, true, nil
 }
 
 func getInt64(settings map[string]any, key string) (int64, bool, error) {

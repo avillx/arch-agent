@@ -17,6 +17,8 @@ type Session struct {
 	subsessions map[string]*Session
 }
 
+// TODO: session should not exist without token counter
+// implement a DI factrory in repo
 func NewSession(id string) *Session {
 	return &Session{
 		ID:          ID(id),

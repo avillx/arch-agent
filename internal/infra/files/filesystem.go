@@ -21,8 +21,8 @@ func NewFS(dir string) (*FileSystem, error) {
 	}, nil
 }
 
-func (fs *FileSystem) ReadDir() ([]string, error) {
-	entries, err := os.ReadDir(fs.dir)
+func (fs *FileSystem) ReadDir(path string) ([]string, error) {
+	entries, err := os.ReadDir(fs.pathTo(path))
 	if err != nil {
 		return nil, err
 	}

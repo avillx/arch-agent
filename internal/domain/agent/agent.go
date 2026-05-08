@@ -57,7 +57,7 @@ func (a *Agent) Chat(ctx context.Context, conversation []types.Message) (newMsgs
 	for i := 0; i < a.Reasoner.RecallBudget(); i++ {
 
 		// reason request
-		result, err := a.Reasoner.Reason(ctx, append(messages, newMessages...), a.ID)
+		result, err := a.Reasoner.Reason(ctx, a.toolKit.Tools(), append(messages, newMessages...))
 		if err != nil {
 			return newMessages, err
 		}
@@ -65,6 +65,9 @@ func (a *Agent) Chat(ctx context.Context, conversation []types.Message) (newMsgs
 		// process content
 		if result.Content != "" {
 			newMessages = append(newMessages, types.NewAgentMessage(result.Content, result.ToolCalls))
+
+			// TODO
+			// Remove on content channel and create a ReasonResult channel
 			if a.contentChannel != nil {
 				select {
 				case a.contentChannel <- result.Content:
@@ -90,7 +93,7 @@ func (a *Agent) Chat(ctx context.Context, conversation []types.Message) (newMsgs
 
 type Reasoner interface {
 	RecallBudget() int
-	Reason(context.Context, []types.Message, ID) (ReasonResult, error)
+	Reason(context.Context, []types.ToolDefinition, []types.Message) (*ReasonResult, error)
 }
 
 type ToolKit interface {

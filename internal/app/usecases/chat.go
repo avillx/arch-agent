@@ -9,7 +9,7 @@ import (
 )
 
 type ChatLoop struct {
-	agentService  *service.AgentService
+	agentService   *service.AgentService
 	sessionService *service.SessionService
 }
 
@@ -18,7 +18,7 @@ func NewChatLoop(
 	sessionService *service.SessionService,
 ) *ChatLoop {
 	return &ChatLoop{
-		agentService:  agentService,
+		agentService:   agentService,
 		sessionService: sessionService,
 	}
 }
@@ -35,7 +35,7 @@ func (uc *ChatLoop) Chat(
 		return err
 	}
 
-	sess, err := uc.sessionService.Get(sessionID)
+	sess, err := uc.sessionService.Get(agentID, sessionID)
 	if err != nil {
 		return err
 	}
@@ -50,5 +50,5 @@ func (uc *ChatLoop) Chat(
 		return err
 	}
 
-	return uc.sessionService.AppendMessages(sess, append([]types.Message{userMsg}, newMsgs...))
+	return uc.sessionService.AppendMessages(agentID, sess, append([]types.Message{userMsg}, newMsgs...))
 }

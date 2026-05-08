@@ -15,20 +15,18 @@ import (
 	"github.com/openai/openai-go/v3/shared"
 )
 
+const DefaultRecallBudget = 5
+
 type OpenAIReasoner struct {
-	id service.LLMID
+	recallBudget int
 	openai.Client
 
 	settings    map[string]any
 	settingsMu  sync.RWMutex
-	secretsRepo Screts
+	secretsRepo SecretsRepo
 }
 
-type Screts interface {
-	Get(string) (string, bool)
-}
-
-func NewOpenAIReasoner(secrets Screts, settings map[string]any) (*OpenAIReasoner, error) {
+func NewOpenAIReasoner(secrets SecretsRepo, settings map[string]any) (*OpenAIReasoner, error) {
 	url, ok := settings["url"].(string)
 	if !ok {
 		return nil, fmt.Errorf("open ai reasoner base url is not exist")
@@ -44,28 +42,31 @@ func NewOpenAIReasoner(secrets Screts, settings map[string]any) (*OpenAIReasoner
 		return nil, fmt.Errorf("api key %s is not exist", keyName)
 	}
 
-	id, ok := settings["id"].(string)
-	if !ok {
-		return nil, fmt.Errorf("open ai reasoner has no ID")
+	recallBudget := DefaultRecallBudget
+	if v, ok, err := getInt(settings, "recall_budget"); err != nil {
+		return nil, err
+	} else if ok {
+		recallBudget = v
 	}
 
 	return &OpenAIReasoner{
-		id: service.LLMID(id),
 		Client: openai.NewClient(
 			option.WithAPIKey(apiKey),
 			option.WithBaseURL(url),
 		),
-		settings:    settings,
-		secretsRepo: secrets,
+		settings:     settings,
+		secretsRepo:  secrets,
+		recallBudget: recallBudget,
 	}, nil
 }
 
-func (r *OpenAIReasoner) ID() service.LLMID { return r.id }
 func (r *OpenAIReasoner) Settings() service.LLMSettings {
 	r.settingsMu.RLock()
 	defer r.settingsMu.RUnlock()
 	return r.settings
 }
+
+func (r *OpenAIReasoner) RecallBudget() int { return r.recallBudget }
 
 func (r *OpenAIReasoner) SetSettings(newSettings service.LLMSettings) error {
 

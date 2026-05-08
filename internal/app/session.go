@@ -8,9 +8,9 @@ import (
 
 type SessionsRepo interface {
 	List(agent.ID) ([]*session.ID, error)
-	Session(SessionID session.ID) (*session.Session, error)
-	Save(Session *session.Session) error
-	Delete(SessionID session.ID) error
+	Session(agentID agent.ID, SessionID session.ID) (*session.Session, error)
+	Save(agentID agent.ID, Session *session.Session) error
+	Delete(agentID agent.ID, SessionID session.ID) error
 }
 
 type UUIDGenerator interface {
@@ -31,8 +31,8 @@ func NewSessionService(repo SessionsRepo, uuid UUIDGenerator, tokenCounter sessi
 	}
 }
 
-func (s *SessionService) Get(id session.ID) (*session.Session, error) {
-	sess, err := s.repo.Session(id)
+func (s *SessionService) Get(agentID agent.ID, id session.ID) (*session.Session, error) {
+	sess, err := s.repo.Session(agentID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -43,11 +43,11 @@ func (s *SessionService) Create() *session.Session {
 	return session.NewSession(s.uuid.New())
 }
 
-func (s *SessionService) AppendMessages(sess *session.Session, msgs []types.Message) error {
+func (s *SessionService) AppendMessages(agentID agent.ID, sess *session.Session, msgs []types.Message) error {
 	sess.AddMessages(s.tokenCounter, msgs)
-	return s.repo.Save(sess)
+	return s.repo.Save(agentID, sess)
 }
 
-func (s *SessionService) Save(sess *session.Session) error {
-	return s.repo.Save(sess)
+func (s *SessionService) Save(agentID agent.ID, sess *session.Session) error {
+	return s.repo.Save(agentID, sess)
 }
