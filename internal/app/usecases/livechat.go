@@ -54,6 +54,10 @@ func (uc *LiveChat) Chat(
 		return err
 	}
 
+	if err := uc.updateDropChatTask(ctx, agentID); err != nil {
+		return err
+	}
+
 	conversation := []types.Message{}
 	conversation = append(conversation, memoryMessage)
 	conversation = append(conversation, sess.Messages()...)
