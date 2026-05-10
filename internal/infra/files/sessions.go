@@ -10,7 +10,8 @@ import (
 )
 
 type SessionFiles struct {
-	fs *FileSystem
+	fs           *FileSystem
+	tokenCounter session.TokenCounter
 }
 
 func NewSessionFiles(fs *FileSystem) *SessionFiles {
@@ -26,7 +27,7 @@ func (r *SessionFiles) Session(agentID agent.ID, sesstionID session.ID) (*sessio
 		return nil, err
 	}
 
-	return unmarshalSession(sesstionID, data)
+	return r.unmarshalSession(sesstionID, data)
 }
 
 func (r *SessionFiles) Save(agentID agent.ID, s *session.Session) error {
@@ -62,25 +63,25 @@ func (r *SessionFiles) List(agentID agent.ID) ([]session.ID, error) {
 	return sessionIDs, nil
 }
 
-type SessionDTO struct {
-	Tokens   int          `json:"tokens"`
-	Messages []MessageDTO `json:"messages"`
-}
-
-func unmarshalSession(id session.ID, data []byte) (*session.Session, error) {
+func (r *SessionFiles) unmarshalSession(id session.ID, data []byte) (*session.Session, error) {
 	var dto SessionDTO
 	if err := json.Unmarshal(data, &dto); err != nil {
 		return nil, err
 	}
-	return dtoToSession(id, dto)
+	return r.dtoToSession(id, dto)
 }
 
-func dtoToSession(id session.ID, dto SessionDTO) (*session.Session, error) {
+func (r *SessionFiles) dtoToSession(id session.ID, dto SessionDTO) (*session.Session, error) {
 	msgs, err := DtoToMessages(dto.Messages)
 	if err != nil {
 		return nil, err
 	}
-	return session.NewRestoredSession(id, dto.Tokens, msgs, nil), nil
+	return session.NewRestoredSession(id, dto.Tokens, msgs, r.tokenCounter, nil), nil
+}
+
+type SessionDTO struct {
+	Tokens   int          `json:"tokens"`
+	Messages []MessageDTO `json:"messages"`
 }
 
 func marshalSession(s *session.Session) ([]byte, error) {

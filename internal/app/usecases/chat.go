@@ -52,8 +52,9 @@ func (uc *ChatLoop) Chat(
 		errc = errors.Join(errc, err)
 	}
 
-	err = uc.sessionService.AppendMessages(agentID, sess, append([]types.Message{userMsg}, newMsgs...))
-	if err != nil {
+	sess.AddMessages(append([]types.Message{userMsg}, newMsgs...))
+
+	if err := uc.sessionService.Save(agentID, sess); err != nil {
 		errc = errors.Join(errc, err)
 	}
 

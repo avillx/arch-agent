@@ -3,7 +3,6 @@ package service
 import (
 	"arch-agent/internal/domain/agent"
 	"arch-agent/internal/domain/session"
-	"arch-agent/internal/domain/types"
 )
 
 type SessionsRepo interface {
@@ -40,12 +39,7 @@ func (s *SessionService) Get(agentID agent.ID, id session.ID) (*session.Session,
 }
 
 func (s *SessionService) Create() *session.Session {
-	return session.NewSession(s.uuid.New())
-}
-
-func (s *SessionService) AppendMessages(agentID agent.ID, sess *session.Session, msgs []types.Message) error {
-	sess.AddMessages(s.tokenCounter, msgs)
-	return s.repo.Save(agentID, sess)
+	return session.NewSession(s.uuid.New(), s.tokenCounter)
 }
 
 func (s *SessionService) Save(agentID agent.ID, sess *session.Session) error {

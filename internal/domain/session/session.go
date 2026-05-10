@@ -10,30 +10,37 @@ const TokenLimit = 20000
 
 type ID string
 
+type TokenCounter interface {
+	Calc(string) int
+}
+
 type Session struct {
-	ID          ID
-	Tokens      int
-	messages    []types.Message
-	subsessions map[string]*Session
+	ID           ID
+	Tokens       int
+	messages     []types.Message
+	subsessions  map[string]*Session
+	tokenCounter TokenCounter
 }
 
 // TODO: session should not exist without token counter
 // implement a DI factrory in repo
-func NewSession(id string) *Session {
+func NewSession(id string, tokenCounter TokenCounter) *Session {
 	return &Session{
-		ID:          ID(id),
-		Tokens:      0,
-		messages:    []types.Message{},
-		subsessions: map[string]*Session{},
+		ID:           ID(id),
+		Tokens:       0,
+		messages:     []types.Message{},
+		subsessions:  map[string]*Session{},
+		tokenCounter: tokenCounter,
 	}
 }
 
-func NewRestoredSession(id ID, tokens int, messages []types.Message, subsessions map[string]*Session) *Session {
+func NewRestoredSession(id ID, tokens int, messages []types.Message, tokenCounter TokenCounter, subsessions map[string]*Session) *Session {
 	return &Session{
-		ID:          id,
-		Tokens:      tokens,
-		messages:    messages,
-		subsessions: subsessions,
+		ID:           id,
+		Tokens:       tokens,
+		messages:     messages,
+		subsessions:  subsessions,
+		tokenCounter: tokenCounter,
 	}
 }
 
@@ -51,8 +58,8 @@ func (s *Session) AddSubsession(key string, subsession *Session) {
 
 func (s *Session) Messages() []types.Message { return s.messages }
 
-func (s *Session) AddMessages(counter TokenCounter, msgs []types.Message) {
-	s.Tokens += messagesTokens(counter, msgs)
+func (s *Session) AddMessages(msgs []types.Message) {
+	s.Tokens += messagesTokens(s.tokenCounter, msgs)
 	s.messages = slices.Concat(s.messages, msgs)
 }
 
@@ -61,6 +68,10 @@ func (s *Session) OverwriteMessages(new []types.Message) {
 }
 
 func (s *Session) IsOverflow() bool {
+	return s.Tokens >= TokenLimit
+}
+
+func (s *Session) CalcTokens() bool {
 	return s.Tokens >= TokenLimit
 }
 
@@ -84,8 +95,4 @@ func messagesTokens(counter TokenCounter, msgs []types.Message) int {
 	}
 
 	return counter.Calc(heap.String())
-}
-
-type TokenCounter interface {
-	Calc(string) int
 }
