@@ -7,7 +7,6 @@ import (
 
 	"arch-agent/internal/domain/activity"
 	"arch-agent/internal/domain/agent"
-	"arch-agent/internal/domain/session"
 	"arch-agent/internal/domain/task"
 	"arch-agent/internal/domain/types"
 	"context"
@@ -31,7 +30,6 @@ type LiveChat struct {
 
 func (uc *LiveChat) Chat(
 	ctx context.Context,
-	sessionID session.ID,
 	agentID agent.ID,
 	request string,
 	onContent func(string),
@@ -108,7 +106,7 @@ func (uc *LiveChat) dropChat(ctx context.Context, agentID agent.ID) error {
 		return err
 	}
 
-	// uc.sessionService.Delete(agentID, "live_chat")
+	// uc.sessionService.Delete(agentID, LiveChatSessionID)
 	return nil
 }
 
@@ -118,7 +116,7 @@ func (uc *LiveChat) updateDropChatTask(ctx context.Context, agentID agent.ID) er
 	taskID := dropChatTaskID(agentID)
 
 	dropTask, err := uc.taskService.Task(taskID)
-	if errors.Is(types.ErrIsNotExist, err) {
+	if errors.Is(err, types.ErrIsNotExist) {
 		dropTask = uc.createDropChatTask(agentID, taskID)
 		uc.taskService.AddTask(ctx,
 			taskID,
@@ -144,7 +142,7 @@ func (uc *LiveChat) createDropChatTask(agentID agent.ID, taskID string) *task.Ta
 		task.ExecuteAt(time.Now().Add(10*time.Minute)),
 
 		// description
-		fmt.Sprintf("drop live chat %s", taskID),
+		fmt.Sprintf("drop live chat %s", agentID),
 
 		// execution
 		func(ctx context.Context) {
@@ -160,16 +158,16 @@ func (uc *LiveChat) createDropChatTask(agentID agent.ID, taskID string) *task.Ta
 
 // Creates a message with activity for agent
 func (uc *LiveChat) memoryMessage(agentID agent.ID) (*types.UserMessage, error) {
-	yesterday, err := uc.activityRepo.GetActivity(agentID, time.Now())
+	today, err := uc.activityRepo.GetActivity(agentID, time.Now())
 	if err != nil {
 		return nil, err
 	}
-	today, err := uc.activityRepo.GetActivity(agentID, time.Now().Local().AddDate(0, 0, -1))
+	yesterday, err := uc.activityRepo.GetActivity(agentID, time.Now().Local().AddDate(0, 0, -1))
 	if err != nil {
 		return nil, err
 	}
 
-	return types.NewUserMessage(service.Memory(yesterday, today)), nil
+	return types.NewUserMessage(service.Memory(today, yesterday)), nil
 }
 
 // Creates a name (ID) for task to drop agent live session
