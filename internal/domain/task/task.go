@@ -6,68 +6,75 @@ import (
 	"time"
 )
 
-// cron
-
-// once at
-
 type Reglament interface {
 	NextTime() time.Duration
 }
 
 type Task struct {
-	reglament   Reglament
+	reglament Reglament
+	// Description of the task
 	Description string
-	executor    func(context.Context)
-	stop        chan struct{}
-	reset       chan struct{}
-	once        sync.Once
+
+	// call back on execution
+	onCall func(context.Context, *Task)
+
+	// channels for task handling
+	stopFn func()
+	mu     sync.Mutex
 }
 
 func NewTask(
 	reglament Reglament,
 	Description string,
-	executor func(context.Context),
+	onCall func(context.Context, *Task),
 ) *Task {
 	return &Task{
 		reglament:   reglament,
 		Description: Description,
-		stop:        make(chan struct{}),
-		reset:       make(chan struct{}),
-		executor:    executor,
+		onCall:      onCall,
 	}
 }
 
 func (t *Task) Stop() {
-	t.once.Do(func() {
-		close(t.stop)
-	})
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.stopFn != nil {
+		t.stopFn()
+	}
 }
 
-func (t *Task) SetReglament(reglament Reglament) {
-	t.reglament = reglament
-	t.reset <- struct{}{}
-}
-
+// blocking
 func (t *Task) Run(ctx context.Context) error {
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	timer := time.NewTimer(t.reglament.NextTime())
-	defer timer.Stop()
+	t.mu.Lock()
+	t.stopFn = cancel
+	t.mu.Unlock()
 
 	for {
-		select {
-		case <-timer.C:
-			t.executor(ctx)
-			timer.Reset(t.reglament.NextTime())
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-t.reset:
-			timer.Reset(t.reglament.NextTime())
-		case <-t.stop:
-			return nil
-		}
+		timer := time.NewTimer(t.reglament.NextTime())
 
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+
+		case <-timer.C:
+			timer.Stop()
+			if t.onCall != nil {
+				t.onCall(ctx, t)
+			}
+
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return ctx.Err()
+			default:
+			}
+
+		}
 	}
 }

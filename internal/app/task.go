@@ -59,6 +59,9 @@ func (s *TaskService) AddTask(ctx context.Context, id string, task *task.Task) e
 	s.tasks[id] = task
 
 	go func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
 		if err := task.Run(ctx); err != nil {
 			slog.Error("task closed", "error", err)
 		}
