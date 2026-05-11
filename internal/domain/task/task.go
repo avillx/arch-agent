@@ -64,6 +64,7 @@ func (t *Task) Run(ctx context.Context) error {
 
 		case <-timer.C:
 			timer.Stop()
+
 			if t.onCall != nil {
 				t.onCall(ctx, t)
 			}

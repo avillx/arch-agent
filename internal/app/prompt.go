@@ -133,8 +133,15 @@ just one short report about paragraph`
 }
 
 func Memorize() string {
-	return `Write a important and memoriable
-just one short record about paragraph`
+	return `<system>
+The context is about to be cleared.
+
+Write yourself a short diary-style note — one paragraph — to recall this conversation tomorrow.
+
+Capture: what the user is working on, key decisions made, open questions, anything that would help you pick up naturally where you left off.
+
+Tone: personal, warm, first-person. Like a quick journal entry, not a summary.
+<system>`
 }
 
 func Memory(today, yesterday string) string {

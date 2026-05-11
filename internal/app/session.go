@@ -3,6 +3,7 @@ package service
 import (
 	"arch-agent/internal/domain/agent"
 	"arch-agent/internal/domain/session"
+	"arch-agent/internal/domain/types"
 )
 
 type SessionsRepo interface {
@@ -33,6 +34,10 @@ func NewSessionService(repo SessionsRepo, uuid UUIDGenerator, tokenCounter sessi
 func (s *SessionService) Get(agentID agent.ID, id session.ID) (*session.Session, error) {
 	sess, err := s.repo.Session(agentID, id)
 	if err != nil {
+		if err == types.ErrIsNotExist && id == LiveChatSessionID {
+			return session.NewSession(LiveChatSessionID, s.tokenCounter), nil
+		}
+
 		return nil, err
 	}
 	return sess, nil
@@ -44,4 +49,8 @@ func (s *SessionService) Create() *session.Session {
 
 func (s *SessionService) Save(agentID agent.ID, sess *session.Session) error {
 	return s.repo.Save(agentID, sess)
+}
+
+func (s *SessionService) Delete(agentID agent.ID, sessionID session.ID) error {
+	return s.repo.Delete(agentID, sessionID)
 }

@@ -15,14 +15,13 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 	stopAction := b.SetChatAction(message.Chat.ID, tgbotapi.ChatTyping)
 	defer stopAction()
 
-	if b.chatUC == nil {
+	if b.chatSvc == nil {
 		slog.Error("not wired uc")
 		return nil
 	}
 
-	return b.chatUC.Chat(
+	return b.chatSvc.LiveSessionChat(
 		context.Background(),
-		"oneSession",
 		"luvlace",
 		messageToText(message),
 		nil,

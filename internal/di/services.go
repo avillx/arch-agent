@@ -2,7 +2,6 @@ package di
 
 import (
 	service "arch-agent/internal/app"
-	"arch-agent/internal/app/usecases"
 	"arch-agent/internal/infra/files"
 	openaiadapter "arch-agent/internal/infra/openai"
 	"arch-agent/internal/infra/tokenizer"
@@ -10,10 +9,12 @@ import (
 )
 
 func BuildSessionService(fs *files.FileSystem) *service.SessionService {
+	tokenCounter := tokenizer.NewTokenizer()
+
 	return service.NewSessionService(
-		files.NewSessionFiles(fs),
+		files.NewSessionFiles(fs, tokenCounter),
 		uuid.NewUUIDGenerator(),
-		tokenizer.NewTokenizer(),
+		tokenCounter,
 	)
 }
 
@@ -49,15 +50,17 @@ func BuildAgentService(fs *files.FileSystem, toolServers ...service.ToolServer) 
 	), nil
 }
 
-func BuildUseCase(fs *files.FileSystem, toolServers ...service.ToolServer) (*usecases.ChatLoop, error) {
+func BuildChatService(fs *files.FileSystem, toolServers ...service.ToolServer) (*service.ChatService, error) {
 
 	agentService, err := BuildAgentService(fs, toolServers...)
 	if err != nil {
 		return nil, err
 	}
 
-	return usecases.NewChatLoop(
+	return service.NewChatService(
 		agentService,
 		BuildSessionService(fs),
+		service.NewTaskService(),
+		files.NewActivityFiles(fs),
 	), nil
 }

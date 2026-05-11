@@ -3,8 +3,10 @@ package files
 import (
 	"arch-agent/internal/domain/agent"
 	"arch-agent/internal/domain/session"
+	"arch-agent/internal/domain/types"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -14,8 +16,11 @@ type SessionFiles struct {
 	tokenCounter session.TokenCounter
 }
 
-func NewSessionFiles(fs *FileSystem) *SessionFiles {
-	return &SessionFiles{fs: fs}
+func NewSessionFiles(fs *FileSystem, tc session.TokenCounter) *SessionFiles {
+	return &SessionFiles{
+		fs:           fs,
+		tokenCounter: tc,
+	}
 }
 
 func (r *SessionFiles) Session(agentID agent.ID, sesstionID session.ID) (*session.Session, error) {
@@ -24,6 +29,9 @@ func (r *SessionFiles) Session(agentID agent.ID, sesstionID session.ID) (*sessio
 
 	data, err := r.fs.ReadFile(sessionFilePath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, types.ErrIsNotExist
+		}
 		return nil, err
 	}
 

@@ -1,7 +1,7 @@
 package telegram
 
 import (
-	"arch-agent/internal/app/usecases"
+	service "arch-agent/internal/app"
 	"context"
 	"errors"
 	"fmt"
@@ -30,7 +30,7 @@ type Bot struct {
 	updateChannel tgbotapi.UpdatesChannel
 	Stickers      StickerMap
 	blockedUsers  []int64
-	chatUC        *usecases.ChatLoop
+	chatSvc       *service.ChatService
 }
 
 func NewBot(cfg BotConfig) (*Bot, error) {
@@ -86,8 +86,8 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 
 }
 
-func (b *Bot) WireUC(uc *usecases.ChatLoop) {
-	b.chatUC = uc
+func (b *Bot) WireChatSvc(svc *service.ChatService) {
+	b.chatSvc = svc
 }
 
 func (b *Bot) SendMessage(userID int64, text string, replyMessageID int) error {

@@ -2,9 +2,7 @@ package service
 
 import (
 	"arch-agent/internal/domain/task"
-	"arch-agent/internal/domain/types"
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -15,15 +13,18 @@ type TaskService struct {
 	mu    sync.RWMutex
 }
 
-func (s *TaskService) Task(id string) (*task.Task, error) {
+func NewTaskService() *TaskService {
+	return &TaskService{
+		tasks: map[string]*task.Task{},
+	}
+}
+
+func (s *TaskService) Get(taskID string) (*task.Task, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if task, ok := s.tasks[id]; ok {
-		return task, nil
-	}
-
-	return nil, errors.Join(types.ErrIsNotExist, fmt.Errorf("tasks %s not found", id))
+	task, ok := s.tasks[taskID]
+	return task, ok
 }
 
 type TaskView struct {
@@ -48,27 +49,25 @@ func (s *TaskService) AllTasks() []TaskView {
 	return tvs
 }
 
-func (s *TaskService) AddTask(ctx context.Context, id string, task *task.Task) error {
+func (s *TaskService) AddTask(ctx context.Context, id string, task *task.Task) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, ok := s.tasks[id]; ok {
-		return fmt.Errorf("task %s is already exist", id)
+	if task, ok := s.tasks[id]; ok {
+		task.Stop()
+		slog.Info("task overwrited", "task", id)
 	}
 
 	s.tasks[id] = task
 
 	go func() {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-
 		if err := task.Run(ctx); err != nil {
-			slog.Error("task closed", "error", err)
+			slog.Info("task closed", "task", id)
 		}
+		s.mu.Lock()
 		delete(s.tasks, id)
+		s.mu.Unlock()
 	}()
-
-	return nil
 }
 
 func (s *TaskService) RemoveTask(id string) error {
@@ -77,6 +76,7 @@ func (s *TaskService) RemoveTask(id string) error {
 
 	if _, ok := s.tasks[id]; ok {
 		delete(s.tasks, id)
+		slog.Debug("task deleted", "task", id)
 		return nil
 	}
 

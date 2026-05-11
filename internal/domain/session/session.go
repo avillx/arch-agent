@@ -35,6 +35,10 @@ func NewSession(id string, tokenCounter TokenCounter) *Session {
 }
 
 func NewRestoredSession(id ID, tokens int, messages []types.Message, tokenCounter TokenCounter, subsessions map[string]*Session) *Session {
+	if subsessions == nil {
+		subsessions = map[string]*Session{}
+	}
+
 	return &Session{
 		ID:           id,
 		Tokens:       tokens,

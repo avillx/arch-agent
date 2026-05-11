@@ -60,7 +60,7 @@ func main() {
 	}
 
 	// root composing
-	chatLoopUc, err := di.BuildUseCase(
+	chatSvc, err := di.BuildChatService(
 		fs,
 		telegram.TelegramTS(bot),
 	)
@@ -69,7 +69,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	bot.WireUC(chatLoopUc)
+	bot.WireChatSvc(chatSvc)
 
 	// TODO:
 	// Remove this shit to diff container

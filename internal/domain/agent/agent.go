@@ -16,13 +16,12 @@ type ReasonResult struct {
 }
 
 type Agent struct {
-	ID             ID
-	Description    string
-	SystemPrompt   string
-	Reasoner       Reasoner
-	toolKit        ToolKit
-	onContent      func(content string)
-	contentChannel chan string
+	ID           ID
+	Description  string
+	SystemPrompt string
+	Reasoner     Reasoner
+	toolKit      ToolKit
+	onResult     func(result *ReasonResult)
 }
 
 func NewAgent(
@@ -46,8 +45,8 @@ func (a *Agent) systemMessage() *types.SystemMessage {
 	return types.NewSystemMessage(systemPrompt)
 }
 
-func (a *Agent) OnContent(fn func(string)) {
-	a.onContent = fn
+func (a *Agent) OnResult(fn func(result *ReasonResult)) {
+	a.onResult = fn
 }
 
 func (a *Agent) Chat(ctx context.Context, conversation []types.Message) (newMsgs []types.Message, err error) {
@@ -64,16 +63,8 @@ func (a *Agent) Chat(ctx context.Context, conversation []types.Message) (newMsgs
 
 		newMessages = append(newMessages, types.NewAgentMessage(result.Content, result.ToolCalls))
 
-		// process content
-		if result.Content != "" {
-			// TODO
-			// Remove on content channel and create a ReasonResult channel
-			if a.contentChannel != nil {
-				select {
-				case a.contentChannel <- result.Content:
-				default:
-				}
-			}
+		if a.onResult != nil {
+			a.onResult(result)
 		}
 
 		// process tool calls
