@@ -1,6 +1,7 @@
 package telegram
 
 import (
+	"arch-agent/internal/domain/agent"
 	"context"
 	"errors"
 	"fmt"
@@ -15,16 +16,22 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 	stopAction := b.SetChatAction(message.Chat.ID, tgbotapi.ChatTyping)
 	defer stopAction()
 
-	if b.chatSvc == nil {
+	if b.app == nil {
 		slog.Error("not wired uc")
 		return nil
 	}
 
-	return b.chatSvc.LiveSessionChat(
+	return b.app.Chat(
 		context.Background(),
 		"luvlace",
 		messageToText(message),
-		nil,
+		func(result *agent.ReasonResult) {
+
+			if result.Content != "" {
+				b.SendMessage(message.From.ID, result.Content, message.MessageID)
+			}
+
+		},
 	)
 }
 

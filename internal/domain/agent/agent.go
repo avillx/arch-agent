@@ -40,8 +40,8 @@ func NewAgent(
 	}
 }
 
-func (a *Agent) systemMessage() *types.SystemMessage {
-	systemPrompt := strings.Join([]string{a.SystemPrompt, a.toolKit.ToolGuides()}, "\n")
+func (a *Agent) systemMessage(additional string) *types.SystemMessage {
+	systemPrompt := strings.Join([]string{a.SystemPrompt, a.toolKit.ToolGuides(), additional}, "\n")
 	return types.NewSystemMessage(systemPrompt)
 }
 
@@ -49,8 +49,8 @@ func (a *Agent) OnResult(fn func(result *ReasonResult)) {
 	a.onResult = fn
 }
 
-func (a *Agent) Chat(ctx context.Context, conversation []types.Message) (newMsgs []types.Message, err error) {
-	messages := append([]types.Message{a.systemMessage()}, conversation...)
+func (a *Agent) Chat(ctx context.Context, additionalSystemPrompt string, conversation []types.Message) (newMsgs []types.Message, err error) {
+	messages := append([]types.Message{a.systemMessage(additionalSystemPrompt)}, conversation...)
 	newMessages := []types.Message{}
 
 	for i := 0; i < a.Reasoner.RecallBudget(); i++ {

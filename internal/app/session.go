@@ -3,8 +3,10 @@ package service
 import (
 	"arch-agent/internal/domain/agent"
 	"arch-agent/internal/domain/session"
-	"arch-agent/internal/domain/types"
 )
+
+const SessionContextKey = "session"
+const AgentContextKey = "agent"
 
 type SessionsRepo interface {
 	List(agent.ID) ([]session.ID, error)
@@ -34,17 +36,17 @@ func NewSessionService(repo SessionsRepo, uuid UUIDGenerator, tokenCounter sessi
 func (s *SessionService) Get(agentID agent.ID, id session.ID) (*session.Session, error) {
 	sess, err := s.repo.Session(agentID, id)
 	if err != nil {
-		if err == types.ErrIsNotExist && id == LiveChatSessionID {
-			return session.NewSession(LiveChatSessionID, s.tokenCounter), nil
-		}
-
 		return nil, err
 	}
 	return sess, nil
 }
 
-func (s *SessionService) Create() *session.Session {
-	return session.NewSession(s.uuid.New(), s.tokenCounter)
+func (s *SessionService) Create(agentID agent.ID) (session.ID, error) {
+	newSession := session.NewSession(s.uuid.New(), s.tokenCounter)
+	if err := s.repo.Save(agentID, newSession); err != nil {
+		return "", err
+	}
+	return newSession.ID, nil
 }
 
 func (s *SessionService) Save(agentID agent.ID, sess *session.Session) error {

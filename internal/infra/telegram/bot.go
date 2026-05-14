@@ -30,7 +30,7 @@ type Bot struct {
 	updateChannel tgbotapi.UpdatesChannel
 	Stickers      StickerMap
 	blockedUsers  []int64
-	chatSvc       *service.ChatService
+	app           *service.LiveChatService
 }
 
 func NewBot(cfg BotConfig) (*Bot, error) {
@@ -86,8 +86,8 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 
 }
 
-func (b *Bot) WireChatSvc(svc *service.ChatService) {
-	b.chatSvc = svc
+func (b *Bot) WireApp(app *service.LiveChatService) {
+	b.app = app
 }
 
 func (b *Bot) SendMessage(userID int64, text string, replyMessageID int) error {

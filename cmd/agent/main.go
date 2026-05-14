@@ -3,7 +3,6 @@ package main
 import (
 	"arch-agent/internal/di"
 	"arch-agent/internal/infra/config"
-	"arch-agent/internal/infra/files"
 	"arch-agent/internal/infra/logging"
 	"arch-agent/internal/infra/telegram"
 	"context"
@@ -53,15 +52,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	fs, err := files.NewFS(*dataPath)
-	if err != nil {
-		slog.Error("telegram", "init error", err)
-		os.Exit(1)
-	}
-
 	// root composing
-	chatSvc, err := di.BuildChatService(
-		fs,
+	app, err := di.BuildApp(
+		ctx,
+		*dataPath,
 		telegram.TelegramTS(bot),
 	)
 	if err != nil {
@@ -69,7 +63,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	bot.WireChatSvc(chatSvc)
+	bot.WireApp(app)
 
 	// TODO:
 	// Remove this shit to diff container

@@ -24,7 +24,7 @@ func (f *ActivityFiles) Log(id agent.ID, r activity.Record) error {
 
 func (f *ActivityFiles) GetActivity(id agent.ID, date time.Time) (string, error) {
 	filename := toActivityFilename(date)
-	data, err := f.fs.ReadFile(filename)
+	data, err := f.fs.ReadFile("/" + string(id) + "/activity/" + filename)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", activity.ErrNoActivity

@@ -2,6 +2,8 @@ package service
 
 import (
 	"arch-agent/internal/domain/agent"
+	"arch-agent/internal/domain/types"
+	"context"
 	"fmt"
 )
 
@@ -90,4 +92,40 @@ func (s *AgentService) GetAgent(id agent.ID) (*agent.Agent, error) {
 		llm,
 		toolKit,
 	), nil
+}
+
+// TODO think about eliminating this func
+func (s *AgentService) Chat(
+	ctx context.Context,
+	agentID agent.ID,
+	additionalSysmtemPrompt string,
+	preContextMessages []types.Message,
+	contextMessages []types.Message,
+	postContextMessages []types.Message,
+	onResult func(result *agent.ReasonResult),
+) (newMsgs []types.Message, err error) {
+
+	a, err := s.GetAgent(agentID)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx = context.WithValue(ctx, AgentContextKey, a)
+
+	a.OnResult(onResult)
+
+	conversation := []types.Message{}
+	if preContextMessages != nil {
+		conversation = append(conversation, preContextMessages...)
+	}
+
+	if contextMessages != nil {
+		conversation = append(conversation, contextMessages...)
+	}
+
+	if postContextMessages != nil {
+		conversation = append(conversation, postContextMessages...)
+	}
+
+	return a.Chat(ctx, additionalSysmtemPrompt, conversation)
 }

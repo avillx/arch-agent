@@ -84,17 +84,19 @@ func (r *SessionFiles) dtoToSession(id session.ID, dto SessionDTO) (*session.Ses
 	if err != nil {
 		return nil, err
 	}
-	return session.NewRestoredSession(id, dto.Tokens, msgs, r.tokenCounter, nil), nil
+	return session.NewRestoredSession(id, dto.Tokens, msgs, r.tokenCounter, dto.Summaries, nil), nil
 }
 
 type SessionDTO struct {
-	Tokens   int          `json:"tokens"`
-	Messages []MessageDTO `json:"messages"`
+	Tokens    int `json:"tokens"`
+	Summaries string
+	Messages  []MessageDTO `json:"messages"`
 }
 
 func marshalSession(s *session.Session) ([]byte, error) {
 	return json.MarshalIndent(SessionDTO{
-		Tokens:   s.Tokens,
-		Messages: MessagesToDTO(s.Messages()),
+		Tokens:    s.Tokens,
+		Summaries: s.Summaries(),
+		Messages:  MessagesToDTO(s.Messages()),
 	}, "", "	")
 }

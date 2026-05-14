@@ -1,81 +1,75 @@
 package task
 
 import (
-	"context"
 	"sync"
 	"time"
 )
 
+type Recipient string
+
 type Reglament interface {
 	NextTime() time.Duration
+	Type() string
+	String() string
 }
 
 type Task struct {
-	reglament Reglament
-	// Description of the task
+	Name        string
+	Recipients  []Recipient
 	Description string
-
-	// call back on execution
-	onCall func(context.Context, *Task)
-
-	// channels for task handling
-	stopFn func()
-	mu     sync.Mutex
+	Request     string
+	Reglament   Reglament
+	OneShot     bool
 }
 
 func NewTask(
+	name string,
+	description string,
+	recipients []Recipient,
+	request string,
 	reglament Reglament,
-	Description string,
-	onCall func(context.Context, *Task),
-) *Task {
-	return &Task{
-		reglament:   reglament,
-		Description: Description,
-		onCall:      onCall,
+	oneShot bool,
+) Task {
+	return Task{
+		Name:        name,
+		Description: description,
+		Recipients:  recipients,
+		Request:     request,
+		Reglament:   reglament,
+		OneShot:     oneShot,
 	}
 }
 
-func (t *Task) Stop() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+type RunningTask struct {
+	Task
+	onExecute func(t Task)
+	done      chan struct{}
+	stopOnce  sync.Once
+}
 
-	if t.stopFn != nil {
-		t.stopFn()
+func NewRunningTask(t Task, onExecute func(t Task)) *RunningTask {
+	return &RunningTask{
+		Task:      t,
+		onExecute: onExecute,
+		done:      make(chan struct{}),
 	}
 }
 
 // blocking
-func (t *Task) Run(ctx context.Context) error {
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	t.mu.Lock()
-	t.stopFn = cancel
-	t.mu.Unlock()
-
+func (t *RunningTask) Start() {
 	for {
-		timer := time.NewTimer(t.reglament.NextTime())
-
 		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return ctx.Err()
-
-		case <-timer.C:
-			timer.Stop()
-
-			if t.onCall != nil {
-				t.onCall(ctx, t)
+		case <-t.done:
+			return
+		case <-time.After(t.Task.Reglament.NextTime()):
+			t.onExecute(t.Task)
+			if t.Task.OneShot {
+				return
 			}
-
-			select {
-			case <-ctx.Done():
-				timer.Stop()
-				return ctx.Err()
-			default:
-			}
-
 		}
 	}
+}
+
+func (t *RunningTask) Stop() {
+	t.stopOnce.Do(func() { close(t.done) })
 }

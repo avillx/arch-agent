@@ -144,26 +144,6 @@ Tone: personal, warm, first-person. Like a quick journal entry, not a summary.
 <system>`
 }
 
-func Memory(today, yesterday string) string {
-	var sb strings.Builder
-
-	sb.WriteString("<memory>\n")
-
-	if yesterday != "" {
-		sb.WriteString("# Yesterday:\n")
-		sb.WriteString(yesterday)
-	}
-
-	if today != "" {
-		sb.WriteString("# Today:\n")
-		sb.WriteString(today)
-	}
-
-	sb.WriteString("\n</memory>")
-
-	return sb.String()
-}
-
 func ConcatStrings(str ...string) string {
 	return strings.Join(str, "\n")
 }
