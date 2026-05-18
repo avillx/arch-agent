@@ -19,6 +19,7 @@ const (
 type StickerMap map[string]string
 
 type BotConfig struct {
+	Agent          string
 	APIKey         string
 	Host           string
 	StickerSetName string
@@ -30,7 +31,8 @@ type Bot struct {
 	updateChannel tgbotapi.UpdatesChannel
 	Stickers      StickerMap
 	blockedUsers  []int64
-	app           *service.LiveChatService
+	app           *service.App
+	agent         string
 }
 
 func NewBot(cfg BotConfig) (*Bot, error) {
@@ -55,6 +57,7 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 	p := &Bot{
 		API:          botAPI,
 		blockedUsers: []int64{},
+		agent:        cfg.Agent,
 	}
 
 	// set stickers
@@ -86,7 +89,7 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 
 }
 
-func (b *Bot) WireApp(app *service.LiveChatService) {
+func (b *Bot) WireApp(app *service.App) {
 	b.app = app
 }
 
@@ -125,7 +128,7 @@ func (b *Bot) SendSticker(chatID int64, emoji string) error {
 	if fileId, ok := b.Stickers[emoji]; ok {
 		return b.sendStickerByfileID(chatID, fileId)
 	}
-	return fmt.Errorf("sticker not found by emoji %s", emoji)
+	return fmt.Errorf("sticker with %s emoji is not exist", emoji)
 }
 
 func (b *Bot) sendStickerByfileID(chatID int64, fileID string) error {

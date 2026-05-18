@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const LiveSessionExpiresTime = 3 * time.Minute
+const LiveSessionExpiresTime = 10 * time.Minute
 
 type ActivityRepo interface {
 	Log(agent.ID, activity.Record) error
@@ -152,7 +152,7 @@ func (s *LiveChatService) dropSession(ctx context.Context, agentID agent.ID, ses
 		return err
 	}
 
-	return s.sessionService.Delete(agentID, sess.ID)
+	return nil
 }
 
 func (s *LiveChatService) truncateSession(ctx context.Context, agentID agent.ID, sess *session.Session) error {

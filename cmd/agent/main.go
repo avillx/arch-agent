@@ -39,14 +39,17 @@ func main() {
 	logging.Set(cfg.Logging.Pretty, cfg.Logging.Level)
 
 	// tg bot
-	bot, err := telegram.NewBot(
-		telegram.BotConfig{
-			APIKey:         cfg.Telegram.APIKey,
-			StickerSetName: cfg.Telegram.StickerSet,
-			Logs:           cfg.Telegram.Logs,
+	botConfs := []telegram.BotConfig{}
+	for _, acc := range cfg.Telegram.Accs {
+		botConfs = append(botConfs, telegram.BotConfig{
+			Agent:          acc.Agent,
+			APIKey:         acc.APIKey,
 			Host:           cfg.Telegram.Host,
-		},
-	)
+			StickerSetName: acc.StickerSet,
+		})
+	}
+
+	botOrchestra, err := telegram.NewBotOrchestrator(botConfs...)
 	if err != nil {
 		slog.Error("telegram", "init error", err)
 		os.Exit(1)
@@ -56,14 +59,14 @@ func main() {
 	app, err := di.BuildApp(
 		ctx,
 		*dataPath,
-		telegram.TelegramTS(bot),
+		telegram.TelegramTS(botOrchestra),
 	)
 	if err != nil {
-		slog.Error("telegram", "init error", err)
+		slog.Error("app", "init error", err)
 		os.Exit(1)
 	}
 
-	bot.WireApp(app)
+	botOrchestra.WireApp(app)
 
 	// TODO:
 	// Remove this shit to diff container
@@ -71,7 +74,7 @@ func main() {
 		go http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", cfg.Telegram.Port), nil)
 	}
 
-	go bot.Run(ctx)
+	go botOrchestra.Run(ctx)
 
 	// shutdown await
 	<-ctx.Done()

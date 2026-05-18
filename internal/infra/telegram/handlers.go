@@ -21,9 +21,9 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 		return nil
 	}
 
-	return b.app.Chat(
+	return b.app.LiveChatSvc.Chat(
 		context.Background(),
-		"luvlace",
+		agent.ID(b.agent),
 		messageToText(message),
 		func(result *agent.ReasonResult) {
 

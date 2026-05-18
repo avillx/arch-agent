@@ -72,7 +72,7 @@ func (s *AgentService) SaveAgent(cfg AgentConfig) error {
 	return s.agentRepo.Save(cfg)
 }
 
-func (s *AgentService) GetAgent(id agent.ID) (*agent.Agent, error) {
+func (s *AgentService) getAgent(id agent.ID) (*agent.Agent, error) {
 	config, err := s.agentRepo.Config(id)
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func (s *AgentService) Chat(
 	onResult func(result *agent.ReasonResult),
 ) (newMsgs []types.Message, err error) {
 
-	a, err := s.GetAgent(agentID)
+	a, err := s.getAgent(agentID)
 	if err != nil {
 		return nil, err
 	}

@@ -89,7 +89,7 @@ func BuildTaskService(
 	)
 }
 
-func BuildApp(ctx context.Context, dataPath string, toolServers ...service.ToolServer) (*service.LiveChatService, error) {
+func BuildApp(ctx context.Context, dataPath string, toolServers ...service.ToolServer) (*service.App, error) {
 	fs, err := files.NewFS(dataPath)
 	if err != nil {
 		return nil, err
@@ -122,6 +122,28 @@ func BuildApp(ctx context.Context, dataPath string, toolServers ...service.ToolS
 
 	toolService.Connect(service.NewTaskTS(taskSvc))
 
-	// sessionChatSvc := BuildSessionChatService(fs)
-	return BuildLiveSessionChatService(fs, sessSvc, agentSvc, activityRepo), nil
+	liveChatSvc := BuildLiveSessionChatService(fs, sessSvc, agentSvc, activityRepo)
+
+	sessionChatSvc := service.NewSessionChatService(agentSvc, sessSvc)
+
+	a2aFiles, err := files.NewA2AFiles(fs)
+	if err != nil {
+		return nil, err
+	}
+
+	a2aSevice := service.NewA2AService(
+		a2aFiles,
+		agentSvc,
+		sessionChatSvc,
+		liveChatSvc,
+	)
+
+	toolService.Connect(service.NewA2ATS(a2aSevice))
+
+	return &service.App{
+		A2A:            a2aSevice,
+		SessionChatSvc: sessionChatSvc,
+		LiveChatSvc:    liveChatSvc,
+		AgentSvc:       agentSvc,
+	}, nil
 }

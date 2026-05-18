@@ -9,21 +9,35 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-type Telegram struct {
+type TelegramAcc struct {
+	Agent      string `toml:"agent"`
 	APIKeyEnv  string `toml:"api_key_env"`
 	APIKey     string `toml:"-"`
 	StickerSet string `toml:"sticker_set"`
-	Logs       bool   `toml:"logs"`
-	Host       string `toml:"host"`
-	Port       int    `toml:"port"`
 }
 
-func (c *Telegram) InjectKeys() error {
+func (c *TelegramAcc) InjectKeys() error {
 	if apiKey, ok := os.LookupEnv(c.APIKeyEnv); ok {
 		c.APIKey = apiKey
 		return nil
 	}
 	return fmt.Errorf("env var %q is not found for %T config", c.APIKeyEnv, c)
+}
+
+type Telegram struct {
+	Accs []*TelegramAcc `toml:"accs"`
+	Logs bool           `toml:"logs"`
+	Host string         `toml:"host"`
+	Port int            `toml:"port"`
+}
+
+func (c *Telegram) InjectKeys() error {
+	for _, acc := range c.Accs {
+		if err := acc.InjectKeys(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type Logging struct {
