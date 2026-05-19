@@ -68,6 +68,8 @@ func main() {
 
 	botOrchestra.WireApp(app)
 
+	tgA2AInterceptor := telegram.NewA2AInterceptor(cfg.Telegram.GroupID, botOrchestra, app.A2A)
+
 	// TODO:
 	// Remove this shit to diff container
 	if cfg.Telegram.Host != "" {
@@ -75,6 +77,7 @@ func main() {
 	}
 
 	go botOrchestra.Run(ctx)
+	go tgA2AInterceptor.Run(ctx)
 
 	// shutdown await
 	<-ctx.Done()

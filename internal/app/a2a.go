@@ -30,9 +30,24 @@ type A2AContact struct {
 	CallType  A2ACallType
 }
 
+type A2ACall struct {
+	Caller   agent.ID
+	Recivier agent.ID
+	Request  string
+}
+
+type A2AResponse struct {
+	A2ACall
+	Response string
+	Err      error
+}
+
 type A2AService struct {
 	repo     A2AContactRepo
 	resolver *A2ACallResolver
+
+	callCh chan A2ACall
+	respCh chan A2AResponse
 }
 
 func NewA2AService(
@@ -48,7 +63,17 @@ func NewA2AService(
 			sessionChatService: sessionChatService,
 			liveChatService:    liveChatService,
 		},
+		callCh: make(chan A2ACall, 16),
+		respCh: make(chan A2AResponse, 16),
 	}
+}
+
+func (s *A2AService) CallChannel() <-chan A2ACall {
+	return s.callCh
+}
+
+func (s *A2AService) ResponseChannel() <-chan A2AResponse {
+	return s.respCh
 }
 
 func (s *A2AService) AgentContacts(agnetID agent.ID) ([]*A2AContact, error) {
@@ -79,7 +104,28 @@ func (s *A2AService) Call(ctx context.Context, callerAgentID, recivierAgentID ag
 		return "", err
 	}
 
-	return s.resolver.Resolve(ctx, callerAgentID, contact, request)
+	call := A2ACall{
+		Caller:   callerAgentID,
+		Recivier: recivierAgentID,
+		Request:  request,
+	}
+
+	select {
+	case s.callCh <- call:
+	default:
+	}
+
+	response, err := s.resolver.Resolve(ctx, callerAgentID, contact, request)
+
+	select {
+	case s.respCh <- A2AResponse{
+		A2ACall:  call,
+		Response: response,
+		Err:      err}:
+	default:
+	}
+
+	return response, err
 }
 
 type A2ACallResolver struct {
@@ -168,7 +214,7 @@ func (s *A2ACallResolver) liveSessionCall(ctx context.Context, callerAgentID age
 func wrapMessageToPrompt(caller agent.ID, message string) string {
 	var sb strings.Builder
 
-	sb.WriteString("Write answer on agent message, all out put will be sended to caller\n\n")
+	sb.WriteString("Write answer on agent message, all out put will be sended to caller. Do not use use call_agent for answer back.\n\n")
 	sb.WriteString("<AgentMessage>\n")
 	sb.WriteString("From:" + string(caller) + "\n")
 	sb.WriteString(message)

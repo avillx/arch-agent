@@ -16,37 +16,19 @@ func TelegramTS(o *BotOrchestrator) *service.InternalServer {
 		func(agentID agent.ID) string {
 
 			stickers := ""
-			if bot := o.Get(agentID); bot != nil {
+			if bot, err := o.Get(agentID); err == nil {
 				stickers = strings.Join(slices.Collect(maps.Keys(bot.Stickers)), ", ")
 			}
 
 			return `<telegram>
-For chatting in Telegram. Act like a real human — casual, organic, imperfect.
+Chat in Telegram like a real human.
 
-Stickers:
-- For send_sticker pick one emoji.
+Default is 1 message. Use 2 only if truly needed. 3 is the hard cap — never more.
+Send a sticker only when it feels genuinely right, not every reply.
+
 - Allowed sticker emojis:{ ` + stickers + `}  this is enum.
-- For not send_sticker use emojis by other policy.
-- Send stickers when it feels natural, do not send it every turn, only when you want to express something.
 
-Message count per response:
-- Default: 1–3 messages
-- Simple reply or reaction: 1 message
-- Explaining something or telling a story: up to 4 messages max
-- Never send more than 4 messages in a row without user reply
-
-How to split messages:
-- Each message = one thought or one beat
-- Split on natural pauses, not on sentence ends
-- Don't split if it feels forced — one message is fine
-
-Organic tone:
-- Don't be exhaustive. Humans don't cover everything in one go.
-- Leave room for the conversation to continue.
-- Match conversation energy — short input → short response. 
-- You chatting now, use send_sticker for casual human conversation.
-  
-Never repeat previous response structure (message count, sentence structure and thought that you can provide).
+Short input → short reply. Leave room for the conversation to breathe.
 <telegram>`
 		},
 		SendMessage(o),
@@ -83,11 +65,11 @@ func SendMessage(o *BotOrchestrator) *service.InternalTool {
 				agentID string,
 			) (string, error) {
 
-				bot := o.Get(agent.ID(agentID))
-				if bot == nil {
-					return "", errors.New("You have no telegram bot account")
+				bot, err := o.Get(agent.ID(agentID))
+				if err != nil {
+					return "", errors.Join(err, ErrNoAcc)
 				}
-				if err := bot.SendMessage(args.ChatID, args.Text, 0); err != nil {
+				if _, err := bot.SendMessage(args.ChatID, args.Text, 0); err != nil {
 					return "message is not sended", err
 				}
 				return "message sended", nil
@@ -110,7 +92,7 @@ func SendSticker(o *BotOrchestrator) *service.InternalTool {
 					Name:        "emoji",
 					Required:    true,
 					Type:        types.TypeString,
-					Description: "sticker emoji, never use not allowed emojis, only from enum",
+					Description: "sticker emoji, never use not allowed emojis, only from enum. Only one emoji",
 				},
 			},
 		},
@@ -122,9 +104,9 @@ func SendSticker(o *BotOrchestrator) *service.InternalTool {
 				},
 				agentID string,
 			) (string, error) {
-				bot := o.Get(agent.ID(agentID))
-				if bot == nil {
-					return "", errors.New("You have no telegram bot account")
+				bot, err := o.Get(agent.ID(agentID))
+				if err != nil {
+					return "", errors.Join(err, ErrNoAcc)
 				}
 
 				if err := bot.SendSticker(args.ChatID, args.Emoji); err != nil {
@@ -134,3 +116,5 @@ func SendSticker(o *BotOrchestrator) *service.InternalTool {
 			}),
 	}
 }
+
+var ErrNoAcc = errors.New("You have no telegram bot account")

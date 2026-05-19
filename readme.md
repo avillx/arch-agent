@@ -15,7 +15,6 @@ Workdir is `/agent`
 All memory stores in `/agent/data/...`
 
 ## TODO
-- Internal A2A + Loop interruption
 - Completion agregation
 - Multimodal input
 - Advanced schedule control

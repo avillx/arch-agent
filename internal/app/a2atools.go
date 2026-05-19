@@ -52,7 +52,7 @@ func CallAgentTool(s *A2AService) *InternalTool {
 					Name:        "request",
 					Required:    true,
 					Type:        types.TypeString,
-					Description: "Is a structured message from one agent to another containing a clear goal, required context, and expected output format.",
+					Description: "This is your message to another agent",
 				},
 			},
 		},

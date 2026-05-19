@@ -25,10 +25,11 @@ func (c *TelegramAcc) InjectKeys() error {
 }
 
 type Telegram struct {
-	Accs []*TelegramAcc `toml:"accs"`
-	Logs bool           `toml:"logs"`
-	Host string         `toml:"host"`
-	Port int            `toml:"port"`
+	Accs    []*TelegramAcc `toml:"accs"`
+	GroupID int64          `toml:"group"`
+	Logs    bool           `toml:"logs"`
+	Host    string         `toml:"host"`
+	Port    int            `toml:"port"`
 }
 
 func (c *Telegram) InjectKeys() error {

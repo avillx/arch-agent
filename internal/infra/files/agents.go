@@ -60,11 +60,11 @@ func (s *AgentFiles) Save(cfg service.AgentConfig) error {
 	if err != nil {
 		return err
 	}
-	if err := s.fs.WriteToFile(fmt.Sprintf("/%s/agent.json", cfg.ID), data); err != nil {
+	if err := s.fs.WriteToFile(fmt.Sprintf("/agent.%s/agent.json", cfg.ID), data); err != nil {
 		return err
 	}
 
-	return s.fs.WriteToFile(fmt.Sprintf("/%s/agent.md", cfg.ID), []byte(cfg.SystemPrompt))
+	return s.fs.WriteToFile(fmt.Sprintf("/agent.%s/agent.md", cfg.ID), []byte(cfg.SystemPrompt))
 }
 
 func (s *AgentFiles) Delete(id agent.ID) error {
@@ -75,7 +75,7 @@ func (s *AgentFiles) Delete(id agent.ID) error {
 }
 
 func (s *AgentFiles) readConfig(id agent.ID) (service.AgentConfig, error) {
-	data, err := s.fs.ReadFile(fmt.Sprintf("/%s/agent.json", id))
+	data, err := s.fs.ReadFile(fmt.Sprintf("/agent.%s/agent.json", id))
 	if err != nil {
 		return service.AgentConfig{}, err
 	}
@@ -85,7 +85,7 @@ func (s *AgentFiles) readConfig(id agent.ID) (service.AgentConfig, error) {
 		return service.AgentConfig{}, err
 	}
 
-	prompt, err := s.fs.ReadFile(fmt.Sprintf("/%s/agent.md", id))
+	prompt, err := s.fs.ReadFile(fmt.Sprintf("/agent.%s/agent.md", id))
 	if err == nil {
 		cfg.SystemPrompt = string(prompt)
 	}

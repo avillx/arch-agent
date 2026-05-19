@@ -4,6 +4,7 @@ import (
 	service "arch-agent/internal/app"
 	"arch-agent/internal/domain/agent"
 	"context"
+	"fmt"
 	"sync"
 )
 
@@ -39,11 +40,16 @@ func (o *BotOrchestrator) Run(ctx context.Context) {
 	}
 }
 
-func (o *BotOrchestrator) Get(agentID agent.ID) *Bot {
+func (o *BotOrchestrator) Get(agentID agent.ID) (*Bot, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	return o.bots[string(agentID)]
+	bot, ok := o.bots[string(agentID)]
+	if !ok {
+		return nil, fmt.Errorf("bot for agent %s not found", agentID)
+	}
+
+	return bot, nil
 }
 
 func (o *BotOrchestrator) WireApp(app *service.App) {

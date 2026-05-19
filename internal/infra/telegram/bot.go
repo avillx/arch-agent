@@ -93,35 +93,37 @@ func (b *Bot) WireApp(app *service.App) {
 	b.app = app
 }
 
-func (b *Bot) SendMessage(userID int64, text string, replyMessageID int) error {
+func (b *Bot) SendMessage(userID int64, text string, replyMessageID int) ([]tgbotapi.Message, error) {
 
 	text = tgbotapi.EscapeText(tgbotapi.ModeMarkdownV2, text)
 
 	if len(text) <= 0 {
 
-		return errors.New("Empty string in message")
+		return nil, errors.New("Empty string in message")
 	}
 
 	chunks := textChunkDivide(text)
 
+	msgs := make([]tgbotapi.Message, len(chunks))
+
 	for i, chunk := range chunks {
 
-		msg := tgbotapi.NewMessage(userID, chunk)
-		msg.ParseMode = tgbotapi.ModeMarkdownV2
+		msgConf := tgbotapi.NewMessage(userID, chunk)
+		msgConf.ParseMode = tgbotapi.ModeMarkdownV2
 
 		if replyMessageID > 0 && i < 1 {
-			msg.ReplyToMessageID = replyMessageID
+			msgConf.ReplyToMessageID = replyMessageID
 		}
 
-		_, err := b.API.Send(msg)
-
+		msg, err := b.API.Send(msgConf)
 		if err != nil {
-
-			return err
+			return nil, err
 		}
+
+		msgs[i] = msg
 	}
 
-	return nil
+	return msgs, nil
 }
 
 func (b *Bot) SendSticker(chatID int64, emoji string) error {
