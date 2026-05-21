@@ -2,6 +2,7 @@ package di
 
 import (
 	service "arch-agent/internal/app"
+	"arch-agent/internal/domain/tool"
 	"arch-agent/internal/infra/files"
 	openaiadapter "arch-agent/internal/infra/openai"
 	"arch-agent/internal/infra/tokenizer"
@@ -53,18 +54,18 @@ func BuildSessionChatService(fs *files.FileSystem, sessSvc *service.SessionServi
 	)
 }
 
-func BuildLiveSessionChatService(
-	fs *files.FileSystem,
-	sessSvc *service.SessionService,
-	aSvc *service.AgentService,
-	activityRepo service.ActivityRepo,
-) *service.LiveChatService {
-	return service.NewLiveChatService(
-		sessSvc,
-		activityRepo,
-		aSvc,
-	)
-}
+// func BuildLiveSessionChatService(
+// 	fs *files.FileSystem,
+// 	sessSvc *service.SessionService,
+// 	aSvc *service.AgentService,
+// 	activityRepo service.ActivityRepo,
+// ) *service.LiveChatService {
+// 	return service.NewLiveChatService(
+// 		sessSvc,
+// 		activityRepo,
+// 		aSvc,
+// 	)
+// }
 
 func BuildTaskService(
 	ctx context.Context,
@@ -89,16 +90,13 @@ func BuildTaskService(
 	)
 }
 
-func BuildApp(ctx context.Context, dataPath string, toolServers ...service.ToolServer) (*service.App, error) {
+func BuildApp(ctx context.Context, dataPath string, tools ...tool.Tool) (*service.App, error) {
 	fs, err := files.NewFS(dataPath)
 	if err != nil {
 		return nil, err
 	}
 
 	toolService := service.NewToolService()
-	for _, tc := range toolServers {
-		toolService.Connect(tc)
-	}
 
 	uuidGen := uuid.NewUUIDGenerator()
 
@@ -120,9 +118,7 @@ func BuildApp(ctx context.Context, dataPath string, toolServers ...service.ToolS
 		return nil, err
 	}
 
-	toolService.Connect(service.NewTaskTS(taskSvc))
-
-	liveChatSvc := BuildLiveSessionChatService(fs, sessSvc, agentSvc, activityRepo)
+	// liveChatSvc := BuildLiveSessionChatService(fs, sessSvc, agentSvc, activityRepo)
 
 	sessionChatSvc := service.NewSessionChatService(agentSvc, sessSvc)
 
@@ -135,15 +131,18 @@ func BuildApp(ctx context.Context, dataPath string, toolServers ...service.ToolS
 		a2aFiles,
 		agentSvc,
 		sessionChatSvc,
-		liveChatSvc,
+		// liveChatSvc,
 	)
 
-	toolService.Connect(service.NewA2ATS(a2aSevice))
+	tools = append(tools, service.NewAddTaskTool(taskSvc))
+	tools = append(tools, service.NewCallAgentTool(a2aSevice))
+	tools = append(tools, service.NewGetAgentsTool(a2aSevice))
+	toolService.AddTools(tools...)
 
 	return &service.App{
 		A2A:            a2aSevice,
 		SessionChatSvc: sessionChatSvc,
-		LiveChatSvc:    liveChatSvc,
-		AgentSvc:       agentSvc,
+		// LiveChatSvc:    liveChatSvc,
+		AgentSvc: agentSvc,
 	}, nil
 }

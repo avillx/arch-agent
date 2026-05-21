@@ -1,10 +1,11 @@
-package types
+package tool
 
-type ToolDefinition struct {
-	Name        string
-	Description string
-	Properties  []ToolProperty
-}
+import (
+	"context"
+)
+
+type ToolArguments []byte
+type Meta map[string]any
 
 type PropertyType string
 
@@ -20,4 +21,11 @@ type ToolProperty struct {
 	Type        PropertyType
 	Description string
 	Enum        []string
+}
+
+type Tool interface {
+	Name() string
+	Description() string
+	Schema() []ToolProperty
+	Call(context.Context, ToolArguments) (string, error)
 }

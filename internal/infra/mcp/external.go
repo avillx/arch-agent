@@ -1,80 +1,70 @@
 package mcprecivier
 
-import (
-	"arch-agent/internal/domain/types"
-	"context"
-	"errors"
-	"maps"
-	"slices"
+// var ErrNoMCPPrompt = errors.New("mcp server has no prompt")
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
-)
+// type ExternalServer struct {
+// 	id          string
+// 	client      *mcp.Client
+// 	session     *mcp.ClientSession
+// 	tools       map[string]types.ToolDefinition
+// 	agentPrompt string
+// }
 
-var ErrNoMCPPrompt = errors.New("mcp server has no prompt")
+// func NewExternalServer(ctx context.Context, id, endpoint string) (*ExternalServer, error) {
 
-type ExternalServer struct {
-	id          string
-	client      *mcp.Client
-	session     *mcp.ClientSession
-	tools       map[string]types.ToolDefinition
-	agentPrompt string
-}
+// 	transport := &mcp.StreamableClientTransport{Endpoint: endpoint}
 
-func NewExternalServer(ctx context.Context, id, endpoint string) (*ExternalServer, error) {
+// 	client := mcp.NewClient(&mcp.Implementation{Name: id, Version: "v1.0.0"}, nil)
+// 	session, err := client.Connect(ctx, transport, nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	transport := &mcp.StreamableClientTransport{Endpoint: endpoint}
+// 	sessionTools, err := pullTools(session)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	client := mcp.NewClient(&mcp.Implementation{Name: id, Version: "v1.0.0"}, nil)
-	session, err := client.Connect(ctx, transport, nil)
-	if err != nil {
-		return nil, err
-	}
+// 	agentPrompt, err := extractAgentPrompt(session, "agent")
+// 	if err == nil && !errors.Is(err, ErrNoMCPPrompt) {
+// 		return nil, err
+// 	}
 
-	sessionTools, err := pullTools(session)
-	if err != nil {
-		return nil, err
-	}
+// 	return &ExternalServer{
+// 		id:          id,
+// 		client:      client,
+// 		session:     session,
+// 		tools:       createToolMap(sessionTools),
+// 		agentPrompt: agentPrompt,
+// 	}, nil
+// }
 
-	agentPrompt, err := extractAgentPrompt(session, "agent")
-	if err == nil && !errors.Is(err, ErrNoMCPPrompt) {
-		return nil, err
-	}
+// func (s *ExternalServer) ID() string {
+// 	return s.id
+// }
 
-	return &ExternalServer{
-		id:          id,
-		client:      client,
-		session:     session,
-		tools:       createToolMap(sessionTools),
-		agentPrompt: agentPrompt,
-	}, nil
-}
+// func (s *ExternalServer) PromptForAgent() string {
+// 	return s.agentPrompt
+// }
 
-func (s *ExternalServer) ID() string {
-	return s.id
-}
+// func (s *ExternalServer) Tools() []types.ToolDefinition {
+// 	return slices.Collect(maps.Values(s.tools))
+// }
 
-func (s *ExternalServer) PromptForAgent() string {
-	return s.agentPrompt
-}
+// func (s *ExternalServer) SendCall(ctx context.Context, call *types.ToolCall, agentID string) (string, error) {
+// 	callParams, err := toCallToolParams(call)
+// 	if err != nil {
+// 		return "", err
+// 	}
 
-func (s *ExternalServer) Tools() []types.ToolDefinition {
-	return slices.Collect(maps.Values(s.tools))
-}
+// 	callParams.SetMeta(map[string]any{
+// 		"agent": agentID,
+// 	})
 
-func (s *ExternalServer) SendCall(ctx context.Context, call *types.ToolCall, agentID string) (string, error) {
-	callParams, err := toCallToolParams(call)
-	if err != nil {
-		return "", err
-	}
+// 	result, err := s.session.CallTool(ctx, callParams)
+// 	if err != nil {
+// 		return "", err
+// 	}
 
-	callParams.SetMeta(map[string]any{
-		"agent": agentID,
-	})
-
-	result, err := s.session.CallTool(ctx, callParams)
-	if err != nil {
-		return "", err
-	}
-
-	return resultToString(result), nil
-}
+// 	return resultToString(result), nil
+// }

@@ -1,13 +1,22 @@
 package agent
 
 import (
+	"arch-agent/internal/domain/tool"
 	"arch-agent/internal/domain/types"
 	"context"
 	"errors"
+	"fmt"
+	"maps"
+	"slices"
 	"strings"
 )
 
 type ID string
+
+type Reasoner interface {
+	RecallBudget() int
+	Reason(context.Context, []tool.Tool, []types.Message) (*ReasonResult, error)
+}
 
 type ReasonResult struct {
 	ToolCalls []*types.ToolCall
@@ -20,8 +29,7 @@ type Agent struct {
 	Description  string
 	SystemPrompt string
 	Reasoner     Reasoner
-	toolKit      ToolKit
-	onResult     func(result *ReasonResult)
+	toolKit      map[string]tool.Tool
 }
 
 func NewAgent(
@@ -29,47 +37,71 @@ func NewAgent(
 	description string,
 	systemPrompt string,
 	reasoner Reasoner,
-	toolKit ToolKit,
+	tools []tool.Tool,
 ) *Agent {
 	return &Agent{
 		ID:           id,
 		Description:  description,
 		SystemPrompt: systemPrompt,
 		Reasoner:     reasoner,
-		toolKit:      toolKit,
+		toolKit:      toolsToMap(tools),
 	}
 }
 
 func (a *Agent) systemMessage(additional string) *types.SystemMessage {
-	systemPrompt := strings.Join([]string{a.SystemPrompt, a.toolKit.ToolGuides(), additional}, "\n")
+	systemPrompt := strings.Join([]string{a.SystemPrompt, additional}, "\n")
 	return types.NewSystemMessage(systemPrompt)
 }
 
-func (a *Agent) OnResult(fn func(result *ReasonResult)) {
-	a.onResult = fn
-}
+func (a *Agent) Chat(
+	ctx context.Context,
+	additionalSystemPrompt string,
+	onResult func(result *ReasonResult),
+	conversation []types.Message,
+) (newMsgs []types.Message, err error) {
 
-func (a *Agent) Chat(ctx context.Context, additionalSystemPrompt string, conversation []types.Message) (newMsgs []types.Message, err error) {
+	ctx = withID(ctx, a.ID)
+
 	messages := append([]types.Message{a.systemMessage(additionalSystemPrompt)}, conversation...)
 	newMessages := []types.Message{}
 
 	for i := 0; i < a.Reasoner.RecallBudget(); i++ {
 
 		// reason request
-		result, err := a.Reasoner.Reason(ctx, a.toolKit.Tools(), append(messages, newMessages...))
+		result, err := a.Reasoner.Reason(
+			ctx,
+			slices.Collect(maps.Values(a.toolKit)),
+			append(messages, newMessages...),
+		)
 		if err != nil {
 			return newMessages, err
 		}
 
 		newMessages = append(newMessages, types.NewAgentMessage(result.Content, result.ToolCalls))
 
-		if a.onResult != nil {
-			a.onResult(result)
+		if onResult != nil {
+			onResult(result)
 		}
 
 		// process tool calls
 		for _, call := range result.ToolCalls {
-			newMessages = append(newMessages, a.toolKit.SendCall(ctx, call))
+			var callContent string
+
+			t, exist := a.toolKit[call.ToolName]
+			if !exist {
+				callContent := fmt.Sprintf("tool %s is not exist", call.ToolName)
+				newMessages = append(newMessages, types.NewToolResultMessage(call.ID, callContent))
+				continue
+			}
+
+			res, err := t.Call(ctx, tool.ToolArguments(call.Arguments))
+			if err != nil {
+				callContent = res + err.Error()
+				newMessages = append(newMessages, types.NewToolResultMessage(call.ID, callContent))
+				continue
+			}
+
+			newMessages = append(newMessages, types.NewToolResultMessage(call.ID, res))
 		}
 
 		// done check
@@ -82,13 +114,20 @@ func (a *Agent) Chat(ctx context.Context, additionalSystemPrompt string, convers
 	return newMessages, errors.New("recall budget expires")
 }
 
-type Reasoner interface {
-	RecallBudget() int
-	Reason(context.Context, []types.ToolDefinition, []types.Message) (*ReasonResult, error)
+func toolsToMap(tools []tool.Tool) map[string]tool.Tool {
+	toolMap := make(map[string]tool.Tool, len(tools))
+	for _, t := range tools {
+		toolMap[t.Name()] = t
+	}
+	return toolMap
 }
 
-type ToolKit interface {
-	Tools() []types.ToolDefinition
-	ToolGuides() string
-	SendCall(ctx context.Context, call *types.ToolCall) types.Message
+type ctxKey struct{}
+
+func withID(ctx context.Context, id ID) context.Context {
+	return context.WithValue(ctx, ctxKey{}, id)
+}
+func IDFromContext(ctx context.Context) (ID, bool) {
+	id, ok := ctx.Value(ctxKey{}).(ID)
+	return id, ok
 }

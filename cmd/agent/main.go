@@ -59,7 +59,8 @@ func main() {
 	app, err := di.BuildApp(
 		ctx,
 		*dataPath,
-		telegram.TelegramTS(botOrchestra),
+		telegram.NewSendMessageTool(botOrchestra),
+		telegram.NewSendStickerTool(botOrchestra),
 	)
 	if err != nil {
 		slog.Error("app", "init error", err)

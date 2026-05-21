@@ -40,8 +40,6 @@ func (s *SessionChatService) SessionChat(
 		return err
 	}
 
-	ctx = context.WithValue(ctx, SessionContextKey, sess)
-
 	summaries := sess.Summaries()
 	if summaries != "" {
 		summaries = strings.Join([]string{
@@ -52,7 +50,7 @@ func (s *SessionChatService) SessionChat(
 		}, "\n")
 	}
 
-	additioanlSystemPrompt := strings.Join([]string{
+	additionalSystemPrompt := strings.Join([]string{
 		presummaryAdditioanlSystemPrompt,
 		summaries,
 		postsummaryAdditioanlSystemPrompt}, "\n")
@@ -61,11 +59,10 @@ func (s *SessionChatService) SessionChat(
 	newMessages, err := s.agentService.Chat(
 		ctx,
 		agentID,
-		additioanlSystemPrompt,
-		nil,
-		sess.Messages(),
-		userMessages,
+		additionalSystemPrompt,
+		append(sess.Messages(), userMessages...),
 		onResult,
+		nil,
 	)
 	if err != nil {
 		return err
@@ -87,12 +84,12 @@ func (s *SessionChatService) SessionChat(
 }
 
 func (s *SessionChatService) truncateSession(ctx context.Context, sess *session.Session) error {
-
+	// TODO: refactor
 	messages := sess.Messages()
 	half := len(messages) / 2
 	conver := types.StringifyConversation(messages[:half])
 	request := []types.Message{types.NewUserMessage(conver)}
-	result, err := s.agentService.Chat(ctx, "summarizer", "", request, nil, nil, nil)
+	result, err := s.agentService.Chat(ctx, "summarizer", "", request, nil, nil)
 	if err != nil {
 		return err
 	}

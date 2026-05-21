@@ -26,18 +26,32 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 		return nil
 	}
 
-	return b.app.LiveChatSvc.Chat(
+	return b.app.SessionChatSvc.SessionChat(
 		context.Background(),
 		agent.ID(b.agent),
+		"session_test",
+		"",
+		"",
 		messageToText(message),
 		func(result *agent.ReasonResult) {
-
 			if result.Content != "" {
 				b.SendMessage(message.From.ID, result.Content, message.MessageID)
 			}
-
 		},
 	)
+
+	// return b.app.LiveChatSvc.Chat(
+	// 	context.Background(),
+	// 	agent.ID(b.agent),
+	// 	messageToText(message),
+	// 	func(result *agent.ReasonResult) {
+
+	// 		if result.Content != "" {
+	// 			b.SendMessage(message.From.ID, result.Content, message.MessageID)
+	// 		}
+
+	// 	},
+	// )
 }
 
 func Try(attmpts int, function func() error) error {

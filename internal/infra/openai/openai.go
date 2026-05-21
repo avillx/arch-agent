@@ -3,6 +3,7 @@ package openaiadapter
 import (
 	service "arch-agent/internal/app"
 	"arch-agent/internal/domain/agent"
+	"arch-agent/internal/domain/tool"
 	"arch-agent/internal/domain/types"
 	"errors"
 	"fmt"
@@ -99,31 +100,31 @@ func openAIToToolCalls(openaiToolCalls []openai.ChatCompletionMessageToolCallUni
 	return toolCalls
 }
 
-func toolDefenitionsToOpenAI(toolDefs []types.ToolDefinition) []openai.ChatCompletionToolUnionParam {
-	toolParams := make([]openai.ChatCompletionToolUnionParam, 0, len(toolDefs))
+func toolsToOpenAI(tools []tool.Tool) []openai.ChatCompletionToolUnionParam {
+	toolParams := make([]openai.ChatCompletionToolUnionParam, 0, len(tools))
 
-	for _, def := range toolDefs {
-		newToolParam := toolDefenitionToOpenAI(def)
+	for _, t := range tools {
+		newToolParam := toolToOpenAI(t)
 		toolParams = append(toolParams, newToolParam)
 	}
 
 	return toolParams
 }
 
-func toolDefenitionToOpenAI(def types.ToolDefinition) openai.ChatCompletionToolUnionParam {
+func toolToOpenAI(t tool.Tool) openai.ChatCompletionToolUnionParam {
 	return openai.ChatCompletionToolUnionParam{
 		OfFunction: &openai.ChatCompletionFunctionToolParam{
 			Function: shared.FunctionDefinitionParam{
-				Name: def.Name,
+				Name: t.Name(),
 				// Strict:      openai.Bool(true),
-				Description: openai.String(def.Description),
-				Parameters:  propertiesToOpenAI(def.Properties),
+				Description: openai.String(t.Description()),
+				Parameters:  propertiesToOpenAI(t.Schema()),
 			},
 		},
 	}
 }
 
-func propertiesToOpenAI(internalProps []types.ToolProperty) shared.FunctionParameters {
+func propertiesToOpenAI(internalProps []tool.ToolProperty) shared.FunctionParameters {
 	functionParams := shared.FunctionParameters{"type": "object"}
 
 	properties := map[string]any{}
@@ -143,7 +144,7 @@ func propertiesToOpenAI(internalProps []types.ToolProperty) shared.FunctionParam
 	return functionParams
 }
 
-func propertyToOpenAI(prop types.ToolProperty) map[string]any {
+func propertyToOpenAI(prop tool.ToolProperty) map[string]any {
 	propRepresntation := map[string]any{
 		"type":        prop.Type,
 		"description": prop.Description,

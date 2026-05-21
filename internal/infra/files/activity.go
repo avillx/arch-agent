@@ -19,12 +19,12 @@ func NewActivityFiles(fs *FileSystem) *ActivityFiles {
 func (f *ActivityFiles) Log(id agent.ID, r activity.Record) error {
 	actualFile := toActivityFilename(time.Now())
 	data := []byte(r.String())
-	return f.fs.AppendToFile("/"+string(id)+"/activity/"+actualFile, data)
+	return f.fs.AppendToFile("/agent."+string(id)+"/activity/"+actualFile, data)
 }
 
 func (f *ActivityFiles) GetActivity(id agent.ID, date time.Time) (string, error) {
 	filename := toActivityFilename(date)
-	data, err := f.fs.ReadFile("/" + string(id) + "/activity/" + filename)
+	data, err := f.fs.ReadFile("/agent." + string(id) + "/activity/" + filename)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", activity.ErrNoActivity

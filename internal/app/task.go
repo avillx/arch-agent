@@ -106,7 +106,6 @@ func (s *taskExecutor) processRecipientTask(agentID agent.ID, taskName, request 
 		},
 		nil,
 		nil,
-		nil,
 	)
 	if err != nil {
 		return err
@@ -118,14 +117,11 @@ func (s *taskExecutor) processRecipientTask(agentID agent.ID, taskName, request 
 		ctx,
 		agentID,
 		autonomusWorking,
-		history,
-		[]types.Message{
-			types.NewUserMessage(Report()),
-		},
-		nil,
+		append(history, types.NewUserMessage(Report())),
 		func(result *agent.ReasonResult) {
 			report += result.Content
 		},
+		nil,
 	)
 	if err != nil {
 		return err

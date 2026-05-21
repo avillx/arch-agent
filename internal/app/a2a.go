@@ -54,14 +54,14 @@ func NewA2AService(
 	repo A2AContactRepo,
 	agentService *AgentService,
 	sessionChatService *SessionChatService,
-	liveChatService *LiveChatService,
+	// liveChatService *LiveChatService,
 ) *A2AService {
 	return &A2AService{
 		repo: repo,
 		resolver: &A2ACallResolver{
 			agentService:       agentService,
 			sessionChatService: sessionChatService,
-			liveChatService:    liveChatService,
+			// liveChatService:    liveChatService,
 		},
 		callCh: make(chan A2ACall, 16),
 		respCh: make(chan A2AResponse, 16),
@@ -131,7 +131,7 @@ func (s *A2AService) Call(ctx context.Context, callerAgentID, recivierAgentID ag
 type A2ACallResolver struct {
 	agentService       *AgentService
 	sessionChatService *SessionChatService
-	liveChatService    *LiveChatService
+	// liveChatService    *LiveChatService
 }
 
 func (s *A2ACallResolver) Resolve(ctx context.Context, callerAgentID agent.ID, contact *A2AContact, request string) (string, error) {
@@ -139,8 +139,8 @@ func (s *A2ACallResolver) Resolve(ctx context.Context, callerAgentID agent.ID, c
 	switch contact.CallType {
 	case SubSessionCall:
 		return s.subSessionCall(ctx, callerAgentID, contact, request)
-	case LiveSessionCall:
-		return s.liveSessionCall(ctx, callerAgentID, contact, request)
+	// case LiveSessionCall:
+	// 	return s.liveSessionCall(ctx, callerAgentID, contact, request)
 	default:
 		return s.oneCall(ctx, callerAgentID, contact, request)
 	}
@@ -151,15 +151,14 @@ func (s *A2ACallResolver) oneCall(ctx context.Context, callerAgentID agent.ID, c
 	if _, err := s.agentService.Chat(
 		ctx,
 		contact.ID,
-		"",
-		nil,
-		nil,
+		"", // TODO: a2a answer prompt
 		[]types.Message{types.NewUserMessage(
 			wrapMessageToPrompt(callerAgentID, request),
 		)},
 		func(result *agent.ReasonResult) {
 			resContent = append(resContent, result.Content)
 		},
+		nil,
 	); err != nil {
 		return "", err
 	}
@@ -194,22 +193,23 @@ func (s *A2ACallResolver) subSessionCall(ctx context.Context, callerAgentID agen
 	return strings.Join(resContent, "\n"), nil
 
 }
-func (s *A2ACallResolver) liveSessionCall(ctx context.Context, callerAgentID agent.ID, contact *A2AContact, request string) (string, error) {
 
-	resContent := []string{}
-	if err := s.liveChatService.Chat(
-		ctx,
-		contact.ID,
-		wrapMessageToPrompt(callerAgentID, request),
-		func(result *agent.ReasonResult) {
-			resContent = append(resContent, result.Content)
-		},
-	); err != nil {
-		return "", err
-	}
+// func (s *A2ACallResolver) liveSessionCall(ctx context.Context, callerAgentID agent.ID, contact *A2AContact, request string) (string, error) {
 
-	return strings.Join(resContent, "\n"), nil
-}
+// 	resContent := []string{}
+// 	if err := s.liveChatService.Chat(
+// 		ctx,
+// 		contact.ID,
+// 		wrapMessageToPrompt(callerAgentID, request),
+// 		func(result *agent.ReasonResult) {
+// 			resContent = append(resContent, result.Content)
+// 		},
+// 	); err != nil {
+// 		return "", err
+// 	}
+
+// 	return strings.Join(resContent, "\n"), nil
+// }
 
 func wrapMessageToPrompt(caller agent.ID, message string) string {
 	var sb strings.Builder

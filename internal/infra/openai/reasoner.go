@@ -3,6 +3,7 @@ package openaiadapter
 import (
 	service "arch-agent/internal/app"
 	"arch-agent/internal/domain/agent"
+	"arch-agent/internal/domain/tool"
 	"arch-agent/internal/domain/types"
 	"context"
 	"fmt"
@@ -95,12 +96,12 @@ func (r *OpenAIReasoner) SetSettings(newSettings service.LLMSettings) error {
 
 func (r *OpenAIReasoner) Reason(
 	ctx context.Context,
-	toolDefs []types.ToolDefinition,
+	tools []tool.Tool,
 	internalMsgs []types.Message,
 ) (*agent.ReasonResult, error) {
 
 	messages := messagesToOpenAI(internalMsgs)
-	agentTools := toolDefenitionsToOpenAI(toolDefs)
+	agentTools := toolsToOpenAI(tools)
 	completionParams, err := r.buildCompletionParams(messages, agentTools)
 	if err != nil {
 		return nil, err

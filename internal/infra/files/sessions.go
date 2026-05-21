@@ -25,7 +25,7 @@ func NewSessionFiles(fs *FileSystem, tc session.TokenCounter) *SessionFiles {
 
 func (r *SessionFiles) Session(agentID agent.ID, sesstionID session.ID) (*session.Session, error) {
 
-	sessionFilePath := fmt.Sprintf("/%s/sessions/%s.json", agentID, sesstionID)
+	sessionFilePath := fmt.Sprintf("/agent.%s/sessions/%s.json", agentID, sesstionID)
 
 	data, err := r.fs.ReadFile(sessionFilePath)
 	if err != nil {
@@ -44,18 +44,18 @@ func (r *SessionFiles) Save(agentID agent.ID, s *session.Session) error {
 		return err
 	}
 
-	sessionFilePath := fmt.Sprintf("/%s/sessions/%s.json", agentID, string(s.ID))
+	sessionFilePath := fmt.Sprintf("/agent.%s/sessions/%s.json", agentID, string(s.ID))
 	return r.fs.WriteToFile(sessionFilePath, data)
 }
 
 func (r *SessionFiles) Delete(agentID agent.ID, id session.ID) error {
-	sessionFilePath := fmt.Sprintf("/%s/sessions/%s.json", agentID, string(id))
+	sessionFilePath := fmt.Sprintf("/agent.%s/sessions/%s.json", agentID, string(id))
 	return r.fs.DeleteFile(sessionFilePath)
 }
 
 func (r *SessionFiles) List(agentID agent.ID) ([]session.ID, error) {
 
-	sessionDir := fmt.Sprintf("/%s/sessions", agentID)
+	sessionDir := fmt.Sprintf("/agent.%s/sessions", agentID)
 
 	filenames, err := r.fs.ReadDir(sessionDir)
 	if err != nil {

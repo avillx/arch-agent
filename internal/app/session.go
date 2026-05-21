@@ -5,9 +5,6 @@ import (
 	"arch-agent/internal/domain/session"
 )
 
-const SessionContextKey = "session"
-const AgentContextKey = "agent"
-
 type SessionsRepo interface {
 	List(agent.ID) ([]session.ID, error)
 	Session(agentID agent.ID, SessionID session.ID) (*session.Session, error)

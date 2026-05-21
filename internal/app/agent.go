@@ -4,7 +4,6 @@ import (
 	"arch-agent/internal/domain/agent"
 	"arch-agent/internal/domain/types"
 	"context"
-	"fmt"
 )
 
 type AgentConfig struct {
@@ -12,7 +11,7 @@ type AgentConfig struct {
 	Description  string   `json:"description,omitempty"`
 	SystemPrompt string   `json:"system_prompt,omitempty"`
 	Reasoner     LLMID    `json:"reasoner"`
-	ToolServers  []string `json:"tool_servers,omitempty"`
+	Tools        []string `json:"tools,omitempty"`
 }
 
 type AgentConfigRepo interface {
@@ -56,24 +55,33 @@ func (s *AgentService) SaveAgent(cfg AgentConfig) error {
 		return err
 	}
 
-	// validate ToolService
-	toolServersMap := map[string]struct{}{}
-	for _, server := range s.toolService.Servers() {
-		toolServersMap[server.Name()] = struct{}{}
-	}
+	// // validate ToolService
+	// toolServersMap := map[string]struct{}{}
+	// for _, server := range s.toolService.Servers() {
+	// 	toolServersMap[server.Name()] = struct{}{}
+	// }
 
-	for _, serverID := range cfg.ToolServers {
-		if _, ok := toolServersMap[serverID]; !ok {
-			return fmt.Errorf("server %s is not exist", serverID)
-		}
-	}
+	// for _, serverID := range cfg.ToolServers {
+	// 	if _, ok := toolServersMap[serverID]; !ok {
+	// 		return fmt.Errorf("server %s is not exist", serverID)
+	// 	}
+	// }
 
 	// save
 	return s.agentRepo.Save(cfg)
 }
 
-func (s *AgentService) getAgent(id agent.ID) (*agent.Agent, error) {
-	config, err := s.agentRepo.Config(id)
+// TODO think about eliminating this func
+func (s *AgentService) Chat(
+	ctx context.Context,
+	agentID agent.ID,
+	additionalSysmtemPrompt string,
+	conversation []types.Message,
+	onResult func(result *agent.ReasonResult),
+	additionalTools []string,
+) (newMsgs []types.Message, err error) {
+
+	config, err := s.agentRepo.Config(agentID)
 	if err != nil {
 		return nil, err
 	}
@@ -83,49 +91,18 @@ func (s *AgentService) getAgent(id agent.ID) (*agent.Agent, error) {
 		return nil, err
 	}
 
-	toolKit := s.toolService.ToolKit(config.ID, config.ToolServers)
-
-	return agent.NewAgent(
-		config.ID,
-		config.Description,
-		config.SystemPrompt,
-		llm,
-		toolKit,
-	), nil
-}
-
-// TODO think about eliminating this func
-func (s *AgentService) Chat(
-	ctx context.Context,
-	agentID agent.ID,
-	additionalSysmtemPrompt string,
-	preContextMessages []types.Message,
-	contextMessages []types.Message,
-	postContextMessages []types.Message,
-	onResult func(result *agent.ReasonResult),
-) (newMsgs []types.Message, err error) {
-
-	a, err := s.getAgent(agentID)
+	tools, err := s.toolService.GetTools(append(config.Tools, additionalTools...))
 	if err != nil {
 		return nil, err
 	}
 
-	ctx = context.WithValue(ctx, AgentContextKey, a)
+	a := agent.NewAgent(
+		config.ID,
+		config.Description,
+		config.SystemPrompt,
+		llm,
+		tools,
+	)
 
-	a.OnResult(onResult)
-
-	conversation := []types.Message{}
-	if preContextMessages != nil {
-		conversation = append(conversation, preContextMessages...)
-	}
-
-	if contextMessages != nil {
-		conversation = append(conversation, contextMessages...)
-	}
-
-	if postContextMessages != nil {
-		conversation = append(conversation, postContextMessages...)
-	}
-
-	return a.Chat(ctx, additionalSysmtemPrompt, conversation)
+	return a.Chat(ctx, additionalSysmtemPrompt, onResult, conversation)
 }
