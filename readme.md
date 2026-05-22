@@ -22,13 +22,8 @@ All memory stores in `/agent/data/...`
 - Dreaming + divie own knowladges (dreamable) + external knowledges (undreamable)
 - Something LangChan like over scheduled proactivity like now.
 - Rest endpoints and server
-
+- isolate service packages by interfaces
+- check depricated variable names
 
 И LiveSession внутри AgentRuntime — просто скользящее окно контекста, 
 детали реализации. Снаружи это не "сессия" вообще.
-
-
-
-
-Server -> Dynamic persistent prompt + tools
-Skills -> static + Read tools + tools

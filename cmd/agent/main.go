@@ -1,10 +1,10 @@
 package main
 
 import (
-	"arch-agent/internal/di"
-	"arch-agent/internal/infra/config"
-	"arch-agent/internal/infra/logging"
-	"arch-agent/internal/infra/telegram"
+	app "arch-agent/internal"
+	"arch-agent/internal/config"
+	"arch-agent/internal/logging"
+	"arch-agent/internal/telegram"
 	"context"
 	"flag"
 	"fmt"
@@ -49,27 +49,17 @@ func main() {
 		})
 	}
 
-	botOrchestra, err := telegram.NewBotOrchestrator(botConfs...)
-	if err != nil {
-		slog.Error("telegram", "init error", err)
-		os.Exit(1)
-	}
-
 	// root composing
-	app, err := di.BuildApp(
+	app, err := app.BuildApp(
 		ctx,
 		*dataPath,
-		telegram.NewSendMessageTool(botOrchestra),
-		telegram.NewSendStickerTool(botOrchestra),
+		cfg.Telegram.GroupID,
+		botConfs...,
 	)
 	if err != nil {
 		slog.Error("app", "init error", err)
 		os.Exit(1)
 	}
-
-	botOrchestra.WireApp(app)
-
-	tgA2AInterceptor := telegram.NewA2AInterceptor(cfg.Telegram.GroupID, botOrchestra, app.A2A)
 
 	// TODO:
 	// Remove this shit to diff container
@@ -77,8 +67,7 @@ func main() {
 		go http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", cfg.Telegram.Port), nil)
 	}
 
-	go botOrchestra.Run(ctx)
-	go tgA2AInterceptor.Run(ctx)
+	app.Run(ctx)
 
 	// shutdown await
 	<-ctx.Done()
