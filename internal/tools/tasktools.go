@@ -144,7 +144,10 @@ func (t *AddTaskTool) Name() string {
 }
 
 func (t *AddTaskTool) Description() string {
-	return "creates a task that will be sended for agents by reglament"
+	return "creates a task that will be sended for agents by reglament" +
+		"for some reminds or request to do somthing at some time once, use oneshot." +
+		"before create a regular task ensure that actually what you should do" +
+		"if debt - please clarify it"
 }
 func (t *AddTaskTool) Schema() []agent.ToolProperty {
 	return []agent.ToolProperty{

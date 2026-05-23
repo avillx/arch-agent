@@ -162,11 +162,25 @@ func BuildApp(ctx context.Context, dataPath string, groupID int64, botCfgs ...te
 	)
 
 	toolService.AddTools(
+		// filesystem tools
+		tools.NewListDirTool(fs),
+		tools.NewReadFileTool(fs),
+		tools.NewWriteFileTool(fs),
+		tools.NewEditFileTool(fs),
+		tools.NewMoveFileTool(fs),
+		tools.NewDeleteFileTool(fs),
+		tools.NewSearchFilesTool(fs),
+
+		// task scheduling tools
 		tools.NewToggleTaskTool(taskSvc),
 		tools.NewGetTasksTool(taskSvc),
 		tools.NewAddTaskTool(taskSvc, func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) }),
+
+		// a2a tools
 		tools.NewCallAgentTool(a2aSvc),
 		tools.NewGetAgentsTool(a2aSvc),
+
+		// telegram tools
 		tools.NewSendMessageTool(botOrchestra),
 		tools.NewSendStickerTool(botOrchestra),
 	)

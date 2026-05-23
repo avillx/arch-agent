@@ -87,6 +87,27 @@ func NewTaskExecutor(
 	}
 }
 
+func (s *taskExecutor) Validate(t Task) error {
+	// get existed agents
+	agentsCfgs, err := s.agentService.List()
+	if err != nil {
+		return err
+	}
+
+	// validate agents
+	agentMap := map[agent.ID]struct{}{}
+	for _, cfg := range agentsCfgs {
+		agentMap[cfg.ID] = struct{}{}
+	}
+	for _, agent := range t.Recipients {
+		if _, ok := agentMap[agent]; !ok {
+			return fmt.Errorf("agent %s is not exist", agent)
+		}
+	}
+
+	return nil
+}
+
 func (s *taskExecutor) Executor(t Task) {
 	for _, r := range t.Recipients {
 		slog.Info("processing task", "agent", r, "task", t.Name)
@@ -186,7 +207,9 @@ func NewTaskService(
 		if !rec.Active {
 			continue
 		}
-
+		// TODO validate task on service creation
+		// !Caution it may have edge case issues if agent is not exist
+		// validation return error and program not started
 		if err := s.Start(id); err != nil {
 			return nil, err
 		}
@@ -201,21 +224,9 @@ func (s *TaskService) All() (map[string]*TaskRecord, error) {
 
 func (s *TaskService) New(t Task) (string, error) {
 
-	// get existed agents
-	agentsCfgs, err := s.executor.agentService.List()
-	if err != nil {
+	// validate
+	if err := s.executor.Validate(t); err != nil {
 		return "", err
-	}
-
-	// validate agents
-	agentMap := map[agent.ID]struct{}{}
-	for _, cfg := range agentsCfgs {
-		agentMap[cfg.ID] = struct{}{}
-	}
-	for _, agent := range t.Recipients {
-		if _, ok := agentMap[agent]; !ok {
-			return "", fmt.Errorf("agent %s is not exist", agent)
-		}
 	}
 
 	// save to repo
