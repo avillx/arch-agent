@@ -1,33 +1,31 @@
 package task
 
 import (
+	"arch-agent/internal/agent"
 	"sync"
 	"time"
 )
 
-type Recipient string
-
-type Reglament interface {
+type Cron interface {
 	NextTime() time.Duration
-	Type() string
-	String() string
+	Expression() string
 }
 
 type Task struct {
 	Name        string
-	Recipients  []Recipient
+	Recipients  []agent.ID
 	Description string
 	Request     string
-	Reglament   Reglament
+	Reglament   Cron
 	OneShot     bool
 }
 
 func NewTask(
 	name string,
 	description string,
-	recipients []Recipient,
+	recipients []agent.ID,
 	request string,
-	reglament Reglament,
+	reglament Cron,
 	oneShot bool,
 ) Task {
 	return Task{

@@ -15,15 +15,18 @@ Workdir is `/agent`
 All memory stores in `/agent/data/...`
 
 ## TODO
-- Completion agregation
+- completion agregation
 - Multimodal input
+- TODO tool
+- Skills
+- file system tools
+- bash tools
 - Advanced schedule control
 - web_search + fetch_page
 - Dreaming + divie own knowladges (dreamable) + external knowledges (undreamable)
-- Something LangChan like over scheduled proactivity like now.
 - Rest endpoints and server
 - isolate service packages by interfaces
-- check depricated variable names
+- check depricated (before restruct) variable names
 
 И LiveSession внутри AgentRuntime — просто скользящее окно контекста, 
 детали реализации. Снаружи это не "сессия" вообще.

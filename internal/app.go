@@ -4,6 +4,7 @@ import (
 	"arch-agent/internal/a2a"
 	"arch-agent/internal/agent"
 	"arch-agent/internal/chat"
+	"arch-agent/internal/cron"
 	"arch-agent/internal/files"
 	"arch-agent/internal/llm"
 	"arch-agent/internal/openai"
@@ -95,10 +96,9 @@ func BuildTaskService(
 	fs *files.FileSystem,
 	chatService *chat.Service,
 	activityRepo agent.ActivityRepo,
-	uuidGenerator task.UUIDGenerator,
 ) (*task.TaskService, error) {
 
-	taskRepo, err := files.NewTaskFiles(fs)
+	taskRepo, err := files.NewTaskFiles(fs, func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) })
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,6 @@ func BuildTaskService(
 
 	return task.NewTaskService(
 		ctx,
-		uuidGenerator,
 		taskRepo,
 		executor,
 	)
@@ -141,7 +140,6 @@ func BuildApp(ctx context.Context, dataPath string, groupID int64, botCfgs ...te
 		fs,
 		chatSvc,
 		activityRepo,
-		uuidGen,
 	)
 	if err != nil {
 		return nil, err
@@ -164,11 +162,13 @@ func BuildApp(ctx context.Context, dataPath string, groupID int64, botCfgs ...te
 	)
 
 	toolService.AddTools(
-		tools.NewAddTaskTool(taskSvc),
+		tools.NewToggleTaskTool(taskSvc),
+		tools.NewGetTasksTool(taskSvc),
+		tools.NewAddTaskTool(taskSvc, func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) }),
 		tools.NewCallAgentTool(a2aSvc),
 		tools.NewGetAgentsTool(a2aSvc),
-		tools.NewSendMessageTool(nil),
-		tools.NewSendStickerTool(nil),
+		tools.NewSendMessageTool(botOrchestra),
+		tools.NewSendStickerTool(botOrchestra),
 	)
 
 	botOrchestra.WireSessionService(sessionChatSvc)

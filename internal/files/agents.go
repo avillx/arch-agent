@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -36,7 +37,7 @@ func (s *AgentFiles) Configs() ([]chat.AgentConfig, error) {
 		if !e.IsDir() {
 			continue
 		}
-		cfg, err := s.readConfig(agent.ID(e.Name()))
+		cfg, err := s.readConfig(agent.ID(strings.TrimLeft(e.Name(), "agent.")))
 		if err != nil {
 			continue
 		}

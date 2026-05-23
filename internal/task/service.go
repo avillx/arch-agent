@@ -158,7 +158,6 @@ type TaskRepo interface {
 
 // service
 type TaskService struct {
-	uuidGen  UUIDGenerator
 	runtime  *TaskRuntime
 	executor *taskExecutor
 	repo     TaskRepo
@@ -166,13 +165,11 @@ type TaskService struct {
 
 func NewTaskService(
 	ctx context.Context,
-	uuidGen UUIDGenerator,
 	repo TaskRepo,
 	executor *taskExecutor,
 ) (*TaskService, error) {
 
 	s := &TaskService{
-		uuidGen:  uuidGen,
 		repo:     repo,
 		runtime:  NewTaskRuntime(),
 		executor: executor,
@@ -203,12 +200,30 @@ func (s *TaskService) All() (map[string]*TaskRecord, error) {
 }
 
 func (s *TaskService) New(t Task) (string, error) {
-	uuid := s.uuidGen.New()
-	if err := s.repo.Save(uuid, &TaskRecord{Active: false, Task: t}); err != nil {
+
+	// get existed agents
+	agentsCfgs, err := s.executor.agentService.List()
+	if err != nil {
 		return "", err
 	}
 
-	return uuid, nil
+	// validate agents
+	agentMap := map[agent.ID]struct{}{}
+	for _, cfg := range agentsCfgs {
+		agentMap[cfg.ID] = struct{}{}
+	}
+	for _, agent := range t.Recipients {
+		if _, ok := agentMap[agent]; !ok {
+			return "", fmt.Errorf("agent %s is not exist", agent)
+		}
+	}
+
+	// save to repo
+	if err := s.repo.Save(t.Name, &TaskRecord{Active: false, Task: t}); err != nil {
+		return "", err
+	}
+
+	return t.Name, nil
 }
 
 func (s *TaskService) Start(id string) error {

@@ -1,10 +1,11 @@
 package files
 
 import (
+	"arch-agent/internal/agent"
 	"arch-agent/internal/task"
 	"arch-agent/internal/types"
 	"encoding/json"
-	"fmt"
+	"log/slog"
 	"os"
 	"sync"
 )
@@ -12,15 +13,17 @@ import (
 const TaskFile = "tasks.json"
 
 type TaskFiles struct {
-	mu    sync.RWMutex
-	tasks map[string]*task.TaskRecord
-	fs    *FileSystem
+	mu          sync.RWMutex
+	tasks       map[string]*task.TaskRecord
+	fs          *FileSystem
+	cronFactory func(string) (task.Cron, error)
 }
 
-func NewTaskFiles(fs *FileSystem) (*TaskFiles, error) {
+func NewTaskFiles(fs *FileSystem, cronFactory func(string) (task.Cron, error)) (*TaskFiles, error) {
 	tf := &TaskFiles{
-		fs:    fs,
-		tasks: map[string]*task.TaskRecord{},
+		fs:          fs,
+		tasks:       map[string]*task.TaskRecord{},
+		cronFactory: cronFactory,
 	}
 	return tf, tf.load()
 }
@@ -36,19 +39,12 @@ func (tf *TaskFiles) load() error {
 	if len(data) == 0 {
 		return nil
 	}
-	taskMap, err := unmarshalTasks(data)
+	taskMap, err := unmarshalTasks(data, tf.cronFactory)
 	if err != nil {
 		return err
 	}
 	tf.tasks = taskMap
 	return nil
-}
-
-type TaskRepo interface {
-	All() (map[string]*task.TaskRecord, error)
-	Get(id string) (*task.TaskRecord, error)
-	Save(id string, t *task.TaskRecord) error
-	Delete(id string) error
 }
 
 func (tf *TaskFiles) flush() error {
@@ -95,69 +91,62 @@ type reglamentDTO struct {
 }
 
 type taskDTO struct {
-	Active      bool             `json:"active"`
-	Name        string           `json:"name"`
-	Recipients  []task.Recipient `json:"recipients"`
-	Description string           `json:"description"`
-	Request     string           `json:"request"`
-	OneShot     bool             `json:"one_shot"`
-	Reglament   reglamentDTO     `json:"reglament"`
+	Active      bool       `json:"active"`
+	Name        string     `json:"name"`
+	Recipients  []agent.ID `json:"recipients"`
+	Description string     `json:"description"`
+	Request     string     `json:"request"`
+	OneShot     bool       `json:"one_shot"`
+	Reglament   string     `json:"reglament"`
 }
 
-func marshalTasks(tasks map[string]*task.TaskRecord) ([]byte, error) {
-	dtos := make(map[string]taskDTO, len(tasks))
-	for id, t := range tasks {
-		data, err := json.Marshal(t.Reglament)
-		if err != nil {
-			return nil, err
-		}
-		dtos[id] = taskDTO{
-			Active: t.Active, Name: t.Name, Recipients: t.Recipients,
-			Description: t.Description, Request: t.Request, OneShot: t.OneShot,
-			Reglament: reglamentDTO{Type: t.Reglament.Type(), Data: data},
-		}
-	}
-	return json.MarshalIndent(dtos, "", "	")
-}
+func unmarshalTasks(data []byte, cronFactory func(string) (task.Cron, error)) (map[string]*task.TaskRecord, error) {
 
-func unmarshalTasks(data []byte) (map[string]*task.TaskRecord, error) {
-	var dtos map[string]taskDTO
+	var dtos []taskDTO
 	if err := json.Unmarshal(data, &dtos); err != nil {
 		return nil, err
 	}
-	tasks := make(map[string]*task.TaskRecord, len(dtos))
-	for id, dto := range dtos {
-		r, err := unmarshalReglament(dto.Reglament.Type, dto.Reglament.Data)
+
+	records := make(map[string]*task.TaskRecord, len(dtos))
+	for _, dto := range dtos {
+
+		cron, err := cronFactory(dto.Reglament)
 		if err != nil {
-			return nil, err
+			slog.Error("unmarshal task, reglament parse", "task", dto.Name, "reglament", dto.Reglament, "error", err)
+			continue
 		}
-		tasks[id] = &task.TaskRecord{
+
+		records[dto.Name] = &task.TaskRecord{
 			Active: dto.Active,
-			Task: task.Task{
-				Name: dto.Name, Recipients: dto.Recipients,
-				Description: dto.Description, Request: dto.Request, OneShot: dto.OneShot,
-				Reglament: r,
-			},
+			Task: task.NewTask(
+				dto.Name,
+				dto.Description,
+				dto.Recipients,
+				dto.Request,
+				cron,
+				dto.OneShot,
+			),
 		}
 	}
-	return tasks, nil
+
+	return records, nil
 }
 
-func unmarshalReglament(typ string, data json.RawMessage) (task.Reglament, error) {
-	switch typ {
-	case "every":
-		var r task.Every
-		return r, json.Unmarshal(data, &r)
-	case "daily":
-		var r task.Daily
-		return r, json.Unmarshal(data, &r)
-	case "weekly":
-		var r task.Weekly
-		return r, json.Unmarshal(data, &r)
-	case "monthly":
-		var r task.Monthly
-		return r, json.Unmarshal(data, &r)
-	default:
-		return nil, fmt.Errorf("unknown reglament type: %s", typ)
+func marshalTasks(tasks map[string]*task.TaskRecord) ([]byte, error) {
+
+	dtos := make([]taskDTO, 0, len(tasks))
+	for _, t := range tasks {
+		dto := taskDTO{
+			Active:      t.Active,
+			Name:        t.Name,
+			Description: t.Description,
+			Recipients:  t.Recipients,
+			Request:     t.Request,
+			OneShot:     t.OneShot,
+			Reglament:   t.Reglament.Expression(),
+		}
+		dtos = append(dtos, dto)
 	}
+
+	return json.MarshalIndent(dtos, "", "	")
 }
