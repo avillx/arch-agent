@@ -3,14 +3,32 @@ package files
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/chat"
-	"encoding/json"
+	"arch-agent/internal/llm"
+	"bytes"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
+
+	"gopkg.in/yaml.v3"
 )
 
+// Config
+type AgentConfig struct {
+	id           agent.ID
+	description  string
+	systemPrompt string
+	reasoner     llm.LLMID
+	tools        []string
+}
+
+func (c *AgentConfig) ID() agent.ID         { return c.id }
+func (c *AgentConfig) Description() string  { return c.description }
+func (c *AgentConfig) SystemPrompt() string { return c.systemPrompt }
+func (c *AgentConfig) Reasoner() llm.LLMID  { return c.reasoner }
+func (c *AgentConfig) Tools() []string      { return c.tools }
+
+// Files
 type AgentFiles struct {
 	fs *FileSystem
 	mu sync.RWMutex
@@ -32,12 +50,13 @@ func (s *AgentFiles) Configs() ([]chat.AgentConfig, error) {
 		return nil, err
 	}
 
-	configs := make([]chat.AgentConfig, 0, len(entries))
+	var configs []chat.AgentConfig
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
 		}
-		cfg, err := s.readConfig(agent.ID(strings.TrimLeft(e.Name(), "agent.")))
+		id := agent.ID(strings.TrimPrefix(e.Name(), "agent."))
+		cfg, err := s.readConfig(id)
 		if err != nil {
 			continue
 		}
@@ -49,7 +68,6 @@ func (s *AgentFiles) Configs() ([]chat.AgentConfig, error) {
 func (s *AgentFiles) Config(id agent.ID) (chat.AgentConfig, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-
 	return s.readConfig(id)
 }
 
@@ -57,39 +75,83 @@ func (s *AgentFiles) Save(cfg chat.AgentConfig) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	data, err := json.MarshalIndent(cfg, "", "	")
+	data, err := marshalAgentFile(cfg)
 	if err != nil {
 		return err
 	}
-	if err := s.fs.WriteToFile(fmt.Sprintf("/agent.%s/agent.json", cfg.ID), data); err != nil {
-		return err
-	}
-
-	return s.fs.WriteToFile(fmt.Sprintf("/agent.%s/agent.md", cfg.ID), []byte(cfg.SystemPrompt))
+	return s.fs.WriteToFile(fmt.Sprintf("/agent.%s/agent.md", cfg.ID()), data)
 }
 
-func (s *AgentFiles) Delete(id agent.ID) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+// func (s *AgentFiles) Delete(id agent.ID) error {
+// 	s.fs.D
+// }
 
-	return os.RemoveAll(filepath.Join(s.fs.Dir(), string(id)))
-}
-
-func (s *AgentFiles) readConfig(id agent.ID) (chat.AgentConfig, error) {
-	data, err := s.fs.ReadFile(fmt.Sprintf("/agent.%s/agent.json", id))
+func (s *AgentFiles) readConfig(id agent.ID) (*AgentConfig, error) {
+	data, err := s.fs.ReadFile(fmt.Sprintf("/agent.%s/agent.md", id))
 	if err != nil {
-		return chat.AgentConfig{}, err
+		return nil, err
 	}
 
-	var cfg chat.AgentConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return chat.AgentConfig{}, err
+	dto, systemPrompt, err := parseAgentFile(data)
+	if err != nil {
+		return nil, err
 	}
 
-	prompt, err := s.fs.ReadFile(fmt.Sprintf("/agent.%s/agent.md", id))
-	if err == nil {
-		cfg.SystemPrompt = string(prompt)
+	return &AgentConfig{
+		id:           dto.ID,
+		description:  dto.Description,
+		systemPrompt: systemPrompt,
+		reasoner:     dto.Reasoner,
+		tools:        dto.Tools,
+	}, nil
+}
+
+// DTO
+type AgentConfigDTO struct {
+	ID          agent.ID  `yaml:"id"`
+	Description string    `yaml:"description,omitempty"`
+	Reasoner    llm.LLMID `yaml:"reasoner"`
+	Tools       []string  `yaml:"tools,omitempty"`
+}
+
+func parseAgentFile(data []byte) (AgentConfigDTO, string, error) {
+	const delim = "---"
+	s := strings.ReplaceAll(string(data), "\r\n", "\n")
+
+	after, ok := strings.CutPrefix(s, delim+"\n")
+	if !ok {
+		return AgentConfigDTO{}, "", fmt.Errorf("agent file must start with ---")
 	}
 
-	return cfg, nil
+	fmEnd := strings.Index(after, "\n"+delim)
+	if fmEnd == -1 {
+		return AgentConfigDTO{}, "", fmt.Errorf("unclosed frontmatter")
+	}
+
+	var dto AgentConfigDTO
+	if err := yaml.Unmarshal([]byte(after[:fmEnd]), &dto); err != nil {
+		return AgentConfigDTO{}, "", err
+	}
+
+	systemPrompt := strings.TrimPrefix(after[fmEnd+len("\n"+delim):], "\n")
+	return dto, systemPrompt, nil
+}
+
+func marshalAgentFile(cfg chat.AgentConfig) ([]byte, error) {
+	fm, err := yaml.Marshal(AgentConfigDTO{
+		ID:          cfg.ID(),
+		Description: cfg.Description(),
+		Reasoner:    cfg.Reasoner(),
+		Tools:       cfg.Tools(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString("---\n")
+	buf.Write(fm)
+	buf.WriteString("---\n")
+	buf.WriteString(cfg.SystemPrompt())
+	return buf.Bytes(), nil
 }

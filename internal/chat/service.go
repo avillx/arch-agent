@@ -6,19 +6,19 @@ import (
 	"context"
 )
 
-type AgentConfig struct {
-	ID           agent.ID  `json:"id"`
-	Description  string    `json:"description,omitempty"`
-	SystemPrompt string    `json:"system_prompt,omitempty"`
-	Reasoner     llm.LLMID `json:"reasoner"`
-	Tools        []string  `json:"tools,omitempty"`
+type AgentConfig interface {
+	ID() agent.ID
+	Description() string
+	SystemPrompt() string
+	Reasoner() llm.LLMID
+	Tools() []string
 }
 
 type AgentConfigRepo interface {
 	Configs() ([]AgentConfig, error)
 	Config(agent.ID) (AgentConfig, error)
 	Save(AgentConfig) error
-	Delete(agent.ID) error
+	// Delete(agent.ID) error
 }
 
 // TODO: replace llm.Service with repo interface
@@ -53,14 +53,14 @@ func (s *Service) List() ([]AgentConfig, error) {
 	return s.agentRepo.Configs()
 }
 
-func (s *Service) DeleteAgent(id agent.ID) error {
-	return s.agentRepo.Delete(id)
-}
+// func (s *Service) DeleteAgent(id agent.ID) error {
+// 	return s.agentRepo.Delete(id)
+// }
 
 func (s *Service) SaveAgent(cfg AgentConfig) error {
 
 	// validate llm
-	if _, err := s.llmService.GetLLM(cfg.Reasoner); err != nil {
+	if _, err := s.llmService.GetLLM(cfg.Reasoner()); err != nil {
 		return err
 	}
 
@@ -95,20 +95,20 @@ func (s *Service) Chat(
 		return nil, err
 	}
 
-	llm, err := s.llmService.GetLLM(config.Reasoner)
+	llm, err := s.llmService.GetLLM(config.Reasoner())
 	if err != nil {
 		return nil, err
 	}
 
-	tools, err := s.toolRegistry.GetTools(append(config.Tools, additionalTools...))
+	tools, err := s.toolRegistry.GetTools(append(config.Tools(), additionalTools...))
 	if err != nil {
 		return nil, err
 	}
 
 	a := agent.NewAgent(
-		config.ID,
-		config.Description,
-		config.SystemPrompt,
+		config.ID(),
+		config.Description(),
+		config.SystemPrompt(),
 		llm,
 		tools,
 	)

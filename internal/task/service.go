@@ -97,7 +97,7 @@ func (s *taskExecutor) Validate(t Task) error {
 	// validate agents
 	agentMap := map[agent.ID]struct{}{}
 	for _, cfg := range agentsCfgs {
-		agentMap[cfg.ID] = struct{}{}
+		agentMap[cfg.ID()] = struct{}{}
 	}
 	for _, agent := range t.Recipients {
 		if _, ok := agentMap[agent]; !ok {
