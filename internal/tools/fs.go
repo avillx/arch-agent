@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -112,6 +113,10 @@ func (t *ReadFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 		return "", err
 	}
 
+	if !IsTextFile(args.Path) {
+		return "", fmt.Errorf("you can read files only with text extensions")
+	}
+
 	internal, err := toInternal(args.Path)
 	if err != nil {
 		return "", err
@@ -187,6 +192,14 @@ func (t *WriteFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 		return "", err
 	}
 
+	if IsReadOnly(args.Path) {
+		return "", fmt.Errorf("this path is read only")
+	}
+
+	if !IsTextFile(args.Path) {
+		return "", fmt.Errorf("you can write only files with text extensions")
+	}
+
 	internal, err := toInternal(args.Path)
 	if err != nil {
 		return "", err
@@ -247,6 +260,14 @@ func (t *EditFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 	}](rawArgs)
 	if err != nil {
 		return "", err
+	}
+
+	if IsReadOnly(args.Path) {
+		return "", fmt.Errorf("this path is read only")
+	}
+
+	if !IsTextFile(args.Path) {
+		return "", fmt.Errorf("you can edit files only with text extensions")
 	}
 
 	internal, err := toInternal(args.Path)
@@ -314,6 +335,14 @@ func (t *MoveFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 		return "", err
 	}
 
+	if IsReadOnly(args.Src) {
+		return "", fmt.Errorf("this path is read only")
+	}
+
+	if !IsTextFile(args.Src) && IsTextFile(args.Dst) {
+		return "", fmt.Errorf("can't change non text file extension to text")
+	}
+
 	srcInternal, err := toInternal(args.Src)
 	if err != nil {
 		return "", err
@@ -366,6 +395,10 @@ func (t *DeleteFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) 
 	}](rawArgs)
 	if err != nil {
 		return "", err
+	}
+
+	if IsReadOnly(args.Path) {
+		return "", fmt.Errorf("this path is read only")
 	}
 
 	internal, err := toInternal(args.Path)
@@ -512,4 +545,61 @@ func wrapFSError(err error, agentPath string) error {
 		return fmt.Errorf("%s: %s", agentPath, pathErr.Err)
 	}
 	return fmt.Errorf("%s: operation failed", agentPath)
+}
+
+func IsReadOnly(path string) bool {
+	switch {
+	case strings.Contains(path, "file:///skills/"):
+		return true
+	case strings.Contains(path, "file:///activity/"):
+		return true
+	}
+	return false
+}
+
+func IsTextFile(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+
+	switch ext {
+	case
+		// Документы и разметка
+		".txt", ".md", ".mdx", ".rst", ".tex", ".asciidoc", ".adoc",
+		".csv", ".tsv", ".log", ".org",
+
+		// Данные и конфиги
+		".json", ".json5", ".jsonc", ".xml", ".yaml", ".yml",
+		".toml", ".ini", ".cfg", ".conf", ".config", ".env",
+		".properties", ".plist", ".hcl", ".tf", ".tfvars",
+		".editorconfig", ".gitignore", ".gitattributes", ".dockerignore",
+
+		// Web
+		".html", ".htm", ".xhtml", ".css", ".scss", ".sass", ".less",
+		".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs",
+		".vue", ".svelte", ".astro", ".handlebars", ".hbs", ".ejs", ".pug",
+
+		// Backend языки
+		".go", ".py", ".rb", ".php", ".java", ".kt", ".kts",
+		".scala", ".groovy", ".cs", ".fs", ".vb",
+		".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hxx",
+		".rs", ".swift", ".m", ".mm", ".zig",
+		".ex", ".exs", ".erl", ".hrl", ".clj", ".cljs",
+		".hs", ".lhs", ".ml", ".mli", ".fsi",
+		".lua", ".r", ".jl", ".dart", ".d",
+
+		// Скрипты и шелл
+		".sh", ".bash", ".zsh", ".fish", ".ps1", ".psm1", ".bat", ".cmd",
+
+		// Запросы и схемы
+		".sql", ".graphql", ".gql", ".proto", ".thrift", ".avsc",
+
+		// Инфраструктура и CI
+		".dockerfile", ".vagrantfile", ".makefile",
+		".gradle", ".cmake", ".bazel", ".bzl",
+
+		// Прочее
+		".diff", ".patch", ".lock", ".sum", ".mod", ".csproj", ".sln":
+		return true
+	}
+
+	return false
 }

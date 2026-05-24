@@ -1,6 +1,7 @@
 package files
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -41,10 +42,24 @@ func (fs *FileSystem) ReadFile(path string) ([]byte, error) {
 }
 
 func (fs *FileSystem) WriteToFile(path string, data []byte) error {
-	e := fs.locks.RLock(path)
-	defer fs.locks.RUnlock(path, e)
+	e := fs.locks.Lock(path)
+	defer fs.locks.Unlock(path, e)
 
-	return os.WriteFile(fs.pathTo(path), data, 0644)
+	fullPath := fs.pathTo(path)
+
+	if err := os.WriteFile(fullPath, data, 0644); err != nil {
+
+		var pathErr *os.PathError
+		if !errors.As(err, &pathErr) {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+			return err
+		}
+
+		return os.WriteFile(fullPath, data, 0644)
+	}
+	return nil
 }
 
 func (fs *FileSystem) AppendToFile(path string, data []byte) error {
