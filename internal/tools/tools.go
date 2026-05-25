@@ -44,7 +44,7 @@ func (t *SendMessageTool) Schema() []agent.ToolProperty {
 }
 
 func (t *SendMessageTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
-	args, err := unwrapArgs[struct {
+	args, err := UnwrapArgs[struct {
 		ChatID int64  `json:"chat_id"`
 		Text   string `json:"text"`
 	}](rawArgs)
@@ -52,7 +52,7 @@ func (t *SendMessageTool) Call(ctx context.Context, rawArgs agent.ToolArguments)
 		return "", err
 	}
 
-	agentID := mustAgentID(ctx)
+	agentID := MustAgentID(ctx)
 
 	bot, err := t.orchestrator.Get(agent.ID(agentID))
 	if err != nil {
@@ -101,7 +101,7 @@ func (t *SendStickerTool) Schema() []agent.ToolProperty {
 }
 
 func (t *SendStickerTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
-	args, err := unwrapArgs[struct {
+	args, err := UnwrapArgs[struct {
 		ChatID int64  `json:"chat_id"`
 		Emoji  string `json:"emoji"`
 	}](rawArgs)
@@ -109,7 +109,7 @@ func (t *SendStickerTool) Call(ctx context.Context, rawArgs agent.ToolArguments)
 		return "", err
 	}
 
-	agentID := mustAgentID(ctx)
+	agentID := MustAgentID(ctx)
 
 	bot, err := t.orchestrator.Get(agent.ID(agentID))
 	if err != nil {

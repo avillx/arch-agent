@@ -41,7 +41,7 @@ func (t *ListDirTool) Schema() []agent.ToolProperty {
 }
 
 func (t *ListDirTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
-	args, err := unwrapArgs[struct {
+	args, err := UnwrapArgs[struct {
 		Path string `json:"path"`
 	}](rawArgs)
 	if err != nil {
@@ -104,7 +104,7 @@ func (t *ReadFileTool) Schema() []agent.ToolProperty {
 }
 
 func (t *ReadFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
-	args, err := unwrapArgs[struct {
+	args, err := UnwrapArgs[struct {
 		Path      string `json:"path"`
 		StartLine *int   `json:"start_line,omitempty"`
 		EndLine   *int   `json:"end_line,omitempty"`
@@ -183,7 +183,7 @@ func (t *WriteFileTool) Schema() []agent.ToolProperty {
 }
 
 func (t *WriteFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
-	args, err := unwrapArgs[struct {
+	args, err := UnwrapArgs[struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`
 		Mode    string `json:"mode"`
@@ -253,7 +253,7 @@ func (t *EditFileTool) Schema() []agent.ToolProperty {
 }
 
 func (t *EditFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
-	args, err := unwrapArgs[struct {
+	args, err := UnwrapArgs[struct {
 		Path   string `json:"path"`
 		OldStr string `json:"old_str"`
 		NewStr string `json:"new_str"`
@@ -327,7 +327,7 @@ func (t *MoveFileTool) Schema() []agent.ToolProperty {
 }
 
 func (t *MoveFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
-	args, err := unwrapArgs[struct {
+	args, err := UnwrapArgs[struct {
 		Src string `json:"src"`
 		Dst string `json:"dst"`
 	}](rawArgs)
@@ -390,7 +390,7 @@ func (t *DeleteFileTool) Schema() []agent.ToolProperty {
 }
 
 func (t *DeleteFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
-	args, err := unwrapArgs[struct {
+	args, err := UnwrapArgs[struct {
 		Path string `json:"path"`
 	}](rawArgs)
 	if err != nil {
@@ -447,7 +447,7 @@ func (t *SearchFilesTool) Schema() []agent.ToolProperty {
 }
 
 func (t *SearchFilesTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
-	args, err := unwrapArgs[struct {
+	args, err := UnwrapArgs[struct {
 		Root       string `json:"root"`
 		Query      string `json:"query"`
 		MaxResults *int   `json:"max_results,omitempty"`

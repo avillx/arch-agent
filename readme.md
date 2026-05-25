@@ -16,13 +16,12 @@ All memory stores in `/agent/data/...`
 
 ## TODO
 - completion agregation
-- Multimodal input
-- TODO tool
+- Multimodal input 
 - Skills
 - file system tools
 - bash tools
 - Advanced schedule control
-- web_search + fetch_page
+- web_search
 - Dreaming + divie own knowladges (dreamable) + external knowledges (undreamable)
 - Rest endpoints and server
 - isolate service packages by interfaces

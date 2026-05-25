@@ -7,7 +7,7 @@ import (
 	"log/slog"
 )
 
-func unwrapArgs[T any](raw agent.ToolArguments) (T, error) {
+func UnwrapArgs[T any](raw agent.ToolArguments) (T, error) {
 	var args T
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return args, err
@@ -15,7 +15,7 @@ func unwrapArgs[T any](raw agent.ToolArguments) (T, error) {
 	return args, nil
 }
 
-func mustAgentID(ctx context.Context) agent.ID {
+func MustAgentID(ctx context.Context) agent.ID {
 	agentID, ok := agent.IDFromContext(ctx)
 	if !ok {
 		slog.Error("Critical context has no agentID")

@@ -37,7 +37,7 @@ func (t *ToggleTaskTool) Schema() []agent.ToolProperty {
 }
 
 func (t *ToggleTaskTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
-	args, err := unwrapArgs[struct {
+	args, err := UnwrapArgs[struct {
 		Name string `json:"name"`
 	}](rawArgs)
 	if err != nil {
@@ -191,7 +191,7 @@ func (t *AddTaskTool) Schema() []agent.ToolProperty {
 }
 
 func (t *AddTaskTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
-	args, err := unwrapArgs[struct {
+	args, err := UnwrapArgs[struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
 		Recipients  string `json:"recipients"`

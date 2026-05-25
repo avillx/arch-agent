@@ -33,7 +33,7 @@ func (t *GetAgentsTool) Schema() []agent.ToolProperty {
 
 func (t *GetAgentsTool) Call(ctx context.Context, _ agent.ToolArguments) (string, error) {
 
-	agentID := mustAgentID(ctx)
+	agentID := MustAgentID(ctx)
 
 	contacts, err := t.a2aService.AgentContacts(agent.ID(agentID))
 	if err != nil {
@@ -87,7 +87,7 @@ func (t *CallAgentTool) Schema() []agent.ToolProperty {
 }
 
 func (t *CallAgentTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
-	args, err := unwrapArgs[struct {
+	args, err := UnwrapArgs[struct {
 		Name    string `json:"name"`
 		Request string `json:"request"`
 	}](rawArgs)
@@ -95,7 +95,7 @@ func (t *CallAgentTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 		return "", err
 	}
 
-	agentID := mustAgentID(ctx)
+	agentID := MustAgentID(ctx)
 
 	contacts, err := t.a2aService.AgentContacts(agent.ID(agentID))
 	if err != nil {

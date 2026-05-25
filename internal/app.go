@@ -13,6 +13,7 @@ import (
 	"arch-agent/internal/telegram"
 	"arch-agent/internal/tokenizer"
 	"arch-agent/internal/tools"
+	"arch-agent/internal/tools/fetch"
 	"arch-agent/internal/uuid"
 	"context"
 )
@@ -183,6 +184,9 @@ func BuildApp(ctx context.Context, dataPath string, groupID int64, botCfgs ...te
 		// telegram tools
 		tools.NewSendMessageTool(botOrchestra),
 		tools.NewSendStickerTool(botOrchestra),
+
+		// web tools
+		fetch.NewFetchTool(),
 	)
 
 	botOrchestra.WireSessionService(sessionChatSvc)
