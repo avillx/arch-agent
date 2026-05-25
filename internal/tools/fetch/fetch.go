@@ -3,6 +3,7 @@ package fetch
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/tools"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
+	"github.com/PuerkitoBio/goquery"
 )
 
 const DefaultTimeout = 12 * time.Second
@@ -43,7 +45,7 @@ func (t *FetchTool) Schema() []agent.ToolProperty {
 			Required:    true,
 			Type:        agent.TypeString,
 			Description: "format of result. if html on page is important use it. If you need only information use markdown",
-			Enum:        []string{"html", "markdown"},
+			Enum:        []string{"rawHTML", "markdown"},
 		},
 	}
 }
@@ -75,13 +77,13 @@ func (t *FetchTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (stri
 		},
 	}
 
-	var formatter func(string) string
+	var formatter func([]byte) (string, error)
 	switch args.Format {
 	case "markdown":
 		formatter = htmlToMarkdown
 	default:
-		formatter = func(s string) string {
-			return s
+		formatter = func(raw []byte) (string, error) {
+			return string(raw), nil
 		}
 	}
 
@@ -89,8 +91,9 @@ func (t *FetchTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (stri
 
 }
 
-func fetchURL(ctx context.Context, client *http.Client, urlStr string, formatter func(string) string) (string, error) {
+func fetchURL(ctx context.Context, client *http.Client, urlStr string, formatter func([]byte) (string, error)) (string, error) {
 
+	// make request
 	if err := validateURL(urlStr); err != nil {
 		return "", err
 	}
@@ -107,20 +110,35 @@ func fetchURL(ctx context.Context, client *http.Client, urlStr string, formatter
 	}
 	defer resp.Body.Close()
 
-	var sb strings.Builder
+	// Unwrap result
+	status := resp.Status
+	contentType := resp.Header.Get("Content-Type")
 
-	sb.WriteString(fmt.Sprintf("Status: %s\n", resp.Status))
-	sb.WriteString(fmt.Sprintf("Content-Type: %s\n", resp.Header.Get("Content-Type")))
+	if !IsTextContentType(contentType) {
+		return "", fmt.Errorf("unsupported content-type: %s", contentType)
+	}
 
-	maxSize := int64(1 << 20) // 1MB
+	maxSize := int64(1 << 18) // ~250kb
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxSize))
 	if err != nil {
 		return "", fmt.Errorf("failed to read response body: %v", err)
 	}
 
-	formatted := formatter(string(body))
+	// Assemble Message
+	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("Body: %s", formatted))
+	sb.WriteString(fmt.Sprintf("Status: %s\n", status))
+	sb.WriteString(fmt.Sprintf("Content-Type: %s\n", contentType))
+
+	content, err := formatter(body)
+	if err != nil {
+		content += fmt.Sprintf("\n\n formatting error %e", err)
+	}
+
+	// hard guardRail
+	content = truncate(content, 32_000)
+
+	sb.WriteString(fmt.Sprintf("Body: %s", content))
 
 	return sb.String(), nil
 }
@@ -145,10 +163,68 @@ func validateURL(urlStr string) error {
 	return nil
 }
 
-func htmlToMarkdown(html string) string {
-	markdown, err := htmltomarkdown.ConvertString(html)
-	if err != nil {
-		return html
+func IsTextContentType(contentType string) bool {
+	switch {
+	case strings.HasPrefix(contentType, "text/plain"),
+		strings.HasPrefix(contentType, "text/html"),
+		strings.HasPrefix(contentType, "text/css"),
+		strings.HasPrefix(contentType, "text/csv"),
+		strings.HasPrefix(contentType, "text/xml"),
+		strings.HasPrefix(contentType, "text/markdown"),
+		strings.HasPrefix(contentType, "application/json"),
+		strings.HasPrefix(contentType, "application/xml"),
+		strings.HasPrefix(contentType, "application/xhtml+xml"),
+		strings.HasPrefix(contentType, "application/javascript"),
+		strings.HasPrefix(contentType, "application/x-www-form-urlencoded"):
+
+		return true
+	default:
+		return false
 	}
-	return markdown
+}
+
+func htmlToMarkdown(rawHTML []byte) (string, error) {
+
+	rawCleanHTML, err := cleanHTML(rawHTML)
+	if err != nil {
+		return "", err
+	}
+
+	cleanHTMLStr := string(rawCleanHTML)
+
+	markdown, err := htmltomarkdown.ConvertString(cleanHTMLStr)
+	if err != nil {
+		return cleanHTMLStr, nil
+	}
+	return markdown, nil
+}
+
+func cleanHTML(body []byte) (string, error) {
+	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+
+	doc.Find("script, style, nav, footer, header, aside, iframe, noscript, svg, form").Remove()
+
+	html, err := doc.Html()
+	if err != nil {
+		return "", err
+	}
+
+	return html, nil
+}
+
+func truncate(s string, maxChars int) string {
+	if len(s) <= maxChars {
+		return s
+	}
+
+	cut := s[:maxChars]
+	lastNewline := strings.LastIndex(cut, "\n")
+	if lastNewline > 0 {
+		return cut[:lastNewline]
+	}
+
+	return cut
 }

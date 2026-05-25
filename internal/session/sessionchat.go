@@ -71,7 +71,7 @@ func (s *SessionChatService) SessionChat(
 	sess.AddMessages(newMessages)
 
 	if err := sess.ProcessOverflow(OverflowPolicy{
-		TokenLimit: 50000,
+		TokenLimit: 500000,
 		OnOverflow: func(sess *Session) error {
 			return s.truncateSession(ctx, sess)
 		},

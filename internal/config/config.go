@@ -65,8 +65,10 @@ func LoadLogging() Logging {
 }
 
 type Config struct {
-	Telegram *Telegram `toml:"telegram"`
-	Logging  Logging
+	Telegram         *Telegram `toml:"telegram"`
+	SearchHost       string    `toml:"search_host"`
+	SearchHostScheme string    `toml:"search_host_scheme"`
+	Logging          Logging
 }
 
 func Load(configPath string) (Config, error) {

@@ -8,12 +8,14 @@ import (
 	"arch-agent/internal/files"
 	"arch-agent/internal/llm"
 	"arch-agent/internal/openai"
+	"arch-agent/internal/searxng"
 	"arch-agent/internal/session"
 	"arch-agent/internal/task"
 	"arch-agent/internal/telegram"
 	"arch-agent/internal/tokenizer"
 	"arch-agent/internal/tools"
 	"arch-agent/internal/tools/fetch"
+	"arch-agent/internal/tools/search"
 	"arch-agent/internal/uuid"
 	"context"
 )
@@ -113,7 +115,7 @@ func BuildTaskService(
 	)
 }
 
-func BuildApp(ctx context.Context, dataPath string, groupID int64, botCfgs ...telegram.BotConfig) (*App, error) {
+func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string, groupID int64, botCfgs ...telegram.BotConfig) (*App, error) {
 
 	botOrchestra, err := telegram.NewBotOrchestrator(botCfgs...)
 	if err != nil {
@@ -162,6 +164,8 @@ func BuildApp(ctx context.Context, dataPath string, groupID int64, botCfgs ...te
 		// liveChatSvc,
 	)
 
+	searx := searxng.NewSearXSearch(searchHostScheme, searchHost)
+
 	toolService.AddTools(
 		// filesystem tools
 		tools.NewListDirTool(fs),
@@ -187,6 +191,7 @@ func BuildApp(ctx context.Context, dataPath string, groupID int64, botCfgs ...te
 
 		// web tools
 		fetch.NewFetchTool(),
+		search.NewWebSearchTool(searx),
 	)
 
 	botOrchestra.WireSessionService(sessionChatSvc)

@@ -53,6 +53,8 @@ func main() {
 	app, err := app.BuildApp(
 		ctx,
 		*dataPath,
+		cfg.SearchHostScheme,
+		cfg.SearchHost,
 		cfg.Telegram.GroupID,
 		botConfs...,
 	)
