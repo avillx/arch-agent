@@ -1,6 +1,6 @@
 # ARCH.agent
 
-## Config
+## config
 Must be runned with `--config` flag and path to config file e.g. `config.toml`
 Example in `example.config.toml`
 
@@ -10,22 +10,36 @@ Accepts unneccecary vars:
 LOG_PRETTY (true/false)
 LOG_LEVEL (debug/info/warn/error)
 
-## For compose
+## for compose
 Workdir is `/agent`
 All memory stores in `/agent/data/...`
 
 ## TODO
-- completion agregation
-- Multimodal input 
-- Skills
-- file system tools
-- bash tools
-- Advanced schedule control
-- web_search
-- Dreaming + divie own knowladges (dreamable) + external knowledges (undreamable)
-- Rest endpoints and server
-- isolate service packages by interfaces
-- check depricated (before restruct) variable names
+### debt
+- [ ] check depricated (before restruct) variable names
+- [ ] agent fs as sandbox iface over fs
+- [ ] isolate packages with little ifaces
 
-И LiveSession внутри AgentRuntime — просто скользящее окно контекста, 
-детали реализации. Снаружи это не "сессия" вообще.
+### features
+- [ ] API
+- [ ] skills
+- [ ] activity drop
+- [ ] Multimodal input
+- [ ] instructions interface (usage guide preload)
+- [ ] MCP
+- [ ] Summarizations
+- [ ] live session is not a session (in AgentRuntime)
+
+### Tools
+- [X] filesystem
+- [X] fetch
+- [X] web_search
+- [X] a2a 
+- [X] cron control
+- [ ] clarification
+- [ ] think
+- [ ] todo
+- [ ] view over file_read (files, images and docs)
+- [ ] async a2a
+- [ ] modelpicker
+- [ ] ssh
