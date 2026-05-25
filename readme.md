@@ -19,14 +19,17 @@ All memory stores in `/agent/data/...`
 - [ ] check depricated (before restruct) variable names
 - [ ] agent fs as sandbox iface over fs
 - [ ] isolate packages with little ifaces
+- [ ] better web search gateway
+- [ ] hardcoded truncate policy
+- [ ] agent domain service over ChatService
 
 ### features
-- [ ] API
+- [ ] API endpints
 - [ ] skills
 - [ ] activity drop
 - [ ] Multimodal input
-- [ ] instructions interface (usage guide preload)
-- [ ] MCP
+- [ ] instructions interface (tool usage guide preload)
+- [ ] MCP Service and tools
 - [ ] Summarizations
 - [ ] live session is not a session (in AgentRuntime)
 
@@ -43,3 +46,4 @@ All memory stores in `/agent/data/...`
 - [ ] async a2a
 - [ ] modelpicker
 - [ ] ssh
+- [ ] shell
