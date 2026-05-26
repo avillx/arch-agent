@@ -1,6 +1,7 @@
 package files
 
 import (
+	"arch-agent/internal/agent"
 	"arch-agent/internal/llm"
 	"encoding/json"
 	"maps"
@@ -19,7 +20,7 @@ func NewLLMFiles(fs *FileSystem) *LLMFiles {
 	return &LLMFiles{fs: fs}
 }
 
-func (s *LLMFiles) Load() (map[llm.LLMID]llm.LLMSettings, error) {
+func (s *LLMFiles) Load() (map[agent.LLMID]llm.LLMSettings, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -29,12 +30,12 @@ func (s *LLMFiles) Load() (map[llm.LLMID]llm.LLMSettings, error) {
 			if err := s.fs.touchFile("llms.json"); err != nil {
 				return nil, err
 			}
-			return map[llm.LLMID]llm.LLMSettings{}, nil
+			return map[agent.LLMID]llm.LLMSettings{}, nil
 		}
 		return nil, err
 	}
 
-	var settings map[llm.LLMID]llm.LLMSettings
+	var settings map[agent.LLMID]llm.LLMSettings
 
 	if err := json.Unmarshal(data, &settings); err != nil {
 		return nil, err
@@ -43,7 +44,7 @@ func (s *LLMFiles) Load() (map[llm.LLMID]llm.LLMSettings, error) {
 	return settings, nil
 }
 
-func (s *LLMFiles) Save(id llm.LLMID, settingsUpdate llm.LLMSettings) error {
+func (s *LLMFiles) Save(id agent.LLMID, settingsUpdate llm.LLMSettings) error {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -63,7 +64,7 @@ func (s *LLMFiles) Save(id llm.LLMID, settingsUpdate llm.LLMSettings) error {
 	return s.fs.WriteToFile(llmSettingsFile, data)
 }
 
-func (s *LLMFiles) Delete(id llm.LLMID) error {
+func (s *LLMFiles) Delete(id agent.LLMID) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

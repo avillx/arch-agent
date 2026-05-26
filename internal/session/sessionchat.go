@@ -2,23 +2,22 @@ package session
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/chat"
 	"context"
 	"log/slog"
 	"strings"
 )
 
 type SessionChatService struct {
-	agentService   *chat.Service
+	chatSvc        agent.ChatSvc
 	sessionService *SessionService
 }
 
 func NewSessionChatService(
-	agentService *chat.Service,
+	chatSvc agent.ChatSvc,
 	sessionService *SessionService,
 ) *SessionChatService {
 	return &SessionChatService{
-		agentService:   agentService,
+		chatSvc:        chatSvc,
 		sessionService: sessionService,
 	}
 }
@@ -55,7 +54,7 @@ func (s *SessionChatService) SessionChat(
 		postsummaryAdditioanlSystemPrompt}, "\n")
 
 	userMessages := []agent.Message{agent.NewUserMessage(request)}
-	newMessages, err := s.agentService.Chat(
+	newMessages, err := s.chatSvc.Chat(
 		ctx,
 		agentID,
 		additionalSystemPrompt,
@@ -88,7 +87,7 @@ func (s *SessionChatService) truncateSession(ctx context.Context, sess *Session)
 	half := len(messages) / 2
 	conver := agent.StringifyConversation(messages[:half])
 	request := []agent.Message{agent.NewUserMessage(conver)}
-	result, err := s.agentService.Chat(ctx, "summarizer", "", request, nil, nil)
+	result, err := s.chatSvc.Chat(ctx, "summarizer", "", request, nil, nil)
 	if err != nil {
 		return err
 	}

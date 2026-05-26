@@ -3,7 +3,6 @@ package app
 import (
 	"arch-agent/internal/a2a"
 	"arch-agent/internal/agent"
-	"arch-agent/internal/chat"
 	"arch-agent/internal/cron"
 	"arch-agent/internal/files"
 	"arch-agent/internal/llm"
@@ -25,7 +24,8 @@ type App struct {
 	SessionChatSvc         *session.SessionChatService
 	ToolSvc                *tools.Service
 	LLMSvc                 *llm.Service
-	ChatSvc                *chat.Service
+	AgentSvc               agent.AgentService
+	ChatSvc                agent.ChatSvc
 	TelegramOrchestra      *telegram.BotOrchestrator
 	TaskSvc                *task.TaskService
 	SessionSvc             *session.SessionService
@@ -60,21 +60,7 @@ func BuildLLMService(fs *files.FileSystem) (*llm.Service, error) {
 	)
 }
 
-func BuildChatService(fs *files.FileSystem, toolSvc *tools.Service) (*chat.Service, error) {
-
-	llmService, err := BuildLLMService(fs)
-	if err != nil {
-		return nil, err
-	}
-
-	return chat.NewService(
-		files.NewAgentFiles(fs),
-		llmService,
-		toolSvc,
-	), nil
-}
-
-func BuildSessionChatService(fs *files.FileSystem, sessSvc *session.SessionService, chatSvc *chat.Service) *session.SessionChatService {
+func BuildSessionChatService(fs *files.FileSystem, sessSvc *session.SessionService, chatSvc agent.ChatSvc) *session.SessionChatService {
 	return session.NewSessionChatService(
 		chatSvc,
 		sessSvc,
@@ -97,7 +83,8 @@ func BuildSessionChatService(fs *files.FileSystem, sessSvc *session.SessionServi
 func BuildTaskService(
 	ctx context.Context,
 	fs *files.FileSystem,
-	chatService *chat.Service,
+	chatSvc agent.ChatSvc,
+	agentSvc agent.AgentService,
 	activityRepo agent.ActivityRepo,
 ) (*task.TaskService, error) {
 
@@ -106,7 +93,7 @@ func BuildTaskService(
 		return nil, err
 	}
 
-	executor := task.NewTaskExecutor(chatService, activityRepo)
+	executor := task.NewTaskExecutor(agentSvc, chatSvc, activityRepo)
 
 	return task.NewTaskService(
 		ctx,
@@ -132,16 +119,25 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 	uuidGen := uuid.NewUUIDGenerator()
 
 	sessSvc := BuildSessionService(fs, uuidGen)
-	chatSvc, err := BuildChatService(fs, toolService)
+
+	llmService, err := BuildLLMService(fs)
 	if err != nil {
 		return nil, err
 	}
+
+	agentService := agent.NewService(
+		files.NewAgentFiles(fs),
+		llmService,
+		toolService,
+	)
+
 	activityRepo := files.NewActivityFiles(fs)
 
 	taskSvc, err := BuildTaskService(
 		ctx,
 		fs,
-		chatSvc,
+		agentService,
+		agentService,
 		activityRepo,
 	)
 	if err != nil {
@@ -150,7 +146,7 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 
 	// liveChatSvc := BuildLiveSessionChatService(fs, sessSvc, agentSvc, activityRepo)
 
-	sessionChatSvc := session.NewSessionChatService(chatSvc, sessSvc)
+	sessionChatSvc := session.NewSessionChatService(agentService, sessSvc)
 
 	a2aFiles, err := files.NewA2AFiles(fs)
 	if err != nil {
@@ -159,7 +155,7 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 
 	a2aSvc := a2a.NewService(
 		a2aFiles,
-		chatSvc,
+		agentService,
 		sessionChatSvc,
 		// liveChatSvc,
 	)
@@ -200,7 +196,7 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 		A2ASvc:         a2aSvc,
 		SessionChatSvc: sessionChatSvc,
 		// LiveChatSvc:    liveChatSvc,
-		ChatSvc: chatSvc,
+		ChatSvc: agentService,
 		ToolSvc: toolService,
 		// LLMSvc: ,
 		TelegramOrchestra:      botOrchestra,

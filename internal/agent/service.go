@@ -1,55 +1,68 @@
-package chat
+package agent
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/llm"
 	"context"
 )
 
+type ChatSvc interface {
+	Chat(ctx context.Context,
+		agentID ID,
+		additionalSysmtemPrompt string,
+		conversation []Message,
+		onResult func(result *ReasonResult),
+		additionalTools []string,
+	) (newMsgs []Message, err error)
+}
+
+type AgentService interface {
+	List() ([]AgentConfig, error)
+	SaveAgent(cfg AgentConfig) error
+}
+
+type LLMID string
+
 type AgentConfig interface {
-	ID() agent.ID
+	ID() ID
 	Description() string
 	SystemPrompt() string
-	Reasoner() llm.LLMID
+	Reasoner() LLMID
 	Tools() []string
 }
 
 type AgentConfigRepo interface {
 	Configs() ([]AgentConfig, error)
-	Config(agent.ID) (AgentConfig, error)
+	Config(ID) (AgentConfig, error)
 	Save(AgentConfig) error
 	// Delete(agent.ID) error
 }
 
-// TODO: replace llm.Service with repo interface
-// type ReasonerRepo interface {
-// 	GetLLM(string) agent.Reasoner
-// }
-
-type ToolRegistry interface {
-	GetTools([]string) ([]agent.Tool, error)
+type ReasonerRegistry interface {
+	GetLLM(LLMID) (Reasoner, error)
 }
 
-// Agent service
-type Service struct {
+type ToolRegistry interface {
+	GetTools([]string) ([]Tool, error)
+}
+
+type service struct {
 	agentRepo    AgentConfigRepo
-	llmService   *llm.Service
+	reasonerReg  ReasonerRegistry
 	toolRegistry ToolRegistry
 }
 
 func NewService(
 	agentRepo AgentConfigRepo,
-	llmService *llm.Service,
+	reasonerReg ReasonerRegistry,
 	toolRegistry ToolRegistry,
-) *Service {
-	return &Service{
+) *service {
+	return &service{
 		agentRepo:    agentRepo,
-		llmService:   llmService,
+		reasonerReg:  reasonerReg,
 		toolRegistry: toolRegistry,
 	}
 }
 
-func (s *Service) List() ([]AgentConfig, error) {
+func (s *service) List() ([]AgentConfig, error) {
 	return s.agentRepo.Configs()
 }
 
@@ -57,12 +70,12 @@ func (s *Service) List() ([]AgentConfig, error) {
 // 	return s.agentRepo.Delete(id)
 // }
 
-func (s *Service) SaveAgent(cfg AgentConfig) error {
+func (s *service) SaveAgent(cfg AgentConfig) error {
 
 	// validate llm
-	if _, err := s.llmService.GetLLM(cfg.Reasoner()); err != nil {
-		return err
-	}
+	// if _, err := s.llmService.GetLLM(cfg.Reasoner()); err != nil {
+	// 	return err
+	// }
 
 	// // validate ToolService
 	// toolServersMap := map[string]struct{}{}
@@ -81,21 +94,21 @@ func (s *Service) SaveAgent(cfg AgentConfig) error {
 }
 
 // TODO think about eliminating this func
-func (s *Service) Chat(
+func (s *service) Chat(
 	ctx context.Context,
-	agentID agent.ID,
+	agentID ID,
 	additionalSysmtemPrompt string,
-	conversation []agent.Message,
-	onResult func(result *agent.ReasonResult),
+	conversation []Message,
+	onResult func(result *ReasonResult),
 	additionalTools []string,
-) (newMsgs []agent.Message, err error) {
+) (newMsgs []Message, err error) {
 
 	config, err := s.agentRepo.Config(agentID)
 	if err != nil {
 		return nil, err
 	}
 
-	llm, err := s.llmService.GetLLM(config.Reasoner())
+	llm, err := s.reasonerReg.GetLLM(config.Reasoner())
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +118,7 @@ func (s *Service) Chat(
 		return nil, err
 	}
 
-	a := agent.NewAgent(
+	a := NewAgent(
 		config.ID(),
 		config.Description(),
 		config.SystemPrompt(),

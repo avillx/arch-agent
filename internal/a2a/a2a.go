@@ -2,7 +2,6 @@ package a2a
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/chat"
 	"arch-agent/internal/session"
 	"context"
 	"fmt"
@@ -52,14 +51,14 @@ type Service struct {
 
 func NewService(
 	repo ContactRepo,
-	agentService *chat.Service,
+	chatService agent.ChatSvc,
 	sessionChatService *session.SessionChatService,
 	// liveChatService *LiveChatService,
 ) *Service {
 	return &Service{
 		repo: repo,
 		resolver: &CallResolver{
-			agentService:       agentService,
+			chatService:        chatService,
 			sessionChatService: sessionChatService,
 			// liveChatService:    liveChatService,
 		},
@@ -129,7 +128,7 @@ func (s *Service) Call(ctx context.Context, callerAgentID, recivierAgentID agent
 }
 
 type CallResolver struct {
-	agentService       *chat.Service
+	chatService        agent.ChatSvc
 	sessionChatService *session.SessionChatService
 	// liveChatService    *LiveChatService
 }
@@ -148,7 +147,7 @@ func (s *CallResolver) Resolve(ctx context.Context, callerAgentID agent.ID, cont
 
 func (s *CallResolver) oneCall(ctx context.Context, callerAgentID agent.ID, contact *Contact, request string) (string, error) {
 	resContent := []string{}
-	if _, err := s.agentService.Chat(
+	if _, err := s.chatService.Chat(
 		ctx,
 		contact.ID,
 		"", // TODO: a2a answer prompt
@@ -216,7 +215,7 @@ func wrapMessageToPrompt(caller agent.ID, message string) string {
 
 	sb.WriteString("Write answer on agent message, all out put will be sended to caller. Do not use use call_agent for answer back.\n\n")
 	sb.WriteString("<AgentMessage>\n")
-	sb.WriteString("From:" + string(caller) + "\n")
+	fmt.Fprintf(&sb, "From: %s \n", string(caller))
 	sb.WriteString(message)
 	sb.WriteString("\n</AgentMessage>")
 

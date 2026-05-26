@@ -2,7 +2,6 @@ package task
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/chat"
 	"arch-agent/internal/prompt"
 	"arch-agent/internal/types"
 	"context"
@@ -72,24 +71,27 @@ func (r *TaskRuntime) Done() chan string {
 }
 
 type taskExecutor struct {
-	agentService *chat.Service
+	agentSvc     agent.AgentService
+	chatSvc      agent.ChatSvc
 	activityRepo agent.ActivityRepo
 }
 
 // executor
 func NewTaskExecutor(
-	agentService *chat.Service,
+	agentSvc agent.AgentService,
+	chatSvc agent.ChatSvc,
 	activityRepo agent.ActivityRepo,
 ) *taskExecutor {
 	return &taskExecutor{
-		agentService: agentService,
+		agentSvc:     agentSvc,
+		chatSvc:      chatSvc,
 		activityRepo: activityRepo,
 	}
 }
 
 func (s *taskExecutor) Validate(t Task) error {
 	// get existed agents
-	agentsCfgs, err := s.agentService.List()
+	agentsCfgs, err := s.agentSvc.List()
 	if err != nil {
 		return err
 	}
@@ -122,7 +124,7 @@ func (s *taskExecutor) processRecipientTask(agentID agent.ID, taskName, request 
 
 	ctx := context.Background()
 
-	history, err := s.agentService.Chat(
+	history, err := s.chatSvc.Chat(
 		ctx,
 		agentID,
 		autonomusWorking,
@@ -138,7 +140,7 @@ func (s *taskExecutor) processRecipientTask(agentID agent.ID, taskName, request 
 
 	report := ""
 
-	_, err = s.agentService.Chat(
+	_, err = s.chatSvc.Chat(
 		ctx,
 		agentID,
 		autonomusWorking,

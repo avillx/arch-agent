@@ -2,8 +2,6 @@ package files
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/chat"
-	"arch-agent/internal/llm"
 	"bytes"
 	"fmt"
 	"os"
@@ -18,15 +16,15 @@ type AgentConfig struct {
 	id           agent.ID
 	description  string
 	systemPrompt string
-	reasoner     llm.LLMID
+	reasoner     agent.LLMID
 	tools        []string
 }
 
-func (c *AgentConfig) ID() agent.ID         { return c.id }
-func (c *AgentConfig) Description() string  { return c.description }
-func (c *AgentConfig) SystemPrompt() string { return c.systemPrompt }
-func (c *AgentConfig) Reasoner() llm.LLMID  { return c.reasoner }
-func (c *AgentConfig) Tools() []string      { return c.tools }
+func (c *AgentConfig) ID() agent.ID          { return c.id }
+func (c *AgentConfig) Description() string   { return c.description }
+func (c *AgentConfig) SystemPrompt() string  { return c.systemPrompt }
+func (c *AgentConfig) Reasoner() agent.LLMID { return c.reasoner }
+func (c *AgentConfig) Tools() []string       { return c.tools }
 
 // Files
 type AgentFiles struct {
@@ -38,7 +36,7 @@ func NewAgentFiles(fs *FileSystem) *AgentFiles {
 	return &AgentFiles{fs: fs}
 }
 
-func (s *AgentFiles) Configs() ([]chat.AgentConfig, error) {
+func (s *AgentFiles) Configs() ([]agent.AgentConfig, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -50,7 +48,7 @@ func (s *AgentFiles) Configs() ([]chat.AgentConfig, error) {
 		return nil, err
 	}
 
-	var configs []chat.AgentConfig
+	var configs []agent.AgentConfig
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
@@ -65,13 +63,13 @@ func (s *AgentFiles) Configs() ([]chat.AgentConfig, error) {
 	return configs, nil
 }
 
-func (s *AgentFiles) Config(id agent.ID) (chat.AgentConfig, error) {
+func (s *AgentFiles) Config(id agent.ID) (agent.AgentConfig, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.readConfig(id)
 }
 
-func (s *AgentFiles) Save(cfg chat.AgentConfig) error {
+func (s *AgentFiles) Save(cfg agent.AgentConfig) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -108,10 +106,10 @@ func (s *AgentFiles) readConfig(id agent.ID) (*AgentConfig, error) {
 
 // DTO
 type AgentConfigDTO struct {
-	ID          agent.ID  `yaml:"id"`
-	Description string    `yaml:"description,omitempty"`
-	Reasoner    llm.LLMID `yaml:"reasoner"`
-	Tools       []string  `yaml:"tools,omitempty"`
+	ID          agent.ID    `yaml:"id"`
+	Description string      `yaml:"description,omitempty"`
+	Reasoner    agent.LLMID `yaml:"reasoner"`
+	Tools       []string    `yaml:"tools,omitempty"`
 }
 
 func parseAgentFile(data []byte) (AgentConfigDTO, string, error) {
@@ -137,7 +135,7 @@ func parseAgentFile(data []byte) (AgentConfigDTO, string, error) {
 	return dto, systemPrompt, nil
 }
 
-func marshalAgentFile(cfg chat.AgentConfig) ([]byte, error) {
+func marshalAgentFile(cfg agent.AgentConfig) ([]byte, error) {
 	fm, err := yaml.Marshal(AgentConfigDTO{
 		ID:          cfg.ID(),
 		Description: cfg.Description(),

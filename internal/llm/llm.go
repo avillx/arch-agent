@@ -2,10 +2,10 @@ package llm
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/types"
 	"fmt"
 )
 
-type LLMID string
 type LLMSettings map[string]any
 
 type LLM interface {
@@ -15,9 +15,9 @@ type LLM interface {
 }
 
 type LLMSettingsRepo interface {
-	Load() (map[LLMID]LLMSettings, error)
-	Save(LLMID, LLMSettings) error
-	Delete(LLMID) error
+	Load() (map[agent.LLMID]LLMSettings, error)
+	Save(agent.LLMID, LLMSettings) error
+	Delete(agent.LLMID) error
 }
 
 type LLMFactory interface {
@@ -27,7 +27,7 @@ type LLMFactory interface {
 
 type Service struct {
 	repo      LLMSettingsRepo
-	llms      map[LLMID]LLM
+	llms      map[agent.LLMID]LLM
 	factories map[string]LLMFactory
 }
 
@@ -35,7 +35,7 @@ func NewLLMService(repo LLMSettingsRepo, factories ...LLMFactory) (*Service, err
 
 	llmService := &Service{
 		repo:      repo,
-		llms:      map[LLMID]LLM{},
+		llms:      map[agent.LLMID]LLM{},
 		factories: map[string]LLMFactory{},
 	}
 
@@ -57,11 +57,11 @@ func NewLLMService(repo LLMSettingsRepo, factories ...LLMFactory) (*Service, err
 	return llmService, nil
 }
 
-func (s *Service) SetLLMSettings(id LLMID, settings LLMSettings) error {
+func (s *Service) SetLLMSettings(id agent.LLMID, settings LLMSettings) error {
 
-	llm, err := s.GetLLM(id)
-	if err != nil {
-		return err
+	llm, ok := s.llms[id]
+	if !ok {
+		return types.ErrIsNotExist
 	}
 
 	//TODO type changing edge case
@@ -79,16 +79,16 @@ func (s *Service) SetLLMSettings(id LLMID, settings LLMSettings) error {
 	return s.repo.Save(id, settings)
 }
 
-func (s *Service) GetLLM(id LLMID) (LLM, error) {
+func (s *Service) GetLLM(id agent.LLMID) (agent.Reasoner, error) {
 	llm, ok := s.llms[id]
 	if !ok {
-		return nil, fmt.Errorf("llm %s is not exist", id)
+		return nil, types.ErrIsNotExist
 	}
 
 	return llm, nil
 }
 
-func (s *Service) AddNewLLM(id LLMID, settings LLMSettings) error {
+func (s *Service) AddNewLLM(id agent.LLMID, settings LLMSettings) error {
 
 	if _, exists := s.llms[id]; exists {
 		return fmt.Errorf("llm %q already exists", id)
@@ -101,7 +101,7 @@ func (s *Service) AddNewLLM(id LLMID, settings LLMSettings) error {
 	return s.repo.Save(id, settings)
 }
 
-func (s *Service) createLLM(id LLMID, settings LLMSettings) error {
+func (s *Service) createLLM(id agent.LLMID, settings LLMSettings) error {
 
 	llmType, err := extractString(settings, "type")
 	if err != nil {
@@ -123,7 +123,7 @@ func (s *Service) createLLM(id LLMID, settings LLMSettings) error {
 	return nil
 }
 
-func (s *Service) DeleteLLM(id LLMID) error {
+func (s *Service) DeleteLLM(id agent.LLMID) error {
 	if _, ok := s.llms[id]; !ok {
 		return fmt.Errorf("llm %q not found", id)
 	}
