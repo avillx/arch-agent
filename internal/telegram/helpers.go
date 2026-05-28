@@ -2,7 +2,6 @@ package telegram
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -63,10 +62,13 @@ func messageToText(msg *tgbotapi.Message) string {
 	var sb strings.Builder
 
 	sb.WriteString("<telegram_message>")
-	sb.WriteString("chat_id:" + strconv.FormatInt(msg.From.ID, 10))
-	sb.WriteString("time:" + msg.Time().Format("15:04 02.01.06"))
-	sb.WriteString("name:" + msg.From.FirstName)
-	sb.WriteString("text:" + msg.Text)
+
+	fmt.Fprintf(&sb, "chat_id:%d\n", msg.From.ID)
+	fmt.Fprintf(&sb, "time:%s\n", msg.Time().Format("15:04 02.01.06"))
+	fmt.Fprintf(&sb, "name:%s\n", msg.From.FirstName)
+	fmt.Fprintf(&sb, "text:%s\n", msg.Text)
+	fmt.Fprintf(&sb, "chat_id:%d\n", msg.From.ID)
+
 	sb.WriteString("</telegram_message>")
 
 	return sb.String()

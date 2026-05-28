@@ -4,8 +4,6 @@ import (
 	"context"
 )
 
-type Meta map[string]any
-
 type PropertyType string
 
 const (
@@ -13,6 +11,10 @@ const (
 	TypeNumber  PropertyType = "integer"
 	TypeBoolean PropertyType = "boolean"
 )
+
+type ToolRegistry interface {
+	GetTools([]string) ([]Tool, error)
+}
 
 type ToolProperty struct {
 	Name        string

@@ -15,13 +15,17 @@ Workdir is `/agent`
 All memory stores in `/agent/data/...`
 
 ## TODO
-### debt
-- [ ] check depricated (before restruct) variable names
-- [ ] agent fs as sandbox iface over fs
+### polish
+- [ ] All services names to Service to svc
 - [ ] isolate packages with little ifaces
-- [ ] better web search gateway
-- [ ] hardcoded truncate policy
-- [ ] agent domain service over ChatService
+- [ ] check depricated (before restruct) variable names
+- [X] divide agent service and AgenticLoopRuntime
+- [X] validate structs for ifaces e.g. `var _ iface = (*struct)(nil)`
+
+### debt
+- [ ] agent fs as sandbox iface over fs
+- [ ] better web search gateway 
+- [X] agent domain service over ChatService
 
 ### features
 - [ ] API endpints
@@ -31,7 +35,7 @@ All memory stores in `/agent/data/...`
 - [ ] instructions interface (tool usage guide preload)
 - [ ] MCP Service and tools
 - [ ] Summarizations
-- [ ] live session is not a session (in AgentRuntime)
+- [ ] live session is not a session (is runtime supervisor)
 
 ### Tools
 - [X] filesystem

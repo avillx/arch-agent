@@ -3,6 +3,7 @@ package files
 import (
 	"arch-agent/internal/agent"
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -11,32 +12,27 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config
-type AgentConfig struct {
-	id           agent.ID
-	description  string
-	systemPrompt string
-	reasoner     agent.LLMID
-	tools        []string
-}
-
-func (c *AgentConfig) ID() agent.ID          { return c.id }
-func (c *AgentConfig) Description() string   { return c.description }
-func (c *AgentConfig) SystemPrompt() string  { return c.systemPrompt }
-func (c *AgentConfig) Reasoner() agent.LLMID { return c.reasoner }
-func (c *AgentConfig) Tools() []string       { return c.tools }
+var _ agent.Repo = (*AgentFiles)(nil)
 
 // Files
 type AgentFiles struct {
 	fs *FileSystem
 	mu sync.RWMutex
+
+	toolRegestry agent.ToolRegistry
 }
 
-func NewAgentFiles(fs *FileSystem) *AgentFiles {
-	return &AgentFiles{fs: fs}
+func NewAgentFiles(
+	fs *FileSystem,
+	toolRegestry agent.ToolRegistry,
+) *AgentFiles {
+	return &AgentFiles{
+		fs:           fs,
+		toolRegestry: toolRegestry,
+	}
 }
 
-func (s *AgentFiles) Configs() ([]agent.AgentConfig, error) {
+func (s *AgentFiles) All() ([]agent.Agent, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -48,99 +44,140 @@ func (s *AgentFiles) Configs() ([]agent.AgentConfig, error) {
 		return nil, err
 	}
 
-	var configs []agent.AgentConfig
+	var dtos []AgentDTO
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
 		}
+
 		id := agent.ID(strings.TrimPrefix(e.Name(), "agent."))
-		cfg, err := s.readConfig(id)
+		dto, err := s.readConfig(id)
 		if err != nil {
 			continue
 		}
-		configs = append(configs, cfg)
+		dtos = append(dtos, dto)
 	}
-	return configs, nil
+
+	agts, err := s.fromDTO(dtos...)
+	if err != nil {
+		return nil, err
+	}
+
+	return agts, nil
 }
 
-func (s *AgentFiles) Config(id agent.ID) (agent.AgentConfig, error) {
+func (s *AgentFiles) Get(id agent.ID) (agent.Agent, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.readConfig(id)
+
+	dto, err := s.readConfig(id)
+	if err != nil {
+		return nil, err
+	}
+
+	agts, err := s.fromDTO(dto)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(agts) > 0 {
+		return agts[0], nil
+	}
+
+	return nil, errors.New("can't get agent")
 }
 
-func (s *AgentFiles) Save(cfg agent.AgentConfig) error {
+func (s *AgentFiles) Save(agt agent.Agent) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	data, err := marshalAgentFile(cfg)
+	data, err := marshalAgentFile(agt)
 	if err != nil {
 		return err
 	}
-	return s.fs.WriteToFile(fmt.Sprintf("/agent.%s/agent.md", cfg.ID()), data)
+
+	return s.fs.WriteToFile(fmt.Sprintf("/agent.%s/agent.md", agt.ID()), data)
 }
 
 // func (s *AgentFiles) Delete(id agent.ID) error {
 // 	s.fs.D
 // }
 
-func (s *AgentFiles) readConfig(id agent.ID) (*AgentConfig, error) {
+func (s *AgentFiles) readConfig(id agent.ID) (AgentDTO, error) {
 	data, err := s.fs.ReadFile(fmt.Sprintf("/agent.%s/agent.md", id))
 	if err != nil {
-		return nil, err
+		return AgentDTO{}, err
 	}
 
-	dto, systemPrompt, err := parseAgentFile(data)
-	if err != nil {
-		return nil, err
+	return parseAgentFile(data)
+}
+
+func (s *AgentFiles) fromDTO(dtos ...AgentDTO) ([]agent.Agent, error) {
+	agents := []agent.Agent{}
+
+	for _, dto := range dtos {
+		t, err := s.toolRegestry.GetTools(dto.Tools)
+		if err != nil {
+			return nil, err
+		}
+
+		agents = append(agents, agent.NewAgent(
+			dto.ID,
+			dto.Description,
+			dto.SystemPrompt,
+			dto.Model,
+			t,
+		))
 	}
 
-	return &AgentConfig{
-		id:           dto.ID,
-		description:  dto.Description,
-		systemPrompt: systemPrompt,
-		reasoner:     dto.Reasoner,
-		tools:        dto.Tools,
-	}, nil
+	return agents, nil
 }
 
 // DTO
-type AgentConfigDTO struct {
-	ID          agent.ID    `yaml:"id"`
-	Description string      `yaml:"description,omitempty"`
-	Reasoner    agent.LLMID `yaml:"reasoner"`
-	Tools       []string    `yaml:"tools,omitempty"`
+type AgentDTO struct {
+	ID           agent.ID      `yaml:"id"`
+	Description  string        `yaml:"description,omitempty"`
+	Model        agent.ModelID `yaml:"model"`
+	SystemPrompt string        `yaml:"omitempty"`
+	Tools        []string      `yaml:"tools,omitempty"`
 }
 
-func parseAgentFile(data []byte) (AgentConfigDTO, string, error) {
+func parseAgentFile(data []byte) (AgentDTO, error) {
 	const delim = "---"
 	s := strings.ReplaceAll(string(data), "\r\n", "\n")
 
 	after, ok := strings.CutPrefix(s, delim+"\n")
 	if !ok {
-		return AgentConfigDTO{}, "", fmt.Errorf("agent file must start with ---")
+		return AgentDTO{}, fmt.Errorf("agent file must start with ---")
 	}
 
 	fmEnd := strings.Index(after, "\n"+delim)
 	if fmEnd == -1 {
-		return AgentConfigDTO{}, "", fmt.Errorf("unclosed frontmatter")
+		return AgentDTO{}, fmt.Errorf("unclosed frontmatter")
 	}
 
-	var dto AgentConfigDTO
+	var dto AgentDTO
 	if err := yaml.Unmarshal([]byte(after[:fmEnd]), &dto); err != nil {
-		return AgentConfigDTO{}, "", err
+		return AgentDTO{}, err
 	}
 
-	systemPrompt := strings.TrimPrefix(after[fmEnd+len("\n"+delim):], "\n")
-	return dto, systemPrompt, nil
+	dto.SystemPrompt = strings.TrimPrefix(after[fmEnd+len("\n"+delim):], "\n")
+	return dto, nil
 }
 
-func marshalAgentFile(cfg agent.AgentConfig) ([]byte, error) {
-	fm, err := yaml.Marshal(AgentConfigDTO{
-		ID:          cfg.ID(),
-		Description: cfg.Description(),
-		Reasoner:    cfg.Reasoner(),
-		Tools:       cfg.Tools(),
+func marshalAgentFile(agt agent.Agent) ([]byte, error) {
+
+	agentTools := agt.Tools()
+	toolList := make([]string, len(agentTools))
+	for i, t := range agentTools {
+		toolList[i] = t.Name()
+	}
+
+	fm, err := yaml.Marshal(AgentDTO{
+		ID:          agt.ID(),
+		Description: agt.Description(),
+		Model:       agt.Model(),
+		Tools:       toolList,
 	})
 	if err != nil {
 		return nil, err
@@ -150,6 +187,6 @@ func marshalAgentFile(cfg agent.AgentConfig) ([]byte, error) {
 	buf.WriteString("---\n")
 	buf.Write(fm)
 	buf.WriteString("---\n")
-	buf.WriteString(cfg.SystemPrompt())
+	buf.WriteString(agt.SystemPrompt())
 	return buf.Bytes(), nil
 }

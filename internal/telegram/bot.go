@@ -1,6 +1,8 @@
 package telegram
 
 import (
+	"arch-agent/internal/agent"
+	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"context"
 	"errors"
@@ -27,12 +29,15 @@ type BotConfig struct {
 }
 
 type Bot struct {
-	API                *tgbotapi.BotAPI
-	updateChannel      tgbotapi.UpdatesChannel
-	Stickers           StickerMap
-	blockedUsers       []int64
-	sessionChatService *session.SessionChatService
-	agent              string
+	API            *tgbotapi.BotAPI
+	updateChannel  tgbotapi.UpdatesChannel
+	Stickers       StickerMap
+	blockedUsers   []int64
+	sessionService *session.SessionService
+	agentRuntime   *runtime.AgentRuntime
+	agentRepo      agent.Repo
+	agentID        agent.ID
+	modelRepo      agent.ModelRepository
 }
 
 func NewBot(cfg BotConfig) (*Bot, error) {
@@ -57,7 +62,7 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 	p := &Bot{
 		API:          botAPI,
 		blockedUsers: []int64{},
-		agent:        cfg.Agent,
+		agentID:      agent.ID(cfg.Agent),
 	}
 
 	// set stickers
@@ -89,8 +94,16 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 
 }
 
-func (b *Bot) WireSessionChatService(sessionChatService *session.SessionChatService) {
-	b.sessionChatService = sessionChatService
+func (b *Bot) Wire(
+	sessionSvc *session.SessionService,
+	agentRepo agent.Repo,
+	runtime *runtime.AgentRuntime,
+	modelRepo agent.ModelRepository,
+) {
+	b.sessionService = sessionSvc
+	b.agentRepo = agentRepo
+	b.agentRuntime = runtime
+	b.modelRepo = modelRepo
 }
 
 func (b *Bot) SendMessage(userID int64, text string, replyMessageID int) ([]tgbotapi.Message, error) {

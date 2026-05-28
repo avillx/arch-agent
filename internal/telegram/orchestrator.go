@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"context"
 	"fmt"
@@ -52,8 +53,18 @@ func (o *BotOrchestrator) Get(agentID agent.ID) (*Bot, error) {
 	return bot, nil
 }
 
-func (o *BotOrchestrator) WireSessionService(sessionChatService *session.SessionChatService) {
+func (o *BotOrchestrator) Wire(
+	sessionSvc *session.SessionService,
+	agentRepo agent.Repo,
+	runtime *runtime.AgentRuntime,
+	modelRepo agent.ModelRepository,
+) {
 	for _, b := range o.bots {
-		b.WireSessionChatService(sessionChatService)
+		b.Wire(
+			sessionSvc,
+			agentRepo,
+			runtime,
+			modelRepo,
+		)
 	}
 }

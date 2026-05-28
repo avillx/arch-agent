@@ -5,100 +5,149 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 )
 
 const TokenLimit = 20000
 
-type OverflowPolicy struct {
-	TokenLimit int
-	OnOverflow func(*Session) error
-}
-
-type ID string
+// validate struct asn iface
+var _ Session = (*session)(nil)
 
 type TokenCounter interface {
 	Calc(string) int
 }
 
-type Session struct {
-	ID           ID
-	Tokens       int
+type ID string
+
+type Session interface {
+	ID() ID
+	// Title() string
+	// SetTitle(title string)
+
+	Messages() []agent.Message
+	GetLastAssistantMessageContent() string
+	AddMessages([]agent.Message)
+
+	Subsession(agent.ID) (ID, bool)
+	AddSubsession(agent.ID, ID)
+
+	Tokens() int
+	AddSummary(string)
+	Summary() string
+
+	OverwriteMessages(new []agent.Message)
+
+	CreatedAt() time.Time
+	UpdatedAt() time.Time
+}
+
+type session struct {
+	id           ID
+	title        string
+	tokens       int
 	summaries    string
 	messages     []agent.Message
-	subsessions  map[string]ID
+	subsessions  map[agent.ID]ID
 	tokenCounter TokenCounter
+	createdAt    time.Time
+	updatedAt    time.Time
 }
 
-// TODO: session should not exist without token counter
-// implement a DI factrory in repo
-func NewSession(id string, tokenCounter TokenCounter) *Session {
-	return &Session{
-		ID:           ID(id),
-		Tokens:       0,
+func NewSession(id ID, tokenCounter TokenCounter) *session {
+	return &session{
+		id:           id,
+		tokens:       0,
 		messages:     []agent.Message{},
-		subsessions:  map[string]ID{},
+		subsessions:  map[agent.ID]ID{},
 		tokenCounter: tokenCounter,
+		createdAt:    time.Now(),
 	}
 }
 
-func NewRestoredSession(id ID, tokens int, messages []agent.Message, tokenCounter TokenCounter, summaries string, subsessions map[string]ID) *Session {
+func NewRestoredSession(
+	id ID,
+	tokens int,
+	messages []agent.Message,
+	tokenCounter TokenCounter,
+	summaries string,
+	subsessions map[agent.ID]ID,
+	createdAt time.Time,
+) *session {
 	if subsessions == nil {
-		subsessions = map[string]ID{}
+		subsessions = map[agent.ID]ID{}
 	}
 
-	return &Session{
-		ID:           id,
-		Tokens:       tokens,
+	return &session{
+		id:           id,
+		tokens:       tokens,
 		messages:     messages,
 		subsessions:  subsessions,
 		tokenCounter: tokenCounter,
 		summaries:    summaries,
+		createdAt:    createdAt,
+		updatedAt:    time.Now(),
 	}
 }
 
-func (s *Session) Subsession(key string) ID {
-	subsession, ok := s.subsessions[key]
-	if !ok {
-		return ""
+func (s *session) ID() ID                { return s.id }
+func (s *session) Title() string         { return s.title }
+func (s *session) SetTitle(title string) { s.title = title }
+
+func (s *session) Tokens() int { return s.tokens }
+
+func (s *session) GetLastAssistantMessageContent() string {
+	for _, message := range slices.Backward(s.messages) {
+		if typedMessage, ok := message.(agent.AgentMessage); ok {
+			return typedMessage.Content()
+		}
 	}
-	return subsession
+	return ""
 }
 
-func (s *Session) AddSubsession(key string, subsession ID) {
-	s.subsessions[key] = subsession
+func (s *session) AddSubsession(agentID agent.ID, subsessionID ID) {
+	s.subsessions[agentID] = subsessionID
 }
 
-func (s *Session) Messages() []agent.Message {
+func (s *session) Subsession(agentID agent.ID) (ID, bool) {
+	subsession, ok := s.subsessions[agentID]
+	return subsession, ok
+}
+
+func (s *session) Messages() []agent.Message {
 	messages := []agent.Message{}
 	return append(messages, s.messages...)
 }
 
-func (s *Session) AddMessages(msgs []agent.Message) {
-	s.Tokens += messagesTokens(s.tokenCounter, msgs)
+func (s *session) AddMessages(msgs []agent.Message) {
+	s.tokens += messagesTokens(s.tokenCounter, msgs)
 	s.messages = slices.Concat(s.messages, msgs)
 }
 
-func (s *Session) AddSummary(summary string) {
+func (s *session) AddSummary(summary string) {
 	content := fmt.Sprintf("%s/n/n", summary)
-	s.Tokens += s.tokenCounter.Calc(content)
+	s.tokens += s.tokenCounter.Calc(content)
 	s.summaries += content
 }
 
-func (s *Session) Summaries() string {
+func (s *session) Summary() string {
 	return s.summaries
 }
 
-func (s *Session) OverwriteMessages(new []agent.Message) {
+func (s *session) OverwriteMessages(new []agent.Message) {
+	s.tokens = messagesTokens(s.tokenCounter, new)
 	s.messages = new
 }
 
-func (s *Session) ProcessOverflow(policy OverflowPolicy) error {
-	if policy.TokenLimit < s.Tokens {
-		return policy.OnOverflow(s)
-	}
-
-	return nil
+func (s *session) CreatedAt() time.Time {
+	return s.createdAt
 }
+func (s *session) UpdatedAt() time.Time {
+	return s.updatedAt
+}
+
+// func (s *session) ShouldCompact(model agent.Model) bool {
+// 	model.ContextLimit()
+// }
 
 func messagesTokens(counter TokenCounter, msgs []agent.Message) int {
 	// TODO check complexity

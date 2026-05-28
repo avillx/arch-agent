@@ -2,7 +2,6 @@ package openai
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/llm"
 	"context"
 	"fmt"
 	"log/slog"
@@ -16,6 +15,8 @@ import (
 
 const DefaultRecallBudget = 5
 
+var _ agent.Model = (*OpenAIReasoner)(nil)
+
 type OpenAIReasoner struct {
 	recallBudget int
 	openai.Client
@@ -26,6 +27,7 @@ type OpenAIReasoner struct {
 }
 
 func NewOpenAIReasoner(secrets SecretsRepo, settings map[string]any) (*OpenAIReasoner, error) {
+
 	url, ok := settings["url"].(string)
 	if !ok {
 		return nil, fmt.Errorf("open ai reasoner base url is not exist")
@@ -59,7 +61,16 @@ func NewOpenAIReasoner(secrets SecretsRepo, settings map[string]any) (*OpenAIRea
 	}, nil
 }
 
-func (r *OpenAIReasoner) Settings() llm.LLMSettings {
+func (r *OpenAIReasoner) ContextLimit() int {
+	contextLimit, ok, err := getInt(r.settings, "context_limit")
+	if !ok || err != nil {
+		slog.Error("context_limit is not found", "error", err)
+		return 0
+	}
+	return contextLimit
+}
+
+func (r *OpenAIReasoner) Settings() agent.ModelSettings {
 	r.settingsMu.RLock()
 	defer r.settingsMu.RUnlock()
 	return r.settings
@@ -67,7 +78,7 @@ func (r *OpenAIReasoner) Settings() llm.LLMSettings {
 
 func (r *OpenAIReasoner) RecallBudget() int { return r.recallBudget }
 
-func (r *OpenAIReasoner) SetSettings(newSettings llm.LLMSettings) error {
+func (r *OpenAIReasoner) SetSettings(newSettings agent.ModelSettings) error {
 
 	r.settingsMu.Lock()
 	defer r.settingsMu.Unlock()
@@ -92,11 +103,11 @@ func (r *OpenAIReasoner) SetSettings(newSettings llm.LLMSettings) error {
 	return nil
 }
 
-func (r *OpenAIReasoner) Reason(
+func (r *OpenAIReasoner) Complete(
 	ctx context.Context,
 	tools []agent.Tool,
 	internalMsgs []agent.Message,
-) (*agent.ReasonResult, error) {
+) (*agent.Completion, error) {
 
 	messages := messagesToOpenAI(internalMsgs)
 	agentTools := toolsToOpenAI(tools)

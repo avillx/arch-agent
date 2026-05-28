@@ -96,6 +96,7 @@ func (t *CallAgentTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 	}
 
 	agentID := MustAgentID(ctx)
+	sessionID := MustSessionID(ctx)
 
 	contacts, err := t.a2aService.AgentContacts(agent.ID(agentID))
 	if err != nil {
@@ -105,9 +106,10 @@ func (t *CallAgentTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 	for _, contact := range contacts {
 		if contact.ID == agent.ID(args.Name) {
 			return t.a2aService.Call(
-				context.Background(),
+				ctx,
 				agent.ID(agentID),
 				agent.ID(contact.ID),
+				sessionID,
 				args.Request,
 			)
 		}

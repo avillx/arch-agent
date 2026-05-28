@@ -2,7 +2,6 @@ package openai
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/llm"
 	"errors"
 	"fmt"
 
@@ -28,7 +27,7 @@ func NewOpenAIFactory(s SecretsRepo) *openAIFactory {
 }
 
 func (f *openAIFactory) Type() string { return "open_ai" }
-func (f *openAIFactory) Produce(settings llm.LLMSettings) (llm.LLM, error) {
+func (f *openAIFactory) Produce(settings agent.ModelSettings) (agent.Model, error) {
 	return NewOpenAIReasoner(f.secrets, settings)
 }
 
@@ -195,7 +194,7 @@ func OpenAICompletionToContent(completion *openai.ChatCompletion) (string, error
 	return completion.Choices[0].Message.Content, nil
 }
 
-func OpenAICompletionToReasonResult(completion *openai.ChatCompletion) (*agent.ReasonResult, error) {
+func OpenAICompletionToReasonResult(completion *openai.ChatCompletion) (*agent.Completion, error) {
 
 	if len(completion.Choices) == 0 {
 		return nil, errors.New("empty choices")
@@ -208,7 +207,7 @@ func OpenAICompletionToReasonResult(completion *openai.ChatCompletion) (*agent.R
 		toolCalls = append(toolCalls, openAIToToolCalls(message.ToolCalls)...)
 	}
 
-	result := &agent.ReasonResult{
+	result := &agent.Completion{
 		ToolCalls: toolCalls,
 		Content:   message.Content,
 		Done:      IsDoneOpenAI(completion.Choices[0].FinishReason),

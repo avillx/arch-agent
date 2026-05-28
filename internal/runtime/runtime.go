@@ -1,0 +1,145 @@
+package runtime
+
+import (
+	"arch-agent/internal/agent"
+	"arch-agent/internal/session"
+	"context"
+	"fmt"
+)
+
+type AgentRuntime struct {
+	// supervisor
+}
+
+func (r *AgentRuntime) RunStream(
+	ctx context.Context,
+	model agent.Model,
+	agt agent.Agent,
+	tools []agent.Tool,
+	sess session.Session,
+) <-chan Event { // TODO: for avoid issues, channel can be explicit arg over return value
+
+	ctx = withAgentID(ctx, agt.ID())
+	ctx = withSessionID(ctx, sess.ID())
+	sink := make(chan Event, 16)
+
+	go func() {
+		defer close(sink)
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			// if session.IsShouldCompact(sess, model.ContextLimit()) && compactionAllowed {
+
+			// }
+
+			done, err := r.runTurn(ctx, model, agt, tools, sess, sink)
+			if err != nil {
+				sink <- NewErrEvent(agt.ID(), sess.ID(), err)
+				return
+			}
+
+			if done {
+				return
+			}
+		}
+	}()
+
+	return sink
+}
+
+func (r *AgentRuntime) runTurn(
+	ctx context.Context,
+	model agent.Model,
+	agt agent.Agent,
+	tools []agent.Tool,
+	sess session.Session,
+	sink chan Event,
+) (bool, error) {
+
+	messages := sess.Messages()
+
+	result, err := model.Complete(
+		ctx,
+		tools,
+		append([]agent.Message{agent.NewSystemMessage(agt.SystemPrompt())}, messages...),
+	)
+	if err != nil {
+		return true, err
+	}
+
+	sess.AddMessages([]agent.Message{agent.NewAgentMessage(result.Content, result.ToolCalls)})
+
+	sink <- NewCompleteEvent(agt.ID(), sess.ID(), result)
+
+	r.processToolCalls(ctx, agt, tools, result.ToolCalls, sess, sink)
+
+	return result.Done, nil
+}
+
+func (r *AgentRuntime) processToolCalls(
+	ctx context.Context,
+	agt agent.Agent,
+	tools []agent.Tool,
+	toolcalls []*agent.ToolCall,
+	sess session.Session,
+	sink chan Event,
+) {
+	toolkit := toolsToMap(tools)
+
+	for _, call := range toolcalls {
+		var resultMessage *agent.ToolResultMessage
+
+		tool, exist := toolkit[call.ToolName]
+
+		if exist {
+			res, err := tool.Call(ctx, call.Arguments)
+			if err != nil {
+				sink <- NewErrToolCallEvent(agt.ID(), sess.ID(), err)
+				res += err.Error()
+			}
+			resultMessage = agent.NewToolResultMessage(call.ID, res)
+
+		} else {
+			resultMessage = agent.NewToolResultMessage(
+				call.ID,
+				fmt.Sprintf("tool %s is not exist", call.ToolName),
+			)
+		}
+		sess.AddMessages([]agent.Message{resultMessage})
+		sink <- NewToolCallResultEvent(agt.ID(), sess.ID(), resultMessage.Content())
+	}
+}
+
+type agentIDCTXKey struct{}
+type sessionIDCTXKey struct{}
+
+func withAgentID(ctx context.Context, id agent.ID) context.Context {
+	return context.WithValue(ctx, agentIDCTXKey{}, id)
+}
+func AgentIDFromContext(ctx context.Context) (agent.ID, bool) {
+	id, ok := ctx.Value(agentIDCTXKey{}).(agent.ID)
+	return id, ok
+}
+
+func withSessionID(ctx context.Context, id session.ID) context.Context {
+	return context.WithValue(ctx, sessionIDCTXKey{}, id)
+}
+func SessionIDFromContext(ctx context.Context) (session.ID, bool) {
+	id, ok := ctx.Value(sessionIDCTXKey{}).(session.ID)
+	return id, ok
+}
+
+func toolsToMap(tools []agent.Tool) map[string]agent.Tool {
+	toolMap := map[string]agent.Tool{}
+
+	for _, tool := range tools {
+		toolMap[tool.Name()] = tool
+	}
+
+	return toolMap
+}

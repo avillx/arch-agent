@@ -5,8 +5,8 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/cron"
 	"arch-agent/internal/files"
-	"arch-agent/internal/llm"
 	"arch-agent/internal/openai"
+	"arch-agent/internal/runtime"
 	"arch-agent/internal/searxng"
 	"arch-agent/internal/session"
 	"arch-agent/internal/task"
@@ -21,11 +21,8 @@ import (
 
 type App struct {
 	A2ASvc                 *a2a.Service
-	SessionChatSvc         *session.SessionChatService
 	ToolSvc                *tools.Service
-	LLMSvc                 *llm.Service
-	AgentSvc               agent.AgentService
-	ChatSvc                agent.ChatSvc
+	runtime                *runtime.AgentRuntime
 	TelegramOrchestra      *telegram.BotOrchestrator
 	TaskSvc                *task.TaskService
 	SessionSvc             *session.SessionService
@@ -37,55 +34,27 @@ func (a *App) Run(ctx context.Context) {
 	a.TelegramOrchestra.Run(ctx)
 }
 
-func BuildSessionService(fs *files.FileSystem, uuidGen *uuid.UUIDGenerator) *session.SessionService {
-	tokenCounter := tokenizer.NewTokenizer()
-
-	return session.NewSessionService(
-		files.NewSessionFiles(fs, tokenCounter),
-		uuidGen,
-		tokenCounter,
-	)
-}
-
-func BuildLLMService(fs *files.FileSystem) (*llm.Service, error) {
+func BuildModelsRepo(fs *files.FileSystem) (agent.ModelRepository, error) {
 
 	secretsRepo, err := files.NewSecretsFiles(fs)
 	if err != nil {
 		return nil, err
 	}
 
-	return llm.NewLLMService(
-		files.NewLLMFiles(fs),
-		openai.NewOpenAIFactory(secretsRepo),
+	openaiFactory := openai.NewOpenAIFactory(secretsRepo)
+
+	return files.NewModelFiles(fs,
+		files.WithFactory(openaiFactory.Type(), openaiFactory.Produce),
 	)
 }
-
-func BuildSessionChatService(fs *files.FileSystem, sessSvc *session.SessionService, chatSvc agent.ChatSvc) *session.SessionChatService {
-	return session.NewSessionChatService(
-		chatSvc,
-		sessSvc,
-	)
-}
-
-// func BuildLiveSessionChatService(
-// 	fs *files.FileSystem,
-// 	sessSvc *service.SessionService,
-// 	aSvc *service.AgentService,
-// 	activityRepo service.ActivityRepo,
-// ) *service.LiveChatService {
-// 	return service.NewLiveChatService(
-// 		sessSvc,
-// 		activityRepo,
-// 		aSvc,
-// 	)
-// }
 
 func BuildTaskService(
 	ctx context.Context,
 	fs *files.FileSystem,
-	chatSvc agent.ChatSvc,
-	agentSvc agent.AgentService,
-	activityRepo agent.ActivityRepo,
+	agentRepo agent.Repo,
+	sessionSvc *session.SessionService,
+	modelRepo agent.ModelRepository,
+	runtime *runtime.AgentRuntime,
 ) (*task.TaskService, error) {
 
 	taskRepo, err := files.NewTaskFiles(fs, func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) })
@@ -93,7 +62,12 @@ func BuildTaskService(
 		return nil, err
 	}
 
-	executor := task.NewTaskExecutor(agentSvc, chatSvc, activityRepo)
+	executor := task.NewTaskExecutor(
+		agentRepo,
+		sessionSvc,
+		modelRepo,
+		runtime,
+	)
 
 	return task.NewTaskService(
 		ctx,
@@ -116,37 +90,31 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 
 	toolService := tools.NewService()
 
-	uuidGen := uuid.NewUUIDGenerator()
+	runtime := &runtime.AgentRuntime{}
+	agentRepo := files.NewAgentFiles(fs, toolService)
 
-	sessSvc := BuildSessionService(fs, uuidGen)
-
-	llmService, err := BuildLLMService(fs)
+	modelRepo, err := BuildModelsRepo(fs)
 	if err != nil {
 		return nil, err
 	}
 
-	agentService := agent.NewService(
-		files.NewAgentFiles(fs),
-		llmService,
-		toolService,
+	sessSvc := session.NewSessionService(
+		files.NewSessionFiles(fs, tokenizer.NewTokenizer()),
+		uuid.NewUUIDGenerator(),
+		tokenizer.NewTokenizer(),
 	)
-
-	activityRepo := files.NewActivityFiles(fs)
 
 	taskSvc, err := BuildTaskService(
 		ctx,
 		fs,
-		agentService,
-		agentService,
-		activityRepo,
+		agentRepo,
+		sessSvc,
+		modelRepo,
+		runtime,
 	)
 	if err != nil {
 		return nil, err
 	}
-
-	// liveChatSvc := BuildLiveSessionChatService(fs, sessSvc, agentSvc, activityRepo)
-
-	sessionChatSvc := session.NewSessionChatService(agentService, sessSvc)
 
 	a2aFiles, err := files.NewA2AFiles(fs)
 	if err != nil {
@@ -155,9 +123,10 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 
 	a2aSvc := a2a.NewService(
 		a2aFiles,
-		agentService,
-		sessionChatSvc,
-		// liveChatSvc,
+		agentRepo,
+		runtime,
+		modelRepo,
+		sessSvc,
 	)
 
 	searx := searxng.NewSearXSearch(searchHostScheme, searchHost)
@@ -190,15 +159,16 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 		search.NewWebSearchTool(searx),
 	)
 
-	botOrchestra.WireSessionService(sessionChatSvc)
+	botOrchestra.Wire(
+		sessSvc,
+		agentRepo,
+		runtime,
+		modelRepo,
+	)
 
 	return &App{
-		A2ASvc:         a2aSvc,
-		SessionChatSvc: sessionChatSvc,
-		// LiveChatSvc:    liveChatSvc,
-		ChatSvc: agentService,
-		ToolSvc: toolService,
-		// LLMSvc: ,
+		A2ASvc:                 a2aSvc,
+		runtime:                runtime,
 		TelegramOrchestra:      botOrchestra,
 		TaskSvc:                taskSvc,
 		SessionSvc:             sessSvc,

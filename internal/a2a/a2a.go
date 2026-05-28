@@ -3,9 +3,12 @@ package a2a
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/session"
+	"errors"
+
+	"arch-agent/internal/runtime"
+
 	"context"
 	"fmt"
-	"log/slog"
 	"strings"
 )
 
@@ -42,8 +45,11 @@ type Response struct {
 }
 
 type Service struct {
-	repo     ContactRepo
-	resolver *CallResolver
+	repo          ContactRepo
+	agentRepo     agent.Repo
+	sessionSevice *session.SessionService
+	agentRuntime  *runtime.AgentRuntime
+	modelRepo     agent.ModelRepository
 
 	callCh chan Call
 	respCh chan Response
@@ -51,17 +57,18 @@ type Service struct {
 
 func NewService(
 	repo ContactRepo,
-	chatService agent.ChatSvc,
-	sessionChatService *session.SessionChatService,
-	// liveChatService *LiveChatService,
+	agentRepo agent.Repo,
+	agentRuntime *runtime.AgentRuntime,
+	modelRepo agent.ModelRepository,
+	sessionSvc *session.SessionService,
 ) *Service {
 	return &Service{
-		repo: repo,
-		resolver: &CallResolver{
-			chatService:        chatService,
-			sessionChatService: sessionChatService,
-			// liveChatService:    liveChatService,
-		},
+		repo:          repo,
+		agentRepo:     agentRepo,
+		modelRepo:     modelRepo,
+		sessionSevice: sessionSvc,
+		agentRuntime:  agentRuntime,
+
 		callCh: make(chan Call, 16),
 		respCh: make(chan Response, 16),
 	}
@@ -96,9 +103,39 @@ func (s *Service) getContact(callerAgentID agent.ID, recivierAgent agent.ID) (*C
 
 }
 
-func (s *Service) Call(ctx context.Context, callerAgentID, recivierAgentID agent.ID, request string) (string, error) {
+func (s *Service) Call(
+	ctx context.Context,
+	callerAgentID,
+	recivierAgentID agent.ID,
+	sessionID session.ID,
+	request string,
+) (string, error) {
 
-	contact, err := s.getContact(callerAgentID, recivierAgentID)
+	// contact, err := s.getContact(callerAgentID, recivierAgentID)
+	// if err != nil {
+	// 	return "", err
+	// }
+
+	agt, err := s.agentRepo.Get(recivierAgentID)
+	if err != nil {
+		return "", err
+	}
+
+	sess, err := s.sessionSevice.Get(callerAgentID, sessionID)
+	if err != nil {
+		return "", err
+	}
+
+	subSessionID, ok := sess.Subsession(recivierAgentID)
+	if !ok {
+		subSessionID, err = s.sessionSevice.Create(recivierAgentID)
+		if err != nil {
+			return "", err
+		}
+		sess.AddSubsession(recivierAgentID, subSessionID)
+	}
+
+	subSession, err := s.sessionSevice.Get(recivierAgentID, subSessionID)
 	if err != nil {
 		return "", err
 	}
@@ -114,101 +151,37 @@ func (s *Service) Call(ctx context.Context, callerAgentID, recivierAgentID agent
 	default:
 	}
 
-	response, err := s.resolver.Resolve(ctx, callerAgentID, contact, request)
+	model, err := s.modelRepo.Get(agt.Model())
+	if err != nil {
+		return "", err
+	}
+
+	sink := s.agentRuntime.RunStream(ctx, model, agt, agt.Tools(), subSession)
+
+	var errc error
+	evReader := runtime.EventReader{
+		OnError: func(i1 agent.ID, i2 session.ID, err error) {
+			errc = errors.Join(errc, err)
+		},
+	}
+	evReader.Read(sink)
+
+	response := subSession.GetLastAssistantMessageContent()
 
 	select {
 	case s.respCh <- Response{
 		Call:     call,
 		Response: response,
-		Err:      err}:
+		Err:      errc}:
 	default:
 	}
 
-	return response, err
-}
-
-type CallResolver struct {
-	chatService        agent.ChatSvc
-	sessionChatService *session.SessionChatService
-	// liveChatService    *LiveChatService
-}
-
-func (s *CallResolver) Resolve(ctx context.Context, callerAgentID agent.ID, contact *Contact, request string) (string, error) {
-
-	switch contact.CallType {
-	case SubSessionCall:
-		return s.subSessionCall(ctx, callerAgentID, contact, request)
-	// case LiveSessionCall:
-	// 	return s.liveSessionCall(ctx, callerAgentID, contact, request)
-	default:
-		return s.oneCall(ctx, callerAgentID, contact, request)
-	}
-}
-
-func (s *CallResolver) oneCall(ctx context.Context, callerAgentID agent.ID, contact *Contact, request string) (string, error) {
-	resContent := []string{}
-	if _, err := s.chatService.Chat(
-		ctx,
-		contact.ID,
-		"", // TODO: a2a answer prompt
-		[]agent.Message{agent.NewUserMessage(
-			wrapMessageToPrompt(callerAgentID, request),
-		)},
-		func(result *agent.ReasonResult) {
-			resContent = append(resContent, result.Content)
-		},
-		nil,
-	); err != nil {
-		return "", err
+	if err := s.sessionSevice.Save(call.Recivier, subSession); err != nil {
+		errc = errors.Join(errc, err)
 	}
 
-	return strings.Join(resContent, "\n"), nil
+	return response, errc
 }
-
-func (s *CallResolver) subSessionCall(ctx context.Context, callerAgentID agent.ID, contact *Contact, request string) (string, error) {
-
-	sessionID, ok := ctx.Value("sessionID").(session.ID)
-	if !ok {
-		slog.Warn("sub session call without session, had redirected to one call", "caller", callerAgentID, "contact", contact.ID)
-		return s.oneCall(ctx, callerAgentID, contact, request)
-	}
-
-	// TODO bug, need to create a new session, now is caller session as stub
-	resContent := []string{}
-	if err := s.sessionChatService.SessionChat(
-		ctx,
-		contact.ID,
-		sessionID,
-		"",
-		"",
-		wrapMessageToPrompt(callerAgentID, request),
-		func(result *agent.ReasonResult) {
-			resContent = append(resContent, result.Content)
-		},
-	); err != nil {
-		return "", err
-	}
-
-	return strings.Join(resContent, "\n"), nil
-
-}
-
-// func (s *CallResolver) liveSessionCall(ctx context.Context, callerAgentID agent.ID, contact *A2AContact, request string) (string, error) {
-
-// 	resContent := []string{}
-// 	if err := s.liveChatService.Chat(
-// 		ctx,
-// 		contact.ID,
-// 		wrapMessageToPrompt(callerAgentID, request),
-// 		func(result *agent.ReasonResult) {
-// 			resContent = append(resContent, result.Content)
-// 		},
-// 	); err != nil {
-// 		return "", err
-// 	}
-
-// 	return strings.Join(resContent, "\n"), nil
-// }
 
 func wrapMessageToPrompt(caller agent.ID, message string) string {
 	var sb strings.Builder

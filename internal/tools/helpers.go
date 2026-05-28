@@ -2,6 +2,8 @@ package tools
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/runtime"
+	"arch-agent/internal/session"
 	"context"
 	"encoding/json"
 	"log/slog"
@@ -16,9 +18,17 @@ func UnwrapArgs[T any](raw agent.ToolArguments) (T, error) {
 }
 
 func MustAgentID(ctx context.Context) agent.ID {
-	agentID, ok := agent.IDFromContext(ctx)
+	agentID, ok := runtime.AgentIDFromContext(ctx)
 	if !ok {
-		slog.Error("Critical context has no agentID")
+		slog.Error("critical error context has no agentID")
 	}
 	return agentID
+}
+
+func MustSessionID(ctx context.Context) session.ID {
+	sessionID, ok := runtime.SessionIDFromContext(ctx)
+	if !ok {
+		slog.Error("critical error context has no sessionID")
+	}
+	return sessionID
 }

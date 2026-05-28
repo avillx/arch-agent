@@ -2,8 +2,9 @@ package telegram
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/runtime"
+	"arch-agent/internal/session"
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -21,49 +22,44 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 	stopAction := b.SetChatAction(message.Chat.ID, tgbotapi.ChatTyping)
 	defer stopAction()
 
-	if b.sessionChatService == nil {
-		slog.Error("not wired uc")
-		return nil
-	}
-
-	return b.sessionChatService.SessionChat(
-		context.Background(),
-		agent.ID(b.agent),
-		"session_test",
-		"",
-		"",
-		messageToText(message),
-		func(result *agent.ReasonResult) {
-			if result.Content != "" {
-				b.SendMessage(message.From.ID, result.Content, message.MessageID)
+	evReader := runtime.EventReader{
+		OnComplete: func(_ agent.ID, _ session.ID, c *agent.Completion) {
+			if c.Content != "" {
+				b.SendMessage(message.From.ID, c.Content, message.MessageID)
 			}
 		},
+	}
+
+	sess, err := b.sessionService.Get(b.agentID, "session_test")
+	if err != nil {
+		return err
+	}
+
+	sess.AddMessages([]agent.Message{agent.NewUserMessage(messageToText(message))})
+
+	agt, err := b.agentRepo.Get(b.agentID)
+	if err != nil {
+		return err
+	}
+
+	model, err := b.modelRepo.Get(agt.Model())
+	if err != nil {
+		return err
+	}
+
+	sink := b.agentRuntime.RunStream(
+		context.TODO(),
+		model,
+		agt,
+		agt.Tools(),
+		sess,
 	)
 
-	// return b.app.LiveChatSvc.Chat(
-	// 	context.Background(),
-	// 	agent.ID(b.agent),
-	// 	messageToText(message),
-	// 	func(result *agent.ReasonResult) {
+	evReader.Read(sink)
 
-	// 		if result.Content != "" {
-	// 			b.SendMessage(message.From.ID, result.Content, message.MessageID)
-	// 		}
+	b.sessionService.Save(b.agentID, sess)
 
-	// 	},
-	// )
-}
-
-func Try(attmpts int, function func() error) error {
-	var errc error
-	for i := 0; i < attmpts; i++ {
-		if err := function(); err != nil {
-			errc = errors.Join(errc, err)
-			continue
-		}
-		return errc
-	}
-	return errors.Join(errc, errors.New("fallback attempts budget expires"))
+	return nil
 }
 
 func (b *Bot) handleCommand(update tgbotapi.Update) error {

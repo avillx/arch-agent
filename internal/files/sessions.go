@@ -9,7 +9,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+var _ session.SessionsRepo = (*SessionFiles)(nil)
 
 type SessionFiles struct {
 	fs           *FileSystem
@@ -23,7 +26,7 @@ func NewSessionFiles(fs *FileSystem, tc session.TokenCounter) *SessionFiles {
 	}
 }
 
-func (r *SessionFiles) Session(agentID agent.ID, sesstionID session.ID) (*session.Session, error) {
+func (r *SessionFiles) Session(agentID agent.ID, sesstionID session.ID) (session.Session, error) {
 
 	sessionFilePath := fmt.Sprintf("/agent.%s/sessions/%s.json", agentID, sesstionID)
 
@@ -38,13 +41,13 @@ func (r *SessionFiles) Session(agentID agent.ID, sesstionID session.ID) (*sessio
 	return r.unmarshalSession(sesstionID, data)
 }
 
-func (r *SessionFiles) Save(agentID agent.ID, s *session.Session) error {
+func (r *SessionFiles) Save(agentID agent.ID, s session.Session) error {
 	data, err := marshalSession(s)
 	if err != nil {
 		return err
 	}
 
-	sessionFilePath := fmt.Sprintf("/agent.%s/sessions/%s.json", agentID, string(s.ID))
+	sessionFilePath := fmt.Sprintf("/agent.%s/sessions/%s.json", agentID, string(s.ID()))
 	return r.fs.WriteToFile(sessionFilePath, data)
 }
 
@@ -71,7 +74,7 @@ func (r *SessionFiles) List(agentID agent.ID) ([]session.ID, error) {
 	return sessionIDs, nil
 }
 
-func (r *SessionFiles) unmarshalSession(id session.ID, data []byte) (*session.Session, error) {
+func (r *SessionFiles) unmarshalSession(id session.ID, data []byte) (session.Session, error) {
 	var dto SessionDTO
 	if err := json.Unmarshal(data, &dto); err != nil {
 		return nil, err
@@ -79,24 +82,34 @@ func (r *SessionFiles) unmarshalSession(id session.ID, data []byte) (*session.Se
 	return r.dtoToSession(id, dto)
 }
 
-func (r *SessionFiles) dtoToSession(id session.ID, dto SessionDTO) (*session.Session, error) {
+func (r *SessionFiles) dtoToSession(id session.ID, dto SessionDTO) (session.Session, error) {
 	msgs, err := DtoToMessages(dto.Messages)
 	if err != nil {
 		return nil, err
 	}
-	return session.NewRestoredSession(id, dto.Tokens, msgs, r.tokenCounter, dto.Summaries, nil), nil
+	return session.NewRestoredSession(
+		id,
+		dto.Tokens,
+		msgs,
+		r.tokenCounter,
+		dto.Summaries,
+		nil,
+		dto.CreatedAt,
+	), nil
 }
 
 type SessionDTO struct {
-	Tokens    int `json:"tokens"`
-	Summaries string
+	Tokens    int          `json:"tokens"`
+	Summaries string       `json:"summaries"`
 	Messages  []MessageDTO `json:"messages"`
+	CreatedAt time.Time    `json:"created_at"`
+	UpdatedAt time.Time    `json:"updated_at"`
 }
 
-func marshalSession(s *session.Session) ([]byte, error) {
+func marshalSession(s session.Session) ([]byte, error) {
 	return json.MarshalIndent(SessionDTO{
-		Tokens:    s.Tokens,
-		Summaries: s.Summaries(),
+		Tokens:    s.Tokens(),
+		Summaries: s.Summary(),
 		Messages:  MessagesToDTO(s.Messages()),
 	}, "", "	")
 }
