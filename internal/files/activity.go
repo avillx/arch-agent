@@ -4,8 +4,11 @@ import (
 	"arch-agent/internal/agent"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 )
+
+var _ agent.ActivityRepo = (*ActivityFiles)(nil)
 
 type ActivityFiles struct {
 	fs *FileSystem
@@ -16,9 +19,8 @@ func NewActivityFiles(fs *FileSystem) *ActivityFiles {
 }
 
 func (f *ActivityFiles) Log(id agent.ID, r agent.ActivityRecord) error {
-	actualFile := toActivityFilename(time.Now())
 	data := []byte(r.String())
-	return f.fs.AppendToFile("/agent."+string(id)+"/activity/"+actualFile, data)
+	return f.fs.AppendToFile(resolveFilePath(id), data)
 }
 
 func (f *ActivityFiles) GetActivity(id agent.ID, date time.Time) (string, error) {
@@ -35,4 +37,13 @@ func (f *ActivityFiles) GetActivity(id agent.ID, date time.Time) (string, error)
 
 func toActivityFilename(date time.Time) string {
 	return fmt.Sprintf("%s.md", date.Format("2006-01-02"))
+}
+
+func resolveFilePath(agentID agent.ID) string {
+	now := time.Now()
+	return filepath.Join(
+		fmt.Sprintf("/files/activity/%s", agentID),
+		now.Format("2006/01/02/"),
+		toActivityFilename(now),
+	)
 }

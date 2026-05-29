@@ -52,7 +52,11 @@ func (b AgentMessage) ToolCalls() []*ToolCall {
 }
 
 func (b AgentMessage) String() string {
-	return fmt.Sprintf("%s\n%s\n\n", b.messageBase.String(), toolCallsString(b.toolCalls))
+	toolCalls := ""
+	if len(b.toolCalls) > 0 {
+		toolCalls = toolCallsString(b.toolCalls)
+	}
+	return fmt.Sprintf("%s%s\n\n", b.messageBase.String(), toolCalls)
 }
 
 type ToolResultMessage struct {

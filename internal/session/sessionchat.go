@@ -77,12 +77,3 @@ const DefaultTokenLimit = 100_000
 // }
 
 // const thereshold float32 = 0.9
-
-func IsShouldCompact(sess Session, contextLimit int) bool {
-
-	if sess.Tokens() >= (contextLimit / 100 * 90) {
-		return true
-	}
-
-	return false
-}

@@ -8,7 +8,13 @@ import (
 )
 
 type AgentRuntime struct {
-	// supervisor
+	observer *Observer
+}
+
+func NewAgentRuntime(observer *Observer) *AgentRuntime {
+	return &AgentRuntime{
+		observer: observer,
+	}
 }
 
 func (r *AgentRuntime) RunStream(
@@ -23,6 +29,9 @@ func (r *AgentRuntime) RunStream(
 	ctx = withSessionID(ctx, sess.ID())
 	sink := make(chan Event, 16)
 
+	// read sink and expose result throuth self
+	interceptor := r.observer.Intercept(ctx, sess.GetLastUserMessageContent(), agt.ID(), sess.ID(), sink)
+
 	go func() {
 		defer close(sink)
 
@@ -33,9 +42,19 @@ func (r *AgentRuntime) RunStream(
 			default:
 			}
 
-			// if session.IsShouldCompact(sess, model.ContextLimit()) && compactionAllowed {
+			if shouldCompact(sess, model) {
+				doCompact(ctx, CompactionRequest{
+					sess:  sess,
+					agt:   agt,
+					model: model,
+				})
+				sink <- NewCompactionEvent(
+					agt.ID(),
+					sess.ID(),
+					sess.Summary(),
+				)
 
-			// }
+			}
 
 			done, err := r.runTurn(ctx, model, agt, tools, sess, sink)
 			if err != nil {
@@ -49,7 +68,7 @@ func (r *AgentRuntime) RunStream(
 		}
 	}()
 
-	return sink
+	return interceptor
 }
 
 func (r *AgentRuntime) runTurn(
@@ -63,10 +82,17 @@ func (r *AgentRuntime) runTurn(
 
 	messages := sess.Messages()
 
+	summary := sess.Summary()
+	if summary != "" {
+		messages = append(summaryToDialog(summary), messages...)
+	}
+
 	result, err := model.Complete(
 		ctx,
 		tools,
-		append([]agent.Message{agent.NewSystemMessage(agt.SystemPrompt())}, messages...),
+		append([]agent.Message{
+			agent.NewSystemMessage(agt.SystemPrompt())},
+			messages...),
 	)
 	if err != nil {
 		return true, err
@@ -142,4 +168,11 @@ func toolsToMap(tools []agent.Tool) map[string]agent.Tool {
 	}
 
 	return toolMap
+}
+
+func summaryToDialog(summary string) []agent.Message {
+	return []agent.Message{
+		agent.NewUserMessage(fmt.Sprintf("Here is summary of previous conversations%s", summary)),
+		agent.NewAgentMessage("okay i will account it", nil),
+	}
 }

@@ -53,7 +53,7 @@ func (r *SessionFiles) Save(agentID agent.ID, s session.Session) error {
 
 func (r *SessionFiles) Delete(agentID agent.ID, id session.ID) error {
 	sessionFilePath := fmt.Sprintf("/agent.%s/sessions/%s.json", agentID, string(id))
-	return r.fs.DeleteFile(sessionFilePath)
+	return r.fs.Delete(sessionFilePath)
 }
 
 func (r *SessionFiles) List(agentID agent.ID) ([]session.ID, error) {
@@ -89,7 +89,8 @@ func (r *SessionFiles) dtoToSession(id session.ID, dto SessionDTO) (session.Sess
 	}
 	return session.NewRestoredSession(
 		id,
-		dto.Tokens,
+		dto.MessageTokens,
+		dto.SummaryTokens,
 		msgs,
 		r.tokenCounter,
 		dto.Summaries,
@@ -99,17 +100,21 @@ func (r *SessionFiles) dtoToSession(id session.ID, dto SessionDTO) (session.Sess
 }
 
 type SessionDTO struct {
-	Tokens    int          `json:"tokens"`
-	Summaries string       `json:"summaries"`
-	Messages  []MessageDTO `json:"messages"`
-	CreatedAt time.Time    `json:"created_at"`
-	UpdatedAt time.Time    `json:"updated_at"`
+	MessageTokens int          `json:"message_tokens"`
+	SummaryTokens int          `json:"summary_tokens"`
+	CreatedAt     time.Time    `json:"created_at"`
+	UpdatedAt     time.Time    `json:"updated_at"`
+	Summaries     string       `json:"summary"`
+	Messages      []MessageDTO `json:"messages"`
 }
 
 func marshalSession(s session.Session) ([]byte, error) {
 	return json.MarshalIndent(SessionDTO{
-		Tokens:    s.Tokens(),
-		Summaries: s.Summary(),
-		Messages:  MessagesToDTO(s.Messages()),
+		SummaryTokens: s.SummaryTokens(),
+		MessageTokens: s.MessageTokens(),
+		CreatedAt:     s.CreatedAt(),
+		UpdatedAt:     s.UpdatedAt(),
+		Summaries:     s.Summary(),
+		Messages:      MessagesToDTO(s.Messages()),
 	}, "", "	")
 }

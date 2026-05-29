@@ -63,19 +63,26 @@ func (fs *FileSystem) WriteToFile(path string, data []byte) error {
 }
 
 func (fs *FileSystem) AppendToFile(path string, data []byte) error {
-	e := fs.locks.RLock(path)
-	defer fs.locks.RUnlock(path, e)
+	e := fs.locks.Lock(path)
 
 	f, err := os.OpenFile(fs.pathTo(path), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
+		if os.IsNotExist(err) {
+			fs.locks.Unlock(path, e)
+			return fs.WriteToFile(path, data)
+		}
+		fs.locks.Unlock(path, e)
 		return fmt.Errorf("can't open file %s: %w", path, err)
+
 	}
 	defer f.Close()
 	_, err = f.Write(data)
+
+	fs.locks.Unlock(path, e)
 	return err
 }
 
-func (fs *FileSystem) DeleteFile(path string) error {
+func (fs *FileSystem) Delete(path string) error {
 	e := fs.locks.RLock(path)
 	defer fs.locks.RUnlock(path, e)
 

@@ -17,6 +17,7 @@ import (
 	"arch-agent/internal/tools/search"
 	"arch-agent/internal/uuid"
 	"context"
+	"errors"
 )
 
 type App struct {
@@ -90,20 +91,29 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 
 	toolService := tools.NewService()
 
-	runtime := &runtime.AgentRuntime{}
-	agentRepo := files.NewAgentFiles(fs, toolService)
-
 	modelRepo, err := BuildModelsRepo(fs)
 	if err != nil {
 		return nil, err
 	}
+	observerModel, err := modelRepo.Get("observer")
+	if err != nil {
+		return nil, errors.New("has no observer model")
+	}
+
+	tokenizer := tokenizer.NewTokenizer()
+
+	agentRepo := files.NewAgentFiles(fs, toolService)
 
 	sessSvc := session.NewSessionService(
-		files.NewSessionFiles(fs, tokenizer.NewTokenizer()),
+		files.NewSessionFiles(fs, tokenizer),
 		uuid.NewUUIDGenerator(),
-		tokenizer.NewTokenizer(),
+		tokenizer,
 	)
 
+	activityRepo := files.NewActivityFiles(fs)
+	observer := runtime.NewObserver(observerModel, activityRepo, tokenizer)
+
+	runtime := runtime.NewAgentRuntime(observer)
 	taskSvc, err := BuildTaskService(
 		ctx,
 		fs,

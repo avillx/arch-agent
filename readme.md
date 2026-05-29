@@ -16,11 +16,11 @@ All memory stores in `/agent/data/...`
 
 ## TODO
 ### polish
-- [ ] All services names to Service to svc
-- [ ] isolate packages with little ifaces
+- [ ] All services names to Service to svc 
 - [ ] check depricated (before restruct) variable names
 - [X] divide agent service and AgenticLoopRuntime
 - [X] validate structs for ifaces e.g. `var _ iface = (*struct)(nil)`
+- [ ] summarize by tokens not by messages
 
 ### debt
 - [ ] agent fs as sandbox iface over fs
@@ -30,11 +30,11 @@ All memory stores in `/agent/data/...`
 ### features
 - [ ] API endpints
 - [ ] skills
-- [ ] activity drop
+- [X] activity drop
 - [ ] Multimodal input
 - [ ] instructions interface (tool usage guide preload)
 - [ ] MCP Service and tools
-- [ ] Summarizations
+- [X] Summarizations
 - [ ] live session is not a session (is runtime supervisor)
 
 ### Tools

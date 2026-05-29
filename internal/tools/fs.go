@@ -15,7 +15,7 @@ type FS interface {
 	ReadFile(path string) ([]byte, error)
 	WriteToFile(path string, data []byte) error
 	AppendToFile(path string, data []byte) error
-	DeleteFile(path string) error
+	Delete(path string) error
 	ReadDir(path string) ([]string, error)
 }
 
@@ -361,7 +361,7 @@ func (t *MoveFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 		return "", wrapFSError(err, args.Dst)
 	}
 
-	if err := t.fs.DeleteFile(srcInternal); err != nil {
+	if err := t.fs.Delete(srcInternal); err != nil {
 		// dst was written successfully; src still exists — inform the agent
 		return "", fmt.Errorf("file copied to %s but %s", args.Dst, wrapFSError(err, args.Src))
 	}
@@ -370,26 +370,26 @@ func (t *MoveFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 }
 
 // delete_file
-type DeleteFileTool struct{ fs FS }
+type DeleteTool struct{ fs FS }
 
-func NewDeleteFileTool(fs FS) *DeleteFileTool { return &DeleteFileTool{fs} }
+func NewDeleteFileTool(fs FS) *DeleteTool { return &DeleteTool{fs} }
 
-func (t *DeleteFileTool) Name() string { return "delete_file" }
-func (t *DeleteFileTool) Description() string {
-	return "permanently delete a file; this operation cannot be undone"
+func (t *DeleteTool) Name() string { return "delete_file" }
+func (t *DeleteTool) Description() string {
+	return "permanently delete a file or directory; this operation cannot be undone"
 }
-func (t *DeleteFileTool) Schema() []agent.ToolProperty {
+func (t *DeleteTool) Schema() []agent.ToolProperty {
 	return []agent.ToolProperty{
 		{
 			Name:        "path",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "file path to delete",
+			Description: "path to delete",
 		},
 	}
 }
 
-func (t *DeleteFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
+func (t *DeleteTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
 	args, err := UnwrapArgs[struct {
 		Path string `json:"path"`
 	}](rawArgs)
@@ -406,7 +406,7 @@ func (t *DeleteFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) 
 		return "", err
 	}
 
-	if err := t.fs.DeleteFile(internal); err != nil {
+	if err := t.fs.Delete(internal); err != nil {
 		return "", wrapFSError(err, args.Path)
 	}
 

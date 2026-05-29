@@ -3,6 +3,7 @@ package session
 import (
 	"arch-agent/internal/agent"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"time"
@@ -26,12 +27,16 @@ type Session interface {
 
 	Messages() []agent.Message
 	GetLastAssistantMessageContent() string
+	GetLastUserMessageContent() string
 	AddMessages([]agent.Message)
 
 	Subsession(agent.ID) (ID, bool)
 	AddSubsession(agent.ID, ID)
 
 	Tokens() int
+	MessageTokens() int
+	SummaryTokens() int
+
 	AddSummary(string)
 	Summary() string
 
@@ -42,15 +47,16 @@ type Session interface {
 }
 
 type session struct {
-	id           ID
-	title        string
-	tokens       int
-	summaries    string
-	messages     []agent.Message
-	subsessions  map[agent.ID]ID
-	tokenCounter TokenCounter
-	createdAt    time.Time
-	updatedAt    time.Time
+	id            ID
+	title         string
+	tokens        int
+	summaryTokens int
+	summaries     string
+	messages      []agent.Message
+	subsessions   map[agent.ID]ID
+	tokenCounter  TokenCounter
+	createdAt     time.Time
+	updatedAt     time.Time
 }
 
 func NewSession(id ID, tokenCounter TokenCounter) *session {
@@ -67,6 +73,7 @@ func NewSession(id ID, tokenCounter TokenCounter) *session {
 func NewRestoredSession(
 	id ID,
 	tokens int,
+	summaryTokens int,
 	messages []agent.Message,
 	tokenCounter TokenCounter,
 	summaries string,
@@ -78,14 +85,15 @@ func NewRestoredSession(
 	}
 
 	return &session{
-		id:           id,
-		tokens:       tokens,
-		messages:     messages,
-		subsessions:  subsessions,
-		tokenCounter: tokenCounter,
-		summaries:    summaries,
-		createdAt:    createdAt,
-		updatedAt:    time.Now(),
+		id:            id,
+		tokens:        tokens,
+		summaryTokens: summaryTokens,
+		messages:      messages,
+		subsessions:   subsessions,
+		tokenCounter:  tokenCounter,
+		summaries:     summaries,
+		createdAt:     createdAt,
+		updatedAt:     time.Now(),
 	}
 }
 
@@ -93,11 +101,21 @@ func (s *session) ID() ID                { return s.id }
 func (s *session) Title() string         { return s.title }
 func (s *session) SetTitle(title string) { s.title = title }
 
-func (s *session) Tokens() int { return s.tokens }
+func (s *session) Tokens() int        { return s.tokens + s.summaryTokens }
+func (s *session) MessageTokens() int { return s.tokens }
+func (s *session) SummaryTokens() int { return s.summaryTokens }
 
 func (s *session) GetLastAssistantMessageContent() string {
 	for _, message := range slices.Backward(s.messages) {
-		if typedMessage, ok := message.(agent.AgentMessage); ok {
+		if typedMessage, ok := message.(*agent.AgentMessage); ok {
+			return typedMessage.Content()
+		}
+	}
+	return ""
+}
+func (s *session) GetLastUserMessageContent() string {
+	for _, message := range slices.Backward(s.messages) {
+		if typedMessage, ok := message.(*agent.UserMessage); ok {
 			return typedMessage.Content()
 		}
 	}
@@ -125,7 +143,7 @@ func (s *session) AddMessages(msgs []agent.Message) {
 
 func (s *session) AddSummary(summary string) {
 	content := fmt.Sprintf("%s/n/n", summary)
-	s.tokens += s.tokenCounter.Calc(content)
+	s.summaryTokens += s.tokenCounter.Calc(content)
 	s.summaries += content
 }
 
@@ -135,6 +153,7 @@ func (s *session) Summary() string {
 
 func (s *session) OverwriteMessages(new []agent.Message) {
 	s.tokens = messagesTokens(s.tokenCounter, new)
+	s.tokens += s.tokenCounter.Calc(s.summaries)
 	s.messages = new
 }
 
@@ -145,11 +164,13 @@ func (s *session) UpdatedAt() time.Time {
 	return s.updatedAt
 }
 
-// func (s *session) ShouldCompact(model agent.Model) bool {
-// 	model.ContextLimit()
-// }
-
 func messagesTokens(counter TokenCounter, msgs []agent.Message) int {
+
+	if counter == nil {
+		slog.Warn("session without token counters")
+		return 0
+	}
+
 	// TODO check complexity
 	var heap strings.Builder
 	for _, msg := range msgs {
