@@ -2,33 +2,27 @@ package task
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/chat"
 	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 )
 
 type taskExecutor struct {
-	agentRepo  agent.Repo
 	sessionSvc *session.SessionService
-	modelRepo  agent.ModelRepository
-	runtime    *runtime.AgentRuntime
+	chatSvc    *chat.ChatService
 }
 
 // executor
 func NewTaskExecutor(
-	agentRepo agent.Repo,
 	sessionSvc *session.SessionService,
-	modelRepo agent.ModelRepository,
-	runtime *runtime.AgentRuntime,
+	chatSvc *chat.ChatService,
 ) *taskExecutor {
 	return &taskExecutor{
-		agentRepo:  agentRepo,
 		sessionSvc: sessionSvc,
-		modelRepo:  modelRepo,
-		runtime:    runtime,
+		chatSvc:    chatSvc,
 	}
 }
 
@@ -68,40 +62,10 @@ func (s *taskExecutor) processRecipientTask(ctx context.Context, agentID agent.I
 
 	slog.Info("task executes in background", "task", taskName)
 
-	agt, err := s.agentRepo.Get(agentID)
+	sessID, err := s.sessionSvc.Create(agentID)
 	if err != nil {
 		return err
 	}
 
-	var errc error
-	evReader := runtime.EventReader{
-		OnError: func(i1 agent.ID, i2 session.ID, err error) {
-			errc = errors.Join(errc, err)
-		},
-	}
-
-	sessionID, err := s.sessionSvc.Create(agentID)
-	if err != nil {
-		return err
-	}
-
-	sess, err := s.sessionSvc.Get(agentID, sessionID)
-	if err != nil {
-		return err
-	}
-
-	sess.AddMessages(
-		[]agent.Message{agent.NewUserMessage(fmt.Sprintf("%s\n\n%s", autonomusWorking, request))},
-	)
-
-	model, err := s.modelRepo.Get(agt.Model())
-	if err != nil {
-		return err
-	}
-
-	sink := s.runtime.RunStream(ctx, model, agt, agt.Tools(), sess)
-	evReader.Read(sink)
-
-	s.sessionSvc.Save(agentID, sess)
-	return nil
+	return s.chatSvc.Chat(ctx, agentID, sessID, fmt.Sprintf("%s\n\n%s", autonomusWorking, request), runtime.EventReader{})
 }

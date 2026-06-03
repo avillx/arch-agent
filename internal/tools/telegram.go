@@ -5,6 +5,9 @@ import (
 	"arch-agent/internal/telegram"
 	"context"
 	"errors"
+	"maps"
+	"slices"
+	"strings"
 )
 
 // send message
@@ -18,7 +21,19 @@ func NewSendMessageTool(o *telegram.BotOrchestrator) *SendMessageTool {
 	}
 }
 
-func (t *SendMessageTool) Name() string {
+func (t *SendMessageTool) Instruction() string {
+	return `Telegram chatting:
+- Chat naturally, like a person in a messenger.
+- Match the user's message length and energy.
+- Short messages usually deserve short replies.
+- Do not continue a topic that naturally ended.
+- Do not ask questions unless there is a reason.
+- One message is usually enough.
+- Silence, acknowledgement or a brief reaction can be a complete reply.
+- Do not explain more than the user asked for.`
+}
+
+func (t *SendMessageTool) Name() agent.ToolName {
 	return "send_message"
 }
 
@@ -75,7 +90,15 @@ func NewSendStickerTool(o *telegram.BotOrchestrator) *SendStickerTool {
 	}
 }
 
-func (t *SendStickerTool) Name() string {
+func (t *SendStickerTool) Instruction() string {
+	return `Stickers:
+- Use stickers for immersive, expressive chatting.
+- Only send stickers after obtaining the allowed list from the user.
+- Send them when it genuinely fits the mood or context — not forced.
+- It feels natural when: reacting emotionally, celebrating, sympathizing, or adding humor.`
+}
+
+func (t *SendStickerTool) Name() agent.ToolName {
 	return "send_sticker"
 }
 
@@ -120,6 +143,41 @@ func (t *SendStickerTool) Call(ctx context.Context, rawArgs agent.ToolArguments)
 		return "sticker is not sended", err
 	}
 	return "sticker sended", nil
+}
+
+// SendSticker tool
+type GetStickersTool struct {
+	orchestrator *telegram.BotOrchestrator
+}
+
+func NewGetStickersTool(o *telegram.BotOrchestrator) *GetStickersTool {
+	return &GetStickersTool{
+		orchestrator: o,
+	}
+}
+
+func (t *GetStickersTool) Name() agent.ToolName {
+	return "get_stickers"
+}
+
+func (t *GetStickersTool) Description() string {
+	return "returns list of emojis, allowed for stickers"
+}
+
+func (t *GetStickersTool) Schema() []agent.ToolProperty {
+	return []agent.ToolProperty{}
+}
+
+func (t *GetStickersTool) Call(ctx context.Context, _ agent.ToolArguments) (string, error) {
+
+	agentID := MustAgentID(ctx)
+
+	bot, err := t.orchestrator.Get(agent.ID(agentID))
+	if err != nil {
+		return "", errors.Join(err, ErrNoAcc)
+	}
+
+	return strings.Join(slices.Collect(maps.Keys(bot.Stickers)), ", "), nil
 }
 
 var ErrNoAcc = errors.New("You have no telegram bot account")

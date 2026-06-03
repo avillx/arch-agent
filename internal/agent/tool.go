@@ -4,6 +4,8 @@ import (
 	"context"
 )
 
+type ToolName string
+
 type PropertyType string
 
 const (
@@ -13,7 +15,7 @@ const (
 )
 
 type ToolRegistry interface {
-	GetTools([]string) ([]Tool, error)
+	GetTools([]ToolName) ([]Tool, error)
 }
 
 type ToolProperty struct {
@@ -25,7 +27,7 @@ type ToolProperty struct {
 }
 
 type Tool interface {
-	Name() string
+	Name() ToolName
 	Description() string
 	Schema() []ToolProperty
 	Call(context.Context, ToolArguments) (string, error)

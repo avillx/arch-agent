@@ -16,7 +16,8 @@ type Agent interface {
 	Description() string
 	SystemPrompt() string
 	Model() ModelID
-	Tools() []Tool
+	Tools() []ToolName
+	Skills() []SkillID
 }
 
 type agent struct {
@@ -24,7 +25,8 @@ type agent struct {
 	description  string
 	systemPrompt string
 	model        ModelID
-	tools        []Tool
+	tools        []ToolName
+	skills       []SkillID
 }
 
 func NewAgent(
@@ -32,7 +34,8 @@ func NewAgent(
 	description string,
 	systemPrompt string,
 	model ModelID,
-	tools []Tool,
+	tools []ToolName,
+	skills []SkillID,
 ) *agent {
 	return &agent{
 		id:           id,
@@ -40,6 +43,7 @@ func NewAgent(
 		systemPrompt: systemPrompt,
 		model:        model,
 		tools:        tools,
+		skills:       skills,
 	}
 }
 
@@ -47,4 +51,5 @@ func (a *agent) ID() ID               { return a.id }
 func (a *agent) Description() string  { return a.description }
 func (a *agent) SystemPrompt() string { return a.systemPrompt }
 func (a *agent) Model() ModelID       { return a.model }
-func (a *agent) Tools() []Tool        { return a.tools }
+func (a *agent) Tools() []ToolName    { return a.tools }
+func (a *agent) Skills() []SkillID    { return a.skills }

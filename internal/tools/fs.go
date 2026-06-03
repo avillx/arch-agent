@@ -2,6 +2,7 @@ package tools
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/runtime"
 	"context"
 	"errors"
 	"fmt"
@@ -24,7 +25,7 @@ type ListDirTool struct{ fs FS }
 
 func NewListDirTool(fs FS) *ListDirTool { return &ListDirTool{fs} }
 
-func (t *ListDirTool) Name() string { return "list_dir" }
+func (t *ListDirTool) Name() agent.ToolName { return "list_dir" }
 
 func (t *ListDirTool) Description() string {
 	return "list entries in a directory; returns one file:/// path per line"
@@ -71,11 +72,23 @@ func (t *ListDirTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (st
 
 // read_file
 
+var _ runtime.Instructed = (*ReadFileTool)(nil)
+
 type ReadFileTool struct{ fs FS }
 
 func NewReadFileTool(fs FS) *ReadFileTool { return &ReadFileTool{fs} }
 
-func (t *ReadFileTool) Name() string { return "read_file" }
+func (t *ReadFileTool) Instruction() string {
+	return `Files:
+- Files are stored in root "file:///"
+- 'file:///skills" — instruction files for specific tasks. 
+  Check only the first 8–10 lines (frontmatter) before reading fully. Never load more than 1–2 skills per task.
+- 'file:///activity/{agent_name}/YYYY/MM/DD/YYYY-MM-DD.md' — memory logs of all agents. 
+  Use search_files to find information, Read only the minimum amount of data required. 
+  If activity not exist's - nothing is happening. Contains your activity`
+}
+
+func (t *ReadFileTool) Name() agent.ToolName { return "read_file" }
 
 func (t *ReadFileTool) Description() string {
 	return "read file content, optionally limited to a line range (1-indexed)"
@@ -154,7 +167,7 @@ type WriteFileTool struct{ fs FS }
 
 func NewWriteFileTool(fs FS) *WriteFileTool { return &WriteFileTool{fs} }
 
-func (t *WriteFileTool) Name() string { return "write_file" }
+func (t *WriteFileTool) Name() agent.ToolName { return "write_file" }
 func (t *WriteFileTool) Description() string {
 	return `write content to a file, creating it if it does not exist.
 mode: "overwrite" (default) replaces the file; "append" adds to the end`
@@ -224,7 +237,7 @@ type EditFileTool struct{ fs FS }
 
 func NewEditFileTool(fs FS) *EditFileTool { return &EditFileTool{fs} }
 
-func (t *EditFileTool) Name() string { return "edit_file" }
+func (t *EditFileTool) Name() agent.ToolName { return "edit_file" }
 func (t *EditFileTool) Description() string {
 	return "replace a unique string in a file; old_str must match exactly once"
 }
@@ -305,7 +318,7 @@ type MoveFileTool struct{ fs FS }
 
 func NewMoveFileTool(fs FS) *MoveFileTool { return &MoveFileTool{fs} }
 
-func (t *MoveFileTool) Name() string { return "move_file" }
+func (t *MoveFileTool) Name() agent.ToolName { return "move_file" }
 func (t *MoveFileTool) Description() string {
 	return "move or rename a file from src to dst"
 }
@@ -374,7 +387,7 @@ type DeleteTool struct{ fs FS }
 
 func NewDeleteFileTool(fs FS) *DeleteTool { return &DeleteTool{fs} }
 
-func (t *DeleteTool) Name() string { return "delete_file" }
+func (t *DeleteTool) Name() agent.ToolName { return "delete_file" }
 func (t *DeleteTool) Description() string {
 	return "permanently delete a file or directory; this operation cannot be undone"
 }
@@ -419,7 +432,7 @@ type SearchFilesTool struct{ fs FS }
 
 func NewSearchFilesTool(fs FS) *SearchFilesTool { return &SearchFilesTool{fs} }
 
-func (t *SearchFilesTool) Name() string { return "search_files" }
+func (t *SearchFilesTool) Name() agent.ToolName { return "search_files" }
 func (t *SearchFilesTool) Description() string {
 	return "recursively search file contents under root; returns matching lines as path:line: text"
 }

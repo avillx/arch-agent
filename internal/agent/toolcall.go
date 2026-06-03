@@ -14,11 +14,11 @@ func (r ToolArguments) MarshalJSON() ([]byte, error) {
 type ToolCall struct {
 	// tool call id that is assinged by provider
 	ID        string
-	ToolName  string
+	ToolName  ToolName
 	Arguments ToolArguments
 }
 
-func NewToolCall(id string, toolName string, arguments ToolArguments) *ToolCall {
+func NewToolCall(id string, toolName ToolName, arguments ToolArguments) *ToolCall {
 	return &ToolCall{
 		ID:        id,
 		ToolName:  toolName,

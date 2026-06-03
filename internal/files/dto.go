@@ -15,7 +15,7 @@ type MessageDTO struct {
 
 type ToolCallDTO struct {
 	ID   string          `json:"id"`
-	Tool string          `json:"tool"`
+	Tool agent.ToolName  `json:"tool"`
 	Args json.RawMessage `json:"args"`
 }
 

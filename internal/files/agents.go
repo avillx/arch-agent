@@ -18,17 +18,13 @@ var _ agent.Repo = (*AgentFiles)(nil)
 type AgentFiles struct {
 	fs *FileSystem
 	mu sync.RWMutex
-
-	toolRegestry agent.ToolRegistry
 }
 
 func NewAgentFiles(
 	fs *FileSystem,
-	toolRegestry agent.ToolRegistry,
 ) *AgentFiles {
 	return &AgentFiles{
-		fs:           fs,
-		toolRegestry: toolRegestry,
+		fs: fs,
 	}
 }
 
@@ -116,17 +112,13 @@ func (s *AgentFiles) fromDTO(dtos ...AgentDTO) ([]agent.Agent, error) {
 	agents := []agent.Agent{}
 
 	for _, dto := range dtos {
-		t, err := s.toolRegestry.GetTools(dto.Tools)
-		if err != nil {
-			return nil, err
-		}
-
 		agents = append(agents, agent.NewAgent(
 			dto.ID,
 			dto.Description,
 			dto.SystemPrompt,
 			dto.Model,
-			t,
+			dto.Tools,
+			dto.Skills,
 		))
 	}
 
@@ -135,11 +127,12 @@ func (s *AgentFiles) fromDTO(dtos ...AgentDTO) ([]agent.Agent, error) {
 
 // DTO
 type AgentDTO struct {
-	ID           agent.ID      `yaml:"id"`
-	Description  string        `yaml:"description,omitempty"`
-	Model        agent.ModelID `yaml:"model"`
-	SystemPrompt string        `yaml:"omitempty"`
-	Tools        []string      `yaml:"tools,omitempty"`
+	ID           agent.ID         `yaml:"id"`
+	Description  string           `yaml:"description,omitempty"`
+	Model        agent.ModelID    `yaml:"model"`
+	SystemPrompt string           `yaml:"omitempty"`
+	Tools        []agent.ToolName `yaml:"tools,omitempty"`
+	Skills       []agent.SkillID  `yaml:"skills,omitempty"`
 }
 
 func parseAgentFile(data []byte) (AgentDTO, error) {
@@ -167,17 +160,12 @@ func parseAgentFile(data []byte) (AgentDTO, error) {
 
 func marshalAgentFile(agt agent.Agent) ([]byte, error) {
 
-	agentTools := agt.Tools()
-	toolList := make([]string, len(agentTools))
-	for i, t := range agentTools {
-		toolList[i] = t.Name()
-	}
-
 	fm, err := yaml.Marshal(AgentDTO{
 		ID:          agt.ID(),
 		Description: agt.Description(),
 		Model:       agt.Model(),
-		Tools:       toolList,
+		Tools:       agt.Tools(),
+		Skills:      agt.Skills(),
 	})
 	if err != nil {
 		return nil, err

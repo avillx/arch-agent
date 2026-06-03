@@ -3,6 +3,7 @@ package app
 import (
 	"arch-agent/internal/a2a"
 	"arch-agent/internal/agent"
+	"arch-agent/internal/chat"
 	"arch-agent/internal/cron"
 	"arch-agent/internal/files"
 	"arch-agent/internal/openai"
@@ -21,17 +22,17 @@ import (
 )
 
 type App struct {
-	A2ASvc                 *a2a.Service
-	ToolSvc                *tools.Service
-	runtime                *runtime.AgentRuntime
-	TelegramOrchestra      *telegram.BotOrchestrator
-	TaskSvc                *task.TaskService
-	SessionSvc             *session.SessionService
-	TelegramA2AInterceptor *telegram.A2AInterceptor
+	A2ASvc            *a2a.Service
+	ToolSvc           *tools.Service
+	runtime           *runtime.AgentRuntime
+	TelegramOrchestra *telegram.BotOrchestrator
+	TaskSvc           *task.TaskService
+	SessionSvc        *session.SessionService
+	// TelegramA2AInterceptor *telegram.A2AInterceptor
 }
 
 func (a *App) Run(ctx context.Context) {
-	go a.TelegramA2AInterceptor.Run(ctx)
+	// go a.TelegramA2AInterceptor.Run(ctx)
 	a.TelegramOrchestra.Run(ctx)
 }
 
@@ -52,10 +53,8 @@ func BuildModelsRepo(fs *files.FileSystem) (agent.ModelRepository, error) {
 func BuildTaskService(
 	ctx context.Context,
 	fs *files.FileSystem,
-	agentRepo agent.Repo,
 	sessionSvc *session.SessionService,
-	modelRepo agent.ModelRepository,
-	runtime *runtime.AgentRuntime,
+	chatSvc *chat.ChatService,
 ) (*task.TaskService, error) {
 
 	taskRepo, err := files.NewTaskFiles(fs, func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) })
@@ -64,10 +63,8 @@ func BuildTaskService(
 	}
 
 	executor := task.NewTaskExecutor(
-		agentRepo,
 		sessionSvc,
-		modelRepo,
-		runtime,
+		chatSvc,
 	)
 
 	return task.NewTaskService(
@@ -89,8 +86,6 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 		return nil, err
 	}
 
-	toolService := tools.NewService()
-
 	modelRepo, err := BuildModelsRepo(fs)
 	if err != nil {
 		return nil, err
@@ -102,7 +97,7 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 
 	tokenizer := tokenizer.NewTokenizer()
 
-	agentRepo := files.NewAgentFiles(fs, toolService)
+	agentRepo := files.NewAgentFiles(fs)
 
 	sessSvc := session.NewSessionService(
 		files.NewSessionFiles(fs, tokenizer),
@@ -114,30 +109,26 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 	observer := runtime.NewObserver(observerModel, activityRepo, tokenizer)
 
 	runtime := runtime.NewAgentRuntime(observer)
+
+	toolService := tools.NewService()
+	chatSvc := chat.NewChatService(agentRepo, sessSvc, modelRepo, toolService, runtime)
+
 	taskSvc, err := BuildTaskService(
 		ctx,
 		fs,
-		agentRepo,
 		sessSvc,
-		modelRepo,
-		runtime,
+		chatSvc,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	a2aFiles, err := files.NewA2AFiles(fs)
-	if err != nil {
-		return nil, err
-	}
+	// a2aFiles, err := files.NewA2AFiles(fs,)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	a2aSvc := a2a.NewService(
-		a2aFiles,
-		agentRepo,
-		runtime,
-		modelRepo,
-		sessSvc,
-	)
+	a2aSvc := a2a.NewService(chatSvc, sessSvc)
 
 	searx := searxng.NewSearXSearch(searchHostScheme, searchHost)
 
@@ -157,12 +148,13 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 		tools.NewAddTaskTool(taskSvc, func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) }),
 
 		// a2a tools
-		tools.NewCallAgentTool(a2aSvc),
-		tools.NewGetAgentsTool(a2aSvc),
+		tools.NewCallAgentTool(a2aSvc, agentRepo),
+		// tools.NewGetAgentsTool(a2aSvc),
 
 		// telegram tools
 		tools.NewSendMessageTool(botOrchestra),
 		tools.NewSendStickerTool(botOrchestra),
+		tools.NewGetStickersTool(botOrchestra),
 
 		// web tools
 		fetch.NewFetchTool(),
@@ -171,17 +163,15 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 
 	botOrchestra.Wire(
 		sessSvc,
-		agentRepo,
-		runtime,
-		modelRepo,
+		chatSvc,
 	)
 
 	return &App{
-		A2ASvc:                 a2aSvc,
-		runtime:                runtime,
-		TelegramOrchestra:      botOrchestra,
-		TaskSvc:                taskSvc,
-		SessionSvc:             sessSvc,
-		TelegramA2AInterceptor: telegram.NewA2AInterceptor(groupID, botOrchestra, a2aSvc),
+		A2ASvc:            a2aSvc,
+		runtime:           runtime,
+		TelegramOrchestra: botOrchestra,
+		TaskSvc:           taskSvc,
+		SessionSvc:        sessSvc,
+		// TelegramA2AInterceptor: telegram.NewA2AInterceptor(groupID, botOrchestra, a2aSvc),
 	}, nil
 }

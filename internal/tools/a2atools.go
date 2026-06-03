@@ -3,65 +3,49 @@ package tools
 import (
 	"arch-agent/internal/a2a"
 	"arch-agent/internal/agent"
+	"arch-agent/internal/runtime"
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 )
 
-// getAgents
-type GetAgentsTool struct {
+var _ runtime.PerAgentInstructed = (*CallAgentTool)(nil)
+
+type CallAgentTool struct {
 	a2aService *a2a.Service
+	agentRepo  agent.Repo
 }
 
-func NewGetAgentsTool(s *a2a.Service) *GetAgentsTool {
-	return &GetAgentsTool{
+func NewCallAgentTool(s *a2a.Service, agentRepo agent.Repo) *CallAgentTool {
+	return &CallAgentTool{
 		a2aService: s,
+		agentRepo:  agentRepo,
 	}
 }
 
-func (t *GetAgentsTool) Name() string {
-	return "get_agents"
-}
-
-func (t *GetAgentsTool) Description() string {
-	return "return a list of available agents"
-}
-
-func (t *GetAgentsTool) Schema() []agent.ToolProperty {
-	return []agent.ToolProperty{}
-}
-
-func (t *GetAgentsTool) Call(ctx context.Context, _ agent.ToolArguments) (string, error) {
-
-	agentID := MustAgentID(ctx)
-
-	contacts, err := t.a2aService.AgentContacts(agent.ID(agentID))
+func (t *CallAgentTool) AgentInstruction(agt agent.Agent) string {
+	agents, err := t.agentRepo.All()
 	if err != nil {
-		return "", err
+		slog.Error("call agent tool", "error", "can't gather agents")
+		return ""
 	}
 
 	var sb strings.Builder
+	sb.WriteString("Agent contacts:\n")
+	for _, a := range agents {
 
-	sb.WriteString("## Agents")
-	for _, contact := range contacts {
-		sb.WriteString(fmt.Sprintf("* %s - %s\n", contact.ID, contact.CallGuide))
+		if a.ID() == agt.ID() {
+			continue
+		}
+
+		fmt.Fprintf(&sb, "  * %s - %s\n", string(a.ID()), a.Description())
 	}
 
-	return sb.String(), nil
+	return sb.String()
 }
 
-// callAgentTool
-type CallAgentTool struct {
-	a2aService *a2a.Service
-}
-
-func NewCallAgentTool(s *a2a.Service) *CallAgentTool {
-	return &CallAgentTool{
-		a2aService: s,
-	}
-}
-
-func (t *CallAgentTool) Name() string {
+func (t *CallAgentTool) Name() agent.ToolName {
 	return "call_agent"
 }
 
@@ -88,8 +72,8 @@ func (t *CallAgentTool) Schema() []agent.ToolProperty {
 
 func (t *CallAgentTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
 	args, err := UnwrapArgs[struct {
-		Name    string `json:"name"`
-		Request string `json:"request"`
+		Name    agent.ID `json:"name"`
+		Request string   `json:"request"`
 	}](rawArgs)
 	if err != nil {
 		return "", err
@@ -98,22 +82,11 @@ func (t *CallAgentTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 	agentID := MustAgentID(ctx)
 	sessionID := MustSessionID(ctx)
 
-	contacts, err := t.a2aService.AgentContacts(agent.ID(agentID))
-	if err != nil {
-		return "", err
-	}
-
-	for _, contact := range contacts {
-		if contact.ID == agent.ID(args.Name) {
-			return t.a2aService.Call(
-				ctx,
-				agent.ID(agentID),
-				agent.ID(contact.ID),
-				sessionID,
-				args.Request,
-			)
-		}
-	}
-
-	return "", fmt.Errorf("agent %s not found", args.Name)
+	return t.a2aService.Call(
+		ctx,
+		agentID,
+		args.Name,
+		sessionID,
+		args.Request,
+	)
 }

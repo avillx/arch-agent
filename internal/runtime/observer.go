@@ -49,8 +49,6 @@ func NewObserver(m agent.Model, repo agent.ActivityRepo, counter session.TokenCo
 	}
 }
 
-// Intercept подключается к потоку событий агента и наблюдает за активностью.
-// Возвращает канал — прозрачный pass-through для вызывающего.
 func (o *Observer) Intercept(ctx context.Context, request string, agentID agent.ID, sessID session.ID, evCh chan Event) chan Event {
 	key := sessionKey{agentID, sessID}
 
@@ -63,14 +61,15 @@ func (o *Observer) Intercept(ctx context.Context, request string, agentID agent.
 	inter.activity += agent.NewUserMessage(request).String()
 	o.mu.Unlock()
 
-	out := make(chan Event, 16)
+	sinkCh := make(chan Event, 16)
 
 	go func() {
-		defer close(out)
-
 		reader := EventReader{
 			OnEvent: func(ev Event) {
-				out <- ev
+				evCh <- ev
+				// case <-ctx.Done():
+				// 	slog.Warn("observer: evCh full or closed, dropping event", "agent", agentID, "session", sessID)
+
 			},
 			OnComplete: func(_ agent.ID, _ session.ID, c *agent.Completion) {
 				inter.mu.Lock()
@@ -87,10 +86,11 @@ func (o *Observer) Intercept(ctx context.Context, request string, agentID agent.
 			},
 		}
 
-		reader.Read(evCh)
+		reader.Read(sinkCh)
+		close(evCh)
 	}()
 
-	return out
+	return sinkCh
 }
 
 func (o *Observer) createInteraction(key sessionKey) *interaction {

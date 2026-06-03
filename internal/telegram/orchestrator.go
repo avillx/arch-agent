@@ -2,7 +2,7 @@ package telegram
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/runtime"
+	"arch-agent/internal/chat"
 	"arch-agent/internal/session"
 	"context"
 	"fmt"
@@ -55,16 +55,12 @@ func (o *BotOrchestrator) Get(agentID agent.ID) (*Bot, error) {
 
 func (o *BotOrchestrator) Wire(
 	sessionSvc *session.SessionService,
-	agentRepo agent.Repo,
-	runtime *runtime.AgentRuntime,
-	modelRepo agent.ModelRepository,
+	chatSvc *chat.ChatService,
 ) {
 	for _, b := range o.bots {
 		b.Wire(
 			sessionSvc,
-			agentRepo,
-			runtime,
-			modelRepo,
+			chatSvc,
 		)
 	}
 }

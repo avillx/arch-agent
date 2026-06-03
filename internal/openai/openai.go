@@ -75,7 +75,7 @@ func toolCallToOpenAi(toolCall *agent.ToolCall) openai.ChatCompletionMessageTool
 		OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
 			ID: toolCall.ID,
 			Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
-				Name:      toolCall.ToolName,
+				Name:      string(toolCall.ToolName),
 				Arguments: string(toolCall.Arguments),
 			},
 		},
@@ -87,7 +87,7 @@ func openAIToToolCalls(openaiToolCalls []openai.ChatCompletionMessageToolCallUni
 	for _, tc := range openaiToolCalls {
 		newToolCall := agent.NewToolCall(
 			tc.ID,
-			tc.Function.Name,
+			agent.ToolName(tc.Function.Name),
 			agent.ToolArguments(
 				tc.Function.Arguments,
 			),
@@ -112,7 +112,7 @@ func toolToOpenAI(t agent.Tool) openai.ChatCompletionToolUnionParam {
 	return openai.ChatCompletionToolUnionParam{
 		OfFunction: &openai.ChatCompletionFunctionToolParam{
 			Function: shared.FunctionDefinitionParam{
-				Name: t.Name(),
+				Name: string(t.Name()),
 				// Strict:      openai.Bool(true),
 				Description: openai.String(t.Description()),
 				Parameters:  propertiesToOpenAI(t.Schema()),

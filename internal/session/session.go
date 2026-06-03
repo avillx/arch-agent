@@ -180,7 +180,7 @@ func messagesTokens(counter TokenCounter, msgs []agent.Message) int {
 		case agent.AgentMessage:
 			for _, call := range typedMsg.ToolCalls() {
 				heap.WriteString(call.ID)
-				heap.WriteString(call.ToolName)
+				heap.WriteString(string(call.ToolName))
 				heap.Write(call.Arguments)
 			}
 		case agent.ToolResultMessage:

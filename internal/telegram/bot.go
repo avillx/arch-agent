@@ -2,7 +2,7 @@ package telegram
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/runtime"
+	"arch-agent/internal/chat"
 	"arch-agent/internal/session"
 	"context"
 	"errors"
@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	maxMessageTextLen = 4096
+	maxMessageTextLen  = 4096
+	sessionExpiresTime = 10 * time.Minute
 )
 
 type StickerMap map[string]string
@@ -29,15 +30,16 @@ type BotConfig struct {
 }
 
 type Bot struct {
-	API            *tgbotapi.BotAPI
-	updateChannel  tgbotapi.UpdatesChannel
-	Stickers       StickerMap
-	blockedUsers   []int64
-	sessionService *session.SessionService
-	agentRuntime   *runtime.AgentRuntime
-	agentRepo      agent.Repo
-	agentID        agent.ID
-	modelRepo      agent.ModelRepository
+	API           *tgbotapi.BotAPI
+	updateChannel tgbotapi.UpdatesChannel
+	Stickers      StickerMap
+	blockedUsers  []int64
+	sessionSvc    *session.SessionService
+	chatSvc       *chat.ChatService
+	agentID       agent.ID
+
+	sessionTimer *time.Timer
+	sessionID    session.ID
 }
 
 func NewBot(cfg BotConfig) (*Bot, error) {
@@ -64,6 +66,10 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 		blockedUsers: []int64{},
 		agentID:      agent.ID(cfg.Agent),
 	}
+
+	p.sessionTimer = time.AfterFunc(sessionExpiresTime, func() {
+		p.sessionID = ""
+	})
 
 	// set stickers
 	if cfg.StickerSetName != "" {
@@ -96,14 +102,10 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 
 func (b *Bot) Wire(
 	sessionSvc *session.SessionService,
-	agentRepo agent.Repo,
-	runtime *runtime.AgentRuntime,
-	modelRepo agent.ModelRepository,
+	chatSvc *chat.ChatService,
 ) {
-	b.sessionService = sessionSvc
-	b.agentRepo = agentRepo
-	b.agentRuntime = runtime
-	b.modelRepo = modelRepo
+	b.chatSvc = chatSvc
+	b.sessionSvc = sessionSvc
 }
 
 func (b *Bot) SendMessage(userID int64, text string, replyMessageID int) ([]tgbotapi.Message, error) {

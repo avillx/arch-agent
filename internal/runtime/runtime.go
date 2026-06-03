@@ -17,58 +17,54 @@ func NewAgentRuntime(observer *Observer) *AgentRuntime {
 	}
 }
 
+// blocking
 func (r *AgentRuntime) RunStream(
 	ctx context.Context,
 	model agent.Model,
 	agt agent.Agent,
 	tools []agent.Tool,
 	sess session.Session,
-) <-chan Event { // TODO: for avoid issues, channel can be explicit arg over return value
+	evCh chan Event,
+) error {
 
 	ctx = withAgentID(ctx, agt.ID())
 	ctx = withSessionID(ctx, sess.ID())
-	sink := make(chan Event, 16)
 
-	// read sink and expose result throuth self
-	interceptor := r.observer.Intercept(ctx, sess.GetLastUserMessageContent(), agt.ID(), sess.ID(), sink)
+	// wraps event channel for observing avtivity
+	sink := r.observer.Intercept(ctx, sess.GetLastUserMessageContent(), agt.ID(), sess.ID(), evCh)
+	defer close(sink)
 
-	go func() {
-		defer close(sink)
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			if shouldCompact(sess, model) {
-				doCompact(ctx, CompactionRequest{
-					sess:  sess,
-					agt:   agt,
-					model: model,
-				})
-				sink <- NewCompactionEvent(
-					agt.ID(),
-					sess.ID(),
-					sess.Summary(),
-				)
-
-			}
-
-			done, err := r.runTurn(ctx, model, agt, tools, sess, sink)
-			if err != nil {
-				sink <- NewErrEvent(agt.ID(), sess.ID(), err)
-				return
-			}
-
-			if done {
-				return
-			}
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
 		}
-	}()
 
-	return interceptor
+		if shouldCompact(sess, model) {
+			doCompact(ctx, CompactionRequest{
+				sess:  sess,
+				agt:   agt,
+				model: model,
+			})
+			sink <- NewCompactionEvent(
+				agt.ID(),
+				sess.ID(),
+				sess.Summary(),
+			)
+
+		}
+
+		done, err := r.runTurn(ctx, model, agt, tools, sess, sink)
+		if err != nil {
+			sink <- NewErrEvent(agt.ID(), sess.ID(), err)
+			return err
+		}
+
+		if done {
+			return nil
+		}
+	}
 }
 
 func (r *AgentRuntime) runTurn(
@@ -90,9 +86,7 @@ func (r *AgentRuntime) runTurn(
 	result, err := model.Complete(
 		ctx,
 		tools,
-		append([]agent.Message{
-			agent.NewSystemMessage(agt.SystemPrompt())},
-			messages...),
+		append([]agent.Message{assembeSystemMessage(agt, tools)}, messages...),
 	)
 	if err != nil {
 		return true, err
@@ -160,8 +154,8 @@ func SessionIDFromContext(ctx context.Context) (session.ID, bool) {
 	return id, ok
 }
 
-func toolsToMap(tools []agent.Tool) map[string]agent.Tool {
-	toolMap := map[string]agent.Tool{}
+func toolsToMap(tools []agent.Tool) map[agent.ToolName]agent.Tool {
+	toolMap := map[agent.ToolName]agent.Tool{}
 
 	for _, tool := range tools {
 		toolMap[tool.Name()] = tool

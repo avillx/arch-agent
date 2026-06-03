@@ -128,9 +128,9 @@ func StringifyConversation(messages []Message) string {
 	return sb.String()
 }
 
-func ExcludeToolCallsData(msgs []Message, toolNames []string) []Message {
+func ExcludeToolCallsData(msgs []Message, toolNames []ToolName) []Message {
 	eliminationCallsID := map[string]struct{}{}
-	toolNameSet := map[string]struct{}{}
+	toolNameSet := map[ToolName]struct{}{}
 
 	for _, name := range toolNames {
 		toolNameSet[name] = struct{}{}

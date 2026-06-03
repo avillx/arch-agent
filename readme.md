@@ -21,6 +21,8 @@ All memory stores in `/agent/data/...`
 - [X] divide agent service and AgenticLoopRuntime
 - [X] validate structs for ifaces e.g. `var _ iface = (*struct)(nil)`
 - [ ] summarize by tokens not by messages
+- [ ] errors as buisness logic
+- [ ] eliminate edge case vulnurabilities
 
 ### debt
 - [ ] agent fs as sandbox iface over fs
@@ -32,10 +34,12 @@ All memory stores in `/agent/data/...`
 - [ ] skills
 - [X] activity drop
 - [ ] Multimodal input
-- [ ] instructions interface (tool usage guide preload)
+- [ ] AutoDream and private wiki
+- [X] instructions interface (tool usage guide preload)
 - [ ] MCP Service and tools
 - [X] Summarizations
-- [ ] live session is not a session (is runtime supervisor)
+- [X] live session is telegram client feature. with timer in TELEGRAM BOT. 
+- [X] FS tool instructions with descriptions of folders
 
 ### Tools
 - [X] filesystem

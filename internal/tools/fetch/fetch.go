@@ -24,7 +24,7 @@ type FetchTool struct{}
 
 func NewFetchTool() *FetchTool { return &FetchTool{} }
 
-func (t *FetchTool) Name() string {
+func (t *FetchTool) Name() agent.ToolName {
 	return "fetch"
 }
 

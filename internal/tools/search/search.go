@@ -28,7 +28,7 @@ func NewWebSearchTool(engine WebSearchEngine) *WebSearchTool {
 	}
 }
 
-func (t *WebSearchTool) Name() string {
+func (t *WebSearchTool) Name() agent.ToolName {
 	return "web_search"
 }
 

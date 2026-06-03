@@ -2,6 +2,7 @@ package tools
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/runtime"
 	"arch-agent/internal/task"
 	"context"
 	"fmt"
@@ -18,7 +19,7 @@ func NewToggleTaskTool(s *task.TaskService) *ToggleTaskTool {
 	}
 }
 
-func (t *ToggleTaskTool) Name() string {
+func (t *ToggleTaskTool) Name() agent.ToolName {
 	return "toggle_task"
 }
 
@@ -79,7 +80,18 @@ func NewGetTasksTool(s *task.TaskService) *GetTasksTool {
 	}
 }
 
-func (t *GetTasksTool) Name() string {
+var _ runtime.Instructed = (*GetTasksTool)(nil)
+
+func (t *GetTasksTool) Instruction() string {
+	return `Tasks:
+- Tasks is a cron-like sheduling yhat invokes you or other agents to process some request
+- Tasks use cases:
+  'remind somthing regular or only once, greet coworkers, congrat some one with birthday, check some status, etc...'
+- When you manage tasks notify user directly like:
+  'Okay, i remind you','Understand, i will texting you at this time', 'I won't read logs every... anymore.'.`
+}
+
+func (t *GetTasksTool) Name() agent.ToolName {
 	return "get_tasks"
 }
 
@@ -139,7 +151,7 @@ func NewAddTaskTool(s *task.TaskService, cronFactory func(string) (task.Cron, er
 	}
 }
 
-func (t *AddTaskTool) Name() string {
+func (t *AddTaskTool) Name() agent.ToolName {
 	return "create_task"
 }
 
@@ -147,7 +159,7 @@ func (t *AddTaskTool) Description() string {
 	return "creates a task that will be sended for agents by reglament" +
 		"for some reminds or request to do somthing at some time once, use oneshot." +
 		"before create a regular task ensure that actually what you should do" +
-		"if debt - please clarify it"
+		"if debt - clarify it"
 }
 func (t *AddTaskTool) Schema() []agent.ToolProperty {
 	return []agent.ToolProperty{

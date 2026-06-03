@@ -15,15 +15,15 @@ type ToolServer interface {
 
 type Service struct {
 	mu      sync.RWMutex
-	tools   map[string]agent.Tool
-	owned   map[string][]string
+	tools   map[agent.ToolName]agent.Tool
+	owned   map[string][]agent.ToolName
 	servers map[string]ToolServer
 }
 
 func NewService() *Service {
 	s := &Service{
-		tools:   make(map[string]agent.Tool),
-		owned:   make(map[string][]string),
+		tools:   make(map[agent.ToolName]agent.Tool),
+		owned:   make(map[string][]agent.ToolName),
 		servers: make(map[string]ToolServer),
 	}
 	return s
@@ -43,7 +43,7 @@ func (s *Service) Tools() []agent.Tool {
 	return result
 }
 
-func (s *Service) GetTools(toolNames []string) ([]agent.Tool, error) {
+func (s *Service) GetTools(toolNames []agent.ToolName) ([]agent.Tool, error) {
 
 	tools := make([]agent.Tool, len(toolNames))
 	for i, name := range toolNames {
@@ -96,14 +96,14 @@ func (s *Service) Connect(server ToolServer) error {
 	return nil
 }
 
-func (s *Service) Disconnect(name string) error {
+func (s *Service) Disconnect(serverName string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.servers[name]; !ok {
-		return fmt.Errorf("server %s not connected", name)
+	if _, ok := s.servers[serverName]; !ok {
+		return fmt.Errorf("server %s not connected", serverName)
 	}
-	s.unregister(name)
-	delete(s.servers, name)
+	s.unregister(serverName)
+	delete(s.servers, serverName)
 	return nil
 }
 

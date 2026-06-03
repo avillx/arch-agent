@@ -5,6 +5,7 @@ import (
 	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -12,54 +13,60 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-// handlers
 func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 
+	// group ignore
 	if (message.Chat.IsGroup() || message.Chat.IsSuperGroup()) && !b.API.IsMessageToMe(*message) {
 		return nil
 	}
 
-	stopAction := b.SetChatAction(message.Chat.ID, tgbotapi.ChatTyping)
-	defer stopAction()
+	// session expiration
+	switch b.sessionID {
+	case "":
+		sessID, err := b.sessionSvc.Create(b.agentID)
+		if err != nil {
+			return err
+		}
+		b.sessionID = sessID
+	}
+	b.sessionTimer.Stop()
+	b.sessionTimer.Reset(sessionExpiresTime)
+
+	var errc error
+
+	b.API.Send(tgbotapi.NewChatAction(message.Chat.ID, tgbotapi.ChatTyping))
 
 	evReader := runtime.EventReader{
-		OnComplete: func(_ agent.ID, _ session.ID, c *agent.Completion) {
-			if c.Content != "" {
-				b.SendMessage(message.From.ID, c.Content, message.MessageID)
+		OnCompaction: func(i1 agent.ID, i2 session.ID, s string) {
+			if _, msgErr := b.SendMessage(message.From.ID, "⚠️ session has compacted", 0); msgErr != nil {
+				errc = errors.Join(errc, msgErr)
+			}
+		},
+		OnComplete: func(i1 agent.ID, i2 session.ID, c *agent.Completion) {
+
+			b.API.Send(tgbotapi.NewChatAction(message.Chat.ID, tgbotapi.ChatTyping))
+
+			toolCallReprs, err := toolCallRepr(c.ToolCalls, message, b)
+			if err != nil {
+				errc = errors.Join(errc, err)
+			}
+
+			msgContent := fmt.Sprintf("%s\n%s", toolCallReprs, c.Content)
+
+			if _, msgErr := b.SendMessage(message.From.ID, msgContent, message.MessageID); msgErr != nil {
+				errc = errors.Join(errc, msgErr)
 			}
 		},
 	}
 
-	sess, err := b.sessionService.Get(b.agentID, "session_test")
-	if err != nil {
-		return err
+	if err := b.chatSvc.Chat(context.Background(), b.agentID, b.sessionID, messageToText(message), evReader); err != nil {
+		errc = errors.Join(errc, err)
+		if _, msgErr := b.SendMessage(message.From.ID, "❗️ request has errors", 0); msgErr != nil {
+			errc = errors.Join(errc, msgErr)
+		}
 	}
 
-	sess.AddMessages([]agent.Message{agent.NewUserMessage(messageToText(message))})
-
-	agt, err := b.agentRepo.Get(b.agentID)
-	if err != nil {
-		return err
-	}
-
-	model, err := b.modelRepo.Get(agt.Model())
-	if err != nil {
-		return err
-	}
-
-	sink := b.agentRuntime.RunStream(
-		context.TODO(),
-		model,
-		agt,
-		agt.Tools(),
-		sess,
-	)
-
-	evReader.Read(sink)
-
-	b.sessionService.Save(b.agentID, sess)
-
-	return nil
+	return errc
 }
 
 func (b *Bot) handleCommand(update tgbotapi.Update) error {
@@ -107,7 +114,7 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) error {
 	switch {
 	case update.Message != nil && update.Message.Command() != "":
 		err = b.handleCommand(update)
-	case update.Message != nil && update.Message.Text != "":
+	case update.Message != nil:
 		err = b.handleMessage(update.Message)
 	}
 

@@ -1,0 +1,112 @@
+package chat
+
+import (
+	"arch-agent/internal/agent"
+	"arch-agent/internal/runtime"
+	"arch-agent/internal/session"
+	"context"
+)
+
+type SessionSkillRepo interface {
+	Get(session.ID) ([]agent.SkillID, error)
+}
+
+type SkillRegestry interface {
+	Get(...agent.SkillID) ([]agent.Skill, error)
+}
+
+type ChatService struct {
+	agentRepo    agent.Repo
+	sessionSvc   *session.SessionService
+	modelRepo    agent.ModelRepository
+	toolRegistry agent.ToolRegistry
+	// sessSkillRepo SessionSkillRepo
+	// skillRegestry SkillRegestry
+	runtime *runtime.AgentRuntime
+}
+
+func NewChatService(
+	agentRepo agent.Repo,
+	sessionSvc *session.SessionService,
+	modelRepo agent.ModelRepository,
+	toolRegistry agent.ToolRegistry,
+	runtime *runtime.AgentRuntime,
+) *ChatService {
+	return &ChatService{
+		agentRepo:    agentRepo,
+		sessionSvc:   sessionSvc,
+		modelRepo:    modelRepo,
+		toolRegistry: toolRegistry,
+		runtime:      runtime,
+	}
+}
+
+func (s *ChatService) Chat(
+	ctx context.Context,
+	agentID agent.ID,
+	sessionID session.ID,
+	request string,
+	reader runtime.EventReader,
+) error {
+
+	// session
+	sess, err := s.sessionSvc.Get(agentID, sessionID)
+	if err != nil {
+		return err
+	}
+
+	sess.AddMessages([]agent.Message{agent.NewUserMessage(request)})
+
+	//agent
+	agt, err := s.agentRepo.Get(agentID)
+	if err != nil {
+		return err
+	}
+
+	// model
+	model, err := s.modelRepo.Get(agt.Model())
+	if err != nil {
+		return err
+	}
+
+	// skills
+	// openedSkills, err := s.sessSkillRepo.Get(sessionID)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// skills, err := s.skillRegestry.Get(openedSkills...)
+	// if err != nil {
+	// 	return err
+	// }
+
+	toolKit := agt.Tools()
+	// for _, s := range skills {
+	// 	toolKit = append(toolKit, s.Tools()...)
+	// }
+
+	// tools
+	tools, err := s.toolRegistry.GetTools(toolKit)
+	if err != nil {
+		return err
+	}
+
+	// sink
+	evCh := make(chan runtime.Event, 16)
+	go reader.Read(evCh)
+
+	err = s.runtime.RunStream(
+		ctx,
+		model,
+		agt,
+		tools,
+		sess,
+		evCh,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	return s.sessionSvc.Save(agt.ID(), sess)
+}
