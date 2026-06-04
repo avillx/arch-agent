@@ -15,7 +15,10 @@ import (
 	"arch-agent/internal/tokenizer"
 	"arch-agent/internal/tools"
 	"arch-agent/internal/tools/fetch"
+	fstools "arch-agent/internal/tools/fs"
 	"arch-agent/internal/tools/search"
+	tasktools "arch-agent/internal/tools/task"
+	tgtools "arch-agent/internal/tools/telegram"
 	"arch-agent/internal/uuid"
 	"context"
 	"errors"
@@ -134,27 +137,26 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 
 	toolService.AddTools(
 		// filesystem tools
-		tools.NewListDirTool(fs),
-		tools.NewReadFileTool(fs),
-		tools.NewWriteFileTool(fs),
-		tools.NewEditFileTool(fs),
-		tools.NewMoveFileTool(fs),
-		tools.NewDeleteFileTool(fs),
-		tools.NewSearchFilesTool(fs),
+		fstools.NewListDirTool(fs),
+		fstools.NewReadFileTool(fs),
+		fstools.NewWriteFileTool(fs),
+		fstools.NewEditFileTool(fs),
+		fstools.NewMoveFileTool(fs),
+		fstools.NewDeleteTool(fs),
+		fstools.NewSearchFilesTool(fs),
 
 		// task scheduling tools
-		tools.NewToggleTaskTool(taskSvc),
-		tools.NewGetTasksTool(taskSvc),
-		tools.NewAddTaskTool(taskSvc, func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) }),
+		tasktools.NewToggleTaskTool(taskSvc),
+		tasktools.NewGetTasksTool(taskSvc),
+		tasktools.NewAddTaskTool(taskSvc, func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) }),
 
 		// a2a tools
 		tools.NewCallAgentTool(a2aSvc, agentRepo),
 		// tools.NewGetAgentsTool(a2aSvc),
 
 		// telegram tools
-		tools.NewSendMessageTool(botOrchestra),
-		tools.NewSendStickerTool(botOrchestra),
-		tools.NewGetStickersTool(botOrchestra),
+		tgtools.NewSendMessageTool(botOrchestra),
+		tgtools.NewSendStickerTool(botOrchestra),
 
 		// web tools
 		fetch.NewFetchTool(),

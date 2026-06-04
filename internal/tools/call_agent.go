@@ -39,7 +39,7 @@ func (t *CallAgentTool) AgentInstruction(agt agent.Agent) string {
 			continue
 		}
 
-		fmt.Fprintf(&sb, "  * %s - %s\n", string(a.ID()), a.Description())
+		fmt.Fprintf(&sb, "* %s - %s\n", string(a.ID()), a.Description())
 	}
 
 	return sb.String()
