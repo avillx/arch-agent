@@ -81,8 +81,9 @@ func (t *SearchFilesTool) collect(internalPath, query string, remaining int) []s
 		return nil
 	}
 
+	// TODO: add error checking. via "AS"
 	entries, err := t.fs.ReadDir(internalPath)
-	if err == nil { // this colose edge case for pathToFile/pathToDir
+	if err == nil { // this close edge case for pathToFile/pathToDir
 		var results []string
 		for _, name := range entries {
 			child := path.Join(internalPath, name)

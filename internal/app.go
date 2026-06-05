@@ -111,10 +111,12 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 	activityRepo := files.NewActivityFiles(fs)
 	observer := runtime.NewObserver(observerModel, activityRepo, tokenizer)
 
-	runtime := runtime.NewAgentRuntime(observer)
+	skillFiles := files.NewSkillFiles(fs)
+	contextAssembler := runtime.NewContextAssembler(skillFiles)
+	rt := runtime.NewAgentRuntime(observer, contextAssembler)
 
 	toolService := tools.NewService()
-	chatSvc := chat.NewChatService(agentRepo, sessSvc, modelRepo, toolService, runtime)
+	chatSvc := chat.NewChatService(agentRepo, sessSvc, modelRepo, toolService, rt)
 
 	taskSvc, err := BuildTaskService(
 		ctx,
@@ -150,9 +152,8 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 		tasktools.NewGetTasksTool(taskSvc),
 		tasktools.NewAddTaskTool(taskSvc, func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) }),
 
-		// a2a tools
+		// callagent tools
 		tools.NewCallAgentTool(a2aSvc, agentRepo),
-		// tools.NewGetAgentsTool(a2aSvc),
 
 		// telegram tools
 		tgtools.NewSendMessageTool(botOrchestra),
@@ -170,7 +171,7 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 
 	return &App{
 		A2ASvc:            a2aSvc,
-		runtime:           runtime,
+		runtime:           rt,
 		TelegramOrchestra: botOrchestra,
 		TaskSvc:           taskSvc,
 		SessionSvc:        sessSvc,

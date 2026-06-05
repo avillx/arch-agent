@@ -19,8 +19,6 @@ func NewReadFileTool(fs FS) *ReadFileTool { return &ReadFileTool{fs} }
 func (t *ReadFileTool) Instruction() string {
 	return `Files:
 - Files are stored in root "file:///"
-- 'file:///skills" — instruction files for specific tasks. 
-  Check only the first 8–10 lines (frontmatter) before reading fully. Never load more than 1–2 skills per task.
 - 'file:///activity/{agent_name}/YYYY/MM/DD/YYYY-MM-DD.md' — memory logs of all agents. 
   Use search_files to find information, Read only the minimum amount of data required. 
   If activity not exist's - nothing is happening. Contains your activity`

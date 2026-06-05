@@ -8,12 +8,17 @@ import (
 )
 
 type AgentRuntime struct {
-	observer *Observer
+	observer         *Observer
+	contextAssembler *ContextAssembler
 }
 
-func NewAgentRuntime(observer *Observer) *AgentRuntime {
+func NewAgentRuntime(
+	observer *Observer,
+	contextAssembler *ContextAssembler,
+) *AgentRuntime {
 	return &AgentRuntime{
-		observer: observer,
+		observer:         observer,
+		contextAssembler: contextAssembler,
 	}
 }
 
@@ -83,10 +88,12 @@ func (r *AgentRuntime) runTurn(
 		messages = append(summaryToDialog(summary), messages...)
 	}
 
+	systemMessage := r.contextAssembler.assembeSystemMessage(agt, tools)
+
 	result, err := model.Complete(
 		ctx,
 		tools,
-		append([]agent.Message{assembeSystemMessage(agt, tools)}, messages...),
+		append([]agent.Message{systemMessage}, messages...),
 	)
 	if err != nil {
 		return true, err

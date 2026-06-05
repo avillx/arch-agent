@@ -29,7 +29,12 @@ func (fs *FileSystem) ReadDir(path string) ([]string, error) {
 	}
 	names := make([]string, 0, len(entries))
 	for _, e := range entries {
-		names = append(names, e.Name())
+		entryName := e.Name()
+
+		if e.IsDir() {
+			entryName += "/"
+		}
+		names = append(names, entryName)
 	}
 	return names, nil
 }

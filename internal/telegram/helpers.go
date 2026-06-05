@@ -86,7 +86,6 @@ func toolCallRepr(toolCalls []*agent.ToolCall, msg *tgbotapi.Message, b *Bot) (s
 	var errc error
 	var sb strings.Builder
 	for _, tc := range toolCalls {
-		sb.WriteString("⚒️ ")
 		switch tc.ToolName {
 		case "fetch":
 			var args struct {
@@ -116,7 +115,7 @@ func toolCallRepr(toolCalls []*agent.ToolCall, msg *tgbotapi.Message, b *Bot) (s
 				errc = errors.Join(errc, err)
 				break
 			}
-			fmt.Fprintf(&sb, "call %s", args.AgentName)
+			fmt.Fprintf(&sb, "call agent %s", args.AgentName)
 
 		case "create_task":
 			var args struct {
@@ -131,7 +130,7 @@ func toolCallRepr(toolCalls []*agent.ToolCall, msg *tgbotapi.Message, b *Bot) (s
 				break
 			}
 
-			fmt.Fprintf(&sb, "> created task %s\n", args.Name)
+			fmt.Fprintf(&sb, "created task %s\n", args.Name)
 			fmt.Fprintf(&sb, "reglament %s", args.Reglament)
 			if args.Oneshot {
 				sb.WriteString(" once")

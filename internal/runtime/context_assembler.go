@@ -2,30 +2,59 @@ package runtime
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/prompt"
 	"fmt"
+	"log/slog"
 	"strings"
 )
 
-// type contextAssembler struct {
-// }
+type SkillIndexer interface {
+	GetIndex() map[agent.SkillID]agent.Skill
+}
 
-// <skills>
-//   <skill name="search">... description ...</skill>
-//   <skill name="code">...</skill>
-// </skills>
+type ContextAssembler struct {
+	indexer SkillIndexer
+}
 
-func assembeSystemMessage(agt agent.Agent, toolKit []agent.Tool) *agent.SystemMessage {
+func NewContextAssembler(indexer SkillIndexer) *ContextAssembler {
+	return &ContextAssembler{
+		indexer: indexer,
+	}
+}
+
+func (a *ContextAssembler) assembeSystemMessage(agt agent.Agent, toolKit []agent.Tool) *agent.SystemMessage {
 
 	systemPrompt := agt.SystemPrompt()
 	instructions := extractInstructions(agt, toolKit)
 
-	assembled := strings.Join(
-		[]string{
-			systemPrompt,
-			instructions,
-		}, "\n")
+	completionContext := []string{
+		systemPrompt,
+		instructions,
+	}
 
+	if len(agt.Skills()) > 0 {
+		idx := buildBoundedSkillIndex(a.indexer.GetIndex(), agt)
+		skillGuidance := prompt.SkillGuidance(idx)
+		completionContext = append(completionContext, skillGuidance)
+	}
+
+	assembled := strings.Join(completionContext, "\n")
 	return agent.NewSystemMessage(assembled)
+}
+
+func buildBoundedSkillIndex(idx map[agent.SkillID]agent.Skill, agt agent.Agent) string {
+
+	var sb strings.Builder
+	for _, skillID := range agt.Skills() {
+		skill, ok := idx[skillID]
+		if !ok {
+			slog.Warn("agent has non existing skill", "agent", agt.ID(), "skill", skill)
+			continue
+		}
+		fmt.Fprintf(&sb, "* %s - %s\n", skillID, skill.Description())
+	}
+
+	return sb.String()
 }
 
 type Instructed interface {

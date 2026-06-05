@@ -53,7 +53,7 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 
 			msgContent := fmt.Sprintf("%s\n%s", toolCallReprs, c.Content)
 
-			if _, msgErr := b.SendMessage(message.From.ID, msgContent, message.MessageID); msgErr != nil {
+			if _, msgErr := b.SendMessage(message.From.ID, msgContent, 0); msgErr != nil {
 				errc = errors.Join(errc, msgErr)
 			}
 		},
@@ -61,7 +61,7 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 
 	if err := b.chatSvc.Chat(context.Background(), b.agentID, b.sessionID, messageToText(message), evReader); err != nil {
 		errc = errors.Join(errc, err)
-		if _, msgErr := b.SendMessage(message.From.ID, "❗️ request has errors", 0); msgErr != nil {
+		if _, msgErr := b.SendMessage(message.From.ID, "❗️ internal error", 0); msgErr != nil {
 			errc = errors.Join(errc, msgErr)
 		}
 	}
