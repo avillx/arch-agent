@@ -15,43 +15,22 @@ Workdir is `/agent`
 All memory stores in `/agent/data/...`
 
 ## TODO
-### polish
+### current
 - [ ] All services names to Service to svc 
+- [ ] Polish telegram module
+- [ ] Should compact refactor (systemPrompt and summarization dialog accounting and tools)
+- [ ] Observer skill selected tool - result excluded
+- [ ] func (a *agent) HasMemory() bool
+- [ ] preload last 50 lines of logs when option
+- [ ] chatSvc add options (WithProvidedTools, WithPreloadedActivity, WithMemory) 
+- [ ] bm25 fileSearch
+- [ ] AutoDream
+- [ ] Error system refactor
 - [ ] check depricated (before restruct) variable names
-- [X] divide agent service and AgenticLoopRuntime
-- [X] validate structs for ifaces e.g. `var _ iface = (*struct)(nil)`
-- [ ] summarize by tokens not by messages
-- [ ] errors as buisness logic
-- [ ] eliminate edge case vulnurabilities
-
-### debt
+- [ ] eliminate edge case vulnurabilities for every package
 - [ ] agent fs as sandbox iface over fs
 - [ ] better web search gateway 
-- [X] agent domain service over ChatService
-
-### features
-- [ ] API endpints
-- [X] skills
-- [X] activity drop
-- [ ] Multimodal input
-- [ ] AutoDream and private wiki
-- [X] instructions interface (tool usage guide preload)
 - [ ] MCP Service and tools
-- [X] Summarizations
-- [X] live session is telegram client feature. with timer in TELEGRAM BOT. 
-- [X] FS tool instructions with descriptions of folders
-
-### Tools
-- [X] filesystem
-- [X] fetch
-- [X] web_search
-- [X] a2a 
-- [X] cron control
-- [ ] clarification
-- [ ] think
-- [ ] todo
+- [ ] Multimodal input
+- [ ] API endpints
 - [ ] view over file_read (files, images and docs)
-- [ ] async a2a
-- [ ] modelpicker
-- [ ] ssh
-- [ ] shell
