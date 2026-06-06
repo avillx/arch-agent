@@ -51,7 +51,7 @@ func buildBoundedSkillIndex(idx map[agent.SkillID]agent.Skill, agt agent.Agent) 
 			slog.Warn("agent has non existing skill", "agent", agt.ID(), "skill", skill)
 			continue
 		}
-		fmt.Fprintf(&sb, "* %s - %s\n", skillID, skill.Description())
+		fmt.Fprintf(&sb, "\n* %s - %s\n", skillID, skill.Description())
 	}
 
 	return sb.String()

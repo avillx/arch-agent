@@ -142,16 +142,22 @@ func propertiesToOpenAI(internalProps []agent.ToolProperty) shared.FunctionParam
 }
 
 func propertyToOpenAI(prop agent.ToolProperty) map[string]any {
-	propRepresntation := map[string]any{
+
+	result := map[string]any{
 		"type":        prop.Type,
 		"description": prop.Description,
 	}
 
-	if prop.Enum != nil {
-		propRepresntation["enum"] = prop.Enum
+	if prop.IsArray {
+		result["type"] = "array"
+		result["items"] = map[string]any{"type": prop.Type}
 	}
 
-	return propRepresntation
+	if prop.Enum != nil {
+		result["enum"] = prop.Enum
+	}
+
+	return result
 }
 
 func openAIResponseFormat[T any](strict bool) openai.ChatCompletionNewParamsResponseFormatUnion {

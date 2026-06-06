@@ -21,6 +21,7 @@ type ToolRegistry interface {
 type ToolProperty struct {
 	Name        string
 	Required    bool
+	IsArray     bool
 	Type        PropertyType
 	Description string
 	Enum        []string

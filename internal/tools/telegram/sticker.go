@@ -27,13 +27,12 @@ func NewSendStickerTool(o *telegram.BotOrchestrator) *SendStickerTool {
 	}
 }
 
-func (t *SendStickerTool) Instruction() string {
-	return `Stickers:
-- Use stickers for immersive, expressive chatting.
-- Only send stickers after obtaining the allowed list from the user.
-- Send them when it genuinely fits the mood or context — not forced.
-- It feels natural when: reacting emotionally, celebrating, sympathizing, or adding humor.`
-}
+// func (t *SendStickerTool) Instruction() string {
+// 	return `Stickers:
+// - Use stickers for immersive, expressive chatting.
+// - Send them when it genuinely fits the mood or context — not forced.
+// - It feels natural when: reacting emotionally, celebrating, sympathizing, or adding humor.`
+// }
 
 func (t *SendStickerTool) AgentInstruction(agt agent.Agent) string {
 	bot, err := t.orchestrator.Get(agt.ID())

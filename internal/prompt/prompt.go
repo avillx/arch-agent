@@ -121,10 +121,18 @@ Rules:
 - Write in past tense, first person from agent Perspective.
 
 Output format:
-No header, No statuses only session records
+No header, No statuses only session records. no empy lines.
 
 <log entries, one per line>
-`
+
+Example:
+- User John request to test project X
+- I clone project X repository from https://github.com/john/project-x.git
+- Review project X
+- I conversate with John about backend vulnerabilities of project X
+- Project X marked as depricated
+- Jonh is irritated and mention refactor of project X on a new stack with python
+...`
 }
 
 func ReportRequest() string {
@@ -148,8 +156,7 @@ func ConcatStrings(str ...string) string {
 }
 
 func CompactionPrompt() string {
-	return ` 
-Your task is to create a detailed summary of the conversation so far, 
+	return ` Your task is to create a detailed summary of the conversation so far, 
 paying close attention to the user's explicit requests and your previous actions.
 
 This summary should be thorough in capturing technical details, code patterns, 
@@ -199,5 +206,24 @@ WHEN IN DOUBT — read the skill first, then act.
 %s
 </available_skills>
 `, availableSkills)
+
+}
+
+func SubAgentCall(task string) string {
+	return fmt.Sprintf(`## Role
+Execute the assigned task completely and return results to the orchestrator.
+
+## Rules
+- Focus ONLY on the task described in this message
+- Do NOT initiate communication back — your output IS the response to the caller
+- Return structured, actionable results — not conversation
+- If the task is ambiguous, state assumptions clearly and proceed
+- Be concise: omit meta-commentary, greetings, and explanations of what you're doing
+
+## Output format
+Return your result directly. Start with the result, not with "I will now...".
+
+## Task
+%s`, task)
 
 }

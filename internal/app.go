@@ -19,6 +19,7 @@ import (
 	"arch-agent/internal/tools/search"
 	tasktools "arch-agent/internal/tools/task"
 	tgtools "arch-agent/internal/tools/telegram"
+	"arch-agent/internal/tools/todo"
 	"arch-agent/internal/uuid"
 	"context"
 	"errors"
@@ -137,6 +138,8 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 
 	searx := searxng.NewSearXSearch(searchHostScheme, searchHost)
 
+	todoStorage := todo.NewInMemoryStore()
+
 	toolService.AddTools(
 		// filesystem tools
 		fstools.NewListDirTool(fs),
@@ -162,6 +165,11 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 		// web tools
 		fetch.NewFetchTool(),
 		search.NewWebSearchTool(searx),
+
+		// todo tools
+		&todo.CreateTodoTool{Store: todoStorage},
+		&todo.ListTodoTool{Store: todoStorage},
+		&todo.UpdateTodoTool{Store: todoStorage},
 	)
 
 	botOrchestra.Wire(

@@ -31,7 +31,7 @@ All memory stores in `/agent/data/...`
 
 ### features
 - [ ] API endpints
-- [ ] skills
+- [X] skills
 - [X] activity drop
 - [ ] Multimodal input
 - [ ] AutoDream and private wiki

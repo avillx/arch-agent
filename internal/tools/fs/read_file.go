@@ -6,8 +6,12 @@ import (
 	"arch-agent/internal/tools"
 	"context"
 	"fmt"
+	"path/filepath"
+	"regexp"
 	"strings"
 )
+
+const skillMD = "SKILL.md"
 
 // read_file
 var _ runtime.Instructed = (*ReadFileTool)(nil)
@@ -92,8 +96,24 @@ func (t *ReadFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 
 	content := strings.Join(lines[start-1:end], "\n")
 
+	if isSkill(args.Path) {
+		content = CutFrontmatter(content)
+	}
+
 	if start > 1 || end < total {
 		return fmt.Sprintf("[lines %d–%d of %d]\n%s", start, end, total, content), nil
 	}
 	return content, nil
+}
+
+var frontmatterRE = regexp.MustCompile(
+	`(?s)\A---\r?\n.*?\r?\n---(?:\r?\n|$)`,
+)
+
+func CutFrontmatter(file string) string {
+	return frontmatterRE.ReplaceAllString(file, "")
+}
+
+func isSkill(path string) bool {
+	return filepath.Base(path) == skillMD
 }

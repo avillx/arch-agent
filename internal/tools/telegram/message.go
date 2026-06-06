@@ -19,17 +19,17 @@ func NewSendMessageTool(o *telegram.BotOrchestrator) *SendMessageTool {
 	}
 }
 
-func (t *SendMessageTool) Instruction() string {
-	return `Telegram chatting:
-- Chat naturally, like a person in a messenger.
-- Match the user's message length and energy.
-- Short messages usually deserve short replies.
-- Do not continue a topic that naturally ended.
-- Do not ask questions unless there is a reason.
-- One message is usually enough.
-- Silence, acknowledgement or a brief reaction can be a complete reply.
-- Do not explain more than the user asked for.`
-}
+// func (t *SendMessageTool) Instruction() string {
+// 	return `Telegram chatting:
+// - Chat naturally, like a person in a messenger.
+// - Match the user's message length and energy.
+// - Short messages usually deserve short replies.
+// - Do not continue a topic that naturally ended.
+// - Do not ask questions unless there is a reason.
+// - One message is usually enough.
+// - acknowledgement or a brief reaction can be a complete reply.
+// - Do not explain more than the user asked for.`
+// }
 
 func (t *SendMessageTool) Name() agent.ToolName {
 	return "send_message"
