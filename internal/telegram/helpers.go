@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -20,7 +22,11 @@ func (b *Bot) getStickerSet(name string) ([]tgbotapi.Sticker, error) {
 	return set.Stickers, nil
 }
 
-func (b *Bot) getStickerMap(stickerSetName string) (StickerMap, error) {
+func (b *Bot) stickerMap(stickerSetName string) (StickerMap, error) {
+
+	if b.Stickers != nil {
+		return b.Stickers, nil
+	}
 
 	set, err := b.getStickerSet(stickerSetName)
 	if err != nil || len(set) == 0 {
@@ -33,6 +39,15 @@ func (b *Bot) getStickerMap(stickerSetName string) (StickerMap, error) {
 	}
 
 	return stickerMap, nil
+}
+
+func (b *Bot) AllowedEmojis() []string {
+
+	if b.Stickers != nil {
+		return slices.Collect(maps.Keys(b.Stickers))
+	}
+
+	return []string{}
 }
 
 func textChunkDivide(t string) []string {

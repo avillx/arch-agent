@@ -2,34 +2,28 @@ package tgtools
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/telegram"
 	"arch-agent/internal/tools"
 	"context"
-	"errors"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
+
+type Bot interface {
+	SendMessage(userID int64, text string, replyMessageID int) ([]tgbotapi.Message, error)
+	SendSticker(chatID int64, emoji string) error
+	AllowedEmojis() []string
+}
 
 // send message
 type SendMessageTool struct {
-	orchestrator *telegram.BotOrchestrator
+	bot Bot
 }
 
-func NewSendMessageTool(o *telegram.BotOrchestrator) *SendMessageTool {
+func NewSendMessageTool(b Bot) *SendMessageTool {
 	return &SendMessageTool{
-		orchestrator: o,
+		bot: b,
 	}
 }
-
-// func (t *SendMessageTool) Instruction() string {
-// 	return `Telegram chatting:
-// - Chat naturally, like a person in a messenger.
-// - Match the user's message length and energy.
-// - Short messages usually deserve short replies.
-// - Do not continue a topic that naturally ended.
-// - Do not ask questions unless there is a reason.
-// - One message is usually enough.
-// - acknowledgement or a brief reaction can be a complete reply.
-// - Do not explain more than the user asked for.`
-// }
 
 func (t *SendMessageTool) Name() agent.ToolName {
 	return "send_message"
@@ -65,13 +59,7 @@ func (t *SendMessageTool) Call(ctx context.Context, rawArgs agent.ToolArguments)
 		return "", err
 	}
 
-	agentID := tools.MustAgentID(ctx)
-
-	bot, err := t.orchestrator.Get(agent.ID(agentID))
-	if err != nil {
-		return "", errors.Join(err, ErrNoAcc)
-	}
-	if _, err := bot.SendMessage(args.ChatID, args.Text, 0); err != nil {
+	if _, err := t.bot.SendMessage(args.ChatID, args.Text, 0); err != nil {
 		return "message is not sended", err
 	}
 	return "message sended", nil

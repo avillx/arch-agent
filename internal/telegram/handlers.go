@@ -59,7 +59,14 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) error {
 		},
 	}
 
-	if err := b.chatSvc.Chat(context.Background(), b.agentID, b.sessionID, messageToText(message), evReader); err != nil {
+	if err := b.chatSvc.Chat(
+		context.Background(),
+		b.agentID,
+		b.sessionID,
+		messageToText(message),
+		evReader,
+		b.tools,
+	); err != nil {
 		errc = errors.Join(errc, err)
 		if _, msgErr := b.SendMessage(message.From.ID, "❗️ internal error", 0); msgErr != nil {
 			errc = errors.Join(errc, msgErr)

@@ -67,5 +67,11 @@ func (s *taskExecutor) processRecipientTask(ctx context.Context, agentID agent.I
 		return err
 	}
 
-	return s.chatSvc.Chat(ctx, agentID, sessID, fmt.Sprintf("%s\n\n%s", autonomusWorking, request), runtime.EventReader{})
+	return s.chatSvc.Chat(
+		ctx,
+		agentID,
+		sessID, fmt.Sprintf("%s\n\n%s", autonomusWorking, request),
+		runtime.EventReader{},
+		nil,
+	)
 }

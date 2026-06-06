@@ -18,7 +18,6 @@ import (
 	fstools "arch-agent/internal/tools/fs"
 	"arch-agent/internal/tools/search"
 	tasktools "arch-agent/internal/tools/task"
-	tgtools "arch-agent/internal/tools/telegram"
 	"arch-agent/internal/tools/todo"
 	"arch-agent/internal/uuid"
 	"context"
@@ -158,9 +157,9 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 		// callagent tools
 		tools.NewCallAgentTool(a2aSvc, agentRepo),
 
-		// telegram tools
-		tgtools.NewSendMessageTool(botOrchestra),
-		tgtools.NewSendStickerTool(botOrchestra),
+		// // telegram tools
+		// tgtools.NewSendMessageTool(botOrchestra),
+		// tgtools.NewSendStickerTool(botOrchestra),
 
 		// web tools
 		fetch.NewFetchTool(),

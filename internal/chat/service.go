@@ -47,6 +47,7 @@ func (s *ChatService) Chat(
 	sessionID session.ID,
 	request string,
 	reader runtime.EventReader,
+	providedTools []agent.Tool,
 ) error {
 
 	// session
@@ -89,6 +90,10 @@ func (s *ChatService) Chat(
 	tools, err := s.toolRegistry.GetTools(toolKit)
 	if err != nil {
 		return err
+	}
+
+	if providedTools != nil {
+		tools = append(tools, providedTools...)
 	}
 
 	// sink

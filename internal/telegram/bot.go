@@ -4,6 +4,7 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/chat"
 	"arch-agent/internal/session"
+	tgtools "arch-agent/internal/telegram/telegram"
 	"context"
 	"errors"
 	"fmt"
@@ -40,6 +41,8 @@ type Bot struct {
 
 	sessionTimer *time.Timer
 	sessionID    session.ID
+
+	tools []agent.Tool
 }
 
 func NewBot(cfg BotConfig) (*Bot, error) {
@@ -61,24 +64,32 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 	}
 
 	// build bot
-	p := &Bot{
+	bot := &Bot{
 		API:          botAPI,
 		blockedUsers: []int64{},
 		agentID:      agent.ID(cfg.Agent),
+		tools:        []agent.Tool{},
 	}
 
-	p.sessionTimer = time.AfterFunc(sessionExpiresTime, func() {
-		p.sessionID = ""
+	bot.sessionTimer = time.AfterFunc(sessionExpiresTime, func() {
+		bot.sessionID = ""
 	})
+
+	// add tools
+	bot.tools = append(
+		bot.tools,
+		// tgtools.NewSendMessageTool(bot),
+		tgtools.NewSendStickerTool(bot),
+	)
 
 	// set stickers
 	if cfg.StickerSetName != "" {
-		stickers, err := p.getStickerMap(cfg.StickerSetName)
+		stickers, err := bot.stickerMap(cfg.StickerSetName)
 		switch {
 		case err != nil:
 			slog.Error("bot creation", "error", err)
 		default:
-			p.Stickers = stickers
+			bot.Stickers = stickers
 		}
 	}
 
@@ -86,17 +97,17 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 	switch {
 	// config web hook is not null
 	case cfg.Host != "":
-		p.updateChannel, err = createWebhookUpdateChannelFor(p, cfg.Host)
+		bot.updateChannel, err = createWebhookUpdateChannelFor(bot, cfg.Host)
 		if err != nil {
 			return nil, err
 		}
 		slog.Info("telegram bot started with webhook")
 	default:
-		p.updateChannel = createPollingUpdateChannelFor(p)
+		bot.updateChannel = createPollingUpdateChannelFor(bot)
 		slog.Info("telegram bot started with polling")
 	}
 
-	return p, nil
+	return bot, nil
 
 }
 
