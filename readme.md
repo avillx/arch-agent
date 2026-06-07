@@ -16,8 +16,8 @@ All memory stores in `/agent/data/...`
 
 ## TODO
 ### current
-- [ ] All services names to Service to svc 
-- [ ] Polish telegram module
+- [X] All services names to Service to svc 
+- [X] Polish telegram module
 - [ ] Should compact refactor (systemPrompt and summarization dialog accounting and tools)
 - [ ] Observer skill selected tool - result excluded
 - [ ] func (a *agent) HasMemory() bool

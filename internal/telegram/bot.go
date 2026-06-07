@@ -4,24 +4,24 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/chat"
 	"arch-agent/internal/session"
-	tgtools "arch-agent/internal/telegram/telegram"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
+	"strings"
+	"sync"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 const (
-	maxMessageTextLen  = 4096
-	sessionExpiresTime = 10 * time.Minute
+	maxMessageLength   = 4096
+	sessionTimeout     = 10 * time.Minute
+	chatActionInterval = 4 * time.Second
 )
 
-type StickerMap map[string]string
-
+// BotConfig holds configuration for a Telegram bot
 type BotConfig struct {
 	Agent          string
 	APIKey         string
@@ -30,253 +30,307 @@ type BotConfig struct {
 	Logs           bool
 }
 
+// Bot represents a Telegram bot instance
 type Bot struct {
-	API           *tgbotapi.BotAPI
-	updateChannel tgbotapi.UpdatesChannel
-	Stickers      StickerMap
-	blockedUsers  []int64
-	sessionSvc    *session.Service
-	chatSvc       *chat.Service
-	agentID       agent.ID
+	api          *tgbotapi.BotAPI
+	updateChan   tgbotapi.UpdatesChannel
+	stickerMap   map[string]string
+	blockedUsers []int64
+	sessionSvc   *session.Service
+	chatSvc      *chat.Service
+	agentID      agent.ID
 
-	sessionTimer *time.Timer
+	// session management
+	sessionMu    sync.Mutex
 	sessionID    session.ID
+	sessionTimer *time.Timer
 
+	// tools
 	tools []agent.Tool
+
+	// mode
+	isWebhook bool
 }
 
+// NewBot creates a new Telegram bot instance
 func NewBot(cfg BotConfig) (*Bot, error) {
-
-	// build api
+	// Initialize bot API
 	botAPI, err := tgbotapi.NewBotAPI(cfg.APIKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create bot API: %w", err)
 	}
 
+	// Configure logging
 	if !cfg.Logs {
 		botAPI.Debug = false
-		tgbotapi.SetLogger(
-			slog.NewLogLogger(
-				slog.NewTextHandler(io.Discard, nil),
-				slog.LevelError,
-			),
-		)
 	}
 
-	// build bot
 	bot := &Bot{
-		API:          botAPI,
+		api:          botAPI,
+		stickerMap:   make(map[string]string),
 		blockedUsers: []int64{},
 		agentID:      agent.ID(cfg.Agent),
-		tools:        []agent.Tool{},
+		isWebhook:    cfg.Host != "",
 	}
 
-	bot.sessionTimer = time.AfterFunc(sessionExpiresTime, func() {
-		bot.sessionID = ""
-	})
-
-	// add tools
-	bot.tools = append(
-		bot.tools,
-		// tgtools.NewSendMessageTool(bot),
-		tgtools.NewSendStickerTool(bot),
-	)
-
-	// set stickers
+	// Load stickers if configured
 	if cfg.StickerSetName != "" {
-		stickers, err := bot.stickerMap(cfg.StickerSetName)
-		switch {
-		case err != nil:
-			slog.Error("bot creation", "error", err)
-		default:
-			bot.Stickers = stickers
+		if err := bot.loadStickers(cfg.StickerSetName); err != nil {
+			slog.Warn("failed to load stickers", "error", err)
 		}
 	}
 
-	// config update channel
-	switch {
-	// config web hook is not null
-	case cfg.Host != "":
-		bot.updateChannel, err = createWebhookUpdateChannelFor(bot, cfg.Host)
-		if err != nil {
-			return nil, err
-		}
-		slog.Info("telegram bot started with webhook")
-	default:
-		bot.updateChannel = createPollingUpdateChannelFor(bot)
-		slog.Info("telegram bot started with polling")
+	// Configure update channel based on mode
+	if err := bot.configureUpdates(cfg.Host); err != nil {
+		return nil, fmt.Errorf("failed to configure updates: %w", err)
 	}
 
 	return bot, nil
-
 }
 
-func (b *Bot) Wire(
-	sessionSvc *session.Service,
-	chatSvc *chat.Service,
-) {
-	b.chatSvc = chatSvc
+// Wire connects the bot to services
+func (b *Bot) Wire(sessionSvc *session.Service, chatSvc *chat.Service) {
 	b.sessionSvc = sessionSvc
+	b.chatSvc = chatSvc
 }
 
-func (b *Bot) SendMessage(userID int64, text string, replyMessageID int) ([]tgbotapi.Message, error) {
-
-	text = tgbotapi.EscapeText(tgbotapi.ModeMarkdownV2, text)
-
-	if len(text) <= 0 {
-
-		return nil, errors.New("Empty string in message")
-	}
-
-	chunks := textChunkDivide(text)
-
-	msgs := make([]tgbotapi.Message, len(chunks))
-
-	for i, chunk := range chunks {
-
-		msgConf := tgbotapi.NewMessage(userID, chunk)
-		msgConf.ParseMode = tgbotapi.ModeMarkdownV2
-
-		if replyMessageID > 0 && i < 1 {
-			msgConf.ReplyToMessageID = replyMessageID
-		}
-
-		msg, err := b.API.Send(msgConf)
-		if err != nil {
-			return nil, err
-		}
-
-		msgs[i] = msg
-	}
-
-	return msgs, nil
-}
-
-func (b *Bot) SendSticker(chatID int64, emoji string) error {
-	if fileId, ok := b.Stickers[emoji]; ok {
-		return b.sendStickerByfileID(chatID, fileId)
-	}
-	return fmt.Errorf("sticker with %s emoji is not exist", emoji)
-}
-
-func (b *Bot) sendStickerByfileID(chatID int64, fileID string) error {
-
-	msg := tgbotapi.NewSticker(chatID, tgbotapi.FileID(fileID))
-
-	_, err := b.API.Send(msg)
-	if err != nil {
-
-		slog.Error("Cannot send sticker\n" + err.Error())
-	}
-	return err
-}
-
-func (b *Bot) SetChatAction(chatID int64, action string) context.CancelFunc {
-
-	ctx, Cancel := context.WithTimeout(context.Background(), 60*time.Second)
-
-	sendChatAction := func() {
-		b.API.Send(tgbotapi.NewChatAction(chatID, action))
-	}
-
-	go func() {
-
-		sendChatAction()
-
-		ticker := time.NewTicker(4500 * time.Millisecond)
-		defer ticker.Stop()
-
-		for {
-
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				sendChatAction()
-			}
-
-		}
-	}()
-
-	return Cancel
-}
-
-// blocking
+// Run starts the bot's update loop
 func (b *Bot) Run(ctx context.Context) {
-	defer b.unsetWebhook()
+	defer b.cleanup()
+
+	slog.Info("telegram bot started", "mode", b.modeString())
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case update := <-b.updateChannel:
-			go func() {
-				if err := b.handleUpdate(update); err != nil {
-					slog.Error("bad update processing", "error", err.Error())
-				}
-			}()
+		case update, ok := <-b.updateChan:
+			if !ok {
+				return
+			}
+			go b.handleUpdate(ctx, update)
 		}
 	}
 }
 
-// deploy
-func createPollingUpdateChannelFor(b *Bot) tgbotapi.UpdatesChannel {
-	b.API.Debug = true // hardcoded shit
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
-	return b.API.GetUpdatesChan(u)
+// modeString returns the current bot mode for logging
+func (b *Bot) modeString() string {
+	if b.isWebhook {
+		return "webhook"
+	}
+	return "longpoll"
 }
 
-func createWebhookUpdateChannelFor(b *Bot, host string) (tgbotapi.UpdatesChannel, error) {
-	dwh := tgbotapi.DeleteWebhookConfig{DropPendingUpdates: true}
-	if _, err := b.API.Request(dwh); err != nil {
-		return nil, err
+// cleanup performs cleanup operations when bot stops
+func (b *Bot) cleanup() {
+	if b.sessionTimer != nil {
+		b.sessionTimer.Stop()
 	}
-
-	info, err := b.API.GetWebhookInfo()
-	if err != nil {
-		return nil, err
+	if b.isWebhook {
+		b.unsetWebhook()
 	}
+}
 
-	if !info.IsSet() {
-		if err := b.setWebhook(host); err != nil {
-			return nil, err
+// configureUpdates sets up the update channel based on configuration
+func (b *Bot) configureUpdates(host string) error {
+	var err error
+
+	if host != "" {
+		// Webhook mode
+		b.updateChan, err = b.setupWebhook(host)
+		if err != nil {
+			return fmt.Errorf("webhook setup failed: %w", err)
 		}
-	}
-
-	return b.API.ListenForWebhook("/bots/" + b.API.Token), nil
-}
-
-func (b *Bot) setWebhook(host string) error {
-	url := fmt.Sprintf("https://%s/bots/%s", host, b.API.Token)
-	wh, _ := tgbotapi.NewWebhook(url)
-
-	if _, err := b.API.Request(wh); err != nil {
-		return errors.New("Webhook request have errors")
-	}
-
-	info, err := b.API.GetWebhookInfo()
-	if err != nil {
-		return err
-	}
-
-	if info.LastErrorDate != 0 {
-		return errors.New("Webhook non zero time from error")
+	} else {
+		// Long polling mode
+		b.updateChan = b.setupLongPolling()
 	}
 
 	return nil
 }
 
-func (b *Bot) unsetWebhook() {
-	info, err := b.API.GetWebhookInfo()
-	if err != nil {
-		slog.Error("bad webhook check", "error", err)
-		return
+// setupLongPolling configures the bot for long polling
+func (b *Bot) setupLongPolling() tgbotapi.UpdatesChannel {
+	u := tgbotapi.NewUpdate(0)
+	u.Timeout = 60
+	return b.api.GetUpdatesChan(u)
+}
+
+// setupWebhook configures the bot for webhook mode
+func (b *Bot) setupWebhook(host string) (tgbotapi.UpdatesChannel, error) {
+	// Remove any existing webhook
+	if _, err := b.api.Request(tgbotapi.DeleteWebhookConfig{DropPendingUpdates: true}); err != nil {
+		return nil, fmt.Errorf("failed to remove existing webhook: %w", err)
 	}
-	if info.IsSet() {
-		wh := tgbotapi.DeleteWebhookConfig{DropPendingUpdates: false}
-		if _, err := b.API.Request(wh); err != nil {
-			slog.Error("bad webhook unsetting", "error", err)
+
+	// Set up new webhook
+	webhookURL := fmt.Sprintf("https://%s/bots/%s", host, b.api.Token)
+	wh, err := tgbotapi.NewWebhook(webhookURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create webhook: %w", err)
+	}
+	_, err = b.api.Request(wh)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set webhook: %w", err)
+	}
+
+	// Verify webhook is set
+	info, err := b.api.GetWebhookInfo()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get webhook info: %w", err)
+	}
+
+	if !info.IsSet() {
+		return nil, errors.New("webhook not set after configuration")
+	}
+
+	if info.LastErrorDate != 0 {
+		return nil, errors.New("webhook has pending errors")
+	}
+
+	return b.api.ListenForWebhook("/bots/" + b.api.Token), nil
+}
+
+// unsetWebhook removes the webhook when bot shuts down
+func (b *Bot) unsetWebhook() {
+	if _, err := b.api.Request(tgbotapi.DeleteWebhookConfig{DropPendingUpdates: false}); err != nil {
+		slog.Warn("failed to remove webhook", "error", err)
+	}
+}
+
+// loadStickers loads the sticker set into memory
+func (b *Bot) loadStickers(setName string) error {
+	set, err := b.api.GetStickerSet(tgbotapi.GetStickerSetConfig{Name: setName})
+	if err != nil {
+		return fmt.Errorf("failed to get sticker set: %w", err)
+	}
+
+	if len(set.Stickers) == 0 {
+		return fmt.Errorf("sticker set %s is empty", setName)
+	}
+
+	stickerMap := make(map[string]string)
+	for _, sticker := range set.Stickers {
+		if sticker.Emoji != "" {
+			stickerMap[sticker.Emoji] = sticker.FileID
 		}
 	}
+
+	b.stickerMap = stickerMap
+	return nil
+}
+
+// AllowedEmojis returns the list of available sticker emojis
+func (b *Bot) AllowedEmojis() []string {
+	emojis := make([]string, 0, len(b.stickerMap))
+	for emoji := range b.stickerMap {
+		emojis = append(emojis, emoji)
+	}
+	return emojis
+}
+
+// SendMessage sends a text message to a user
+func (b *Bot) SendMessage(userID int64, text string, replyTo int) ([]tgbotapi.Message, error) {
+	if strings.TrimSpace(text) == "" {
+		return nil, errors.New("message text cannot be empty")
+	}
+
+	// Escape text for MarkdownV2
+	text = tgbotapi.EscapeText(tgbotapi.ModeMarkdownV2, text)
+
+	// Split into chunks if needed
+	chunks := b.splitMessage(text)
+	var messages []tgbotapi.Message
+
+	for i, chunk := range chunks {
+		msg := tgbotapi.NewMessage(userID, chunk)
+		msg.ParseMode = tgbotapi.ModeMarkdownV2
+
+		// Only set reply for the first message
+		if replyTo > 0 && i == 0 {
+			msg.ReplyToMessageID = replyTo
+		}
+
+		sentMsg, err := b.api.Send(msg)
+		if err != nil {
+			return messages, fmt.Errorf("failed to send message %d/%d: %w", i+1, len(chunks), err)
+		}
+
+		messages = append(messages, sentMsg)
+	}
+
+	return messages, nil
+}
+
+// splitMessage splits a long message into chunks that fit Telegram's limits
+func (b *Bot) splitMessage(text string) []string {
+	runes := []rune(text)
+	var chunks []string
+
+	if len(runes) <= maxMessageLength {
+		return []string{text}
+	}
+
+	// Calculate number of chunks needed
+	chunkCount := len(runes) / maxMessageLength
+	if len(runes)%maxMessageLength != 0 {
+		chunkCount++
+	}
+
+	for i := 0; i < chunkCount; i++ {
+		start := i * maxMessageLength
+		end := start + maxMessageLength
+		if end > len(runes) {
+			end = len(runes)
+		}
+		chunks = append(chunks, string(runes[start:end]))
+	}
+
+	return chunks
+}
+
+// SendSticker sends a sticker to a chat
+func (b *Bot) SendSticker(chatID int64, emoji string) error {
+	fileID, exists := b.stickerMap[emoji]
+	if !exists {
+		return fmt.Errorf("sticker with emoji %s not found", emoji)
+	}
+
+	sticker := tgbotapi.NewSticker(chatID, tgbotapi.FileID(fileID))
+	_, err := b.api.Send(sticker)
+	if err != nil {
+		return fmt.Errorf("failed to send sticker: %w", err)
+	}
+
+	return nil
+}
+
+// SetTypingAction shows typing indicator in a chat
+func (b *Bot) SetTypingAction(chatID int64) (cancel func()) {
+	ctx, cancelFunc := context.WithTimeout(context.Background(), 30*time.Second)
+
+	go func() {
+		ticker := time.NewTicker(chatActionInterval)
+		defer ticker.Stop()
+
+		sendAction := func() {
+			_, err := b.api.Request(tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping))
+			if err != nil {
+				slog.Debug("failed to send typing action", "error", err)
+			}
+		}
+
+		sendAction() // Send immediately
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				sendAction()
+			}
+		}
+	}()
+
+	return cancelFunc
 }
