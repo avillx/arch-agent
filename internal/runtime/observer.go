@@ -35,11 +35,11 @@ type Observer struct {
 
 	model    agent.Model
 	repo     agent.ActivityRepo
-	counter  session.TokenCounter
+	counter  agent.TokenCounter
 	tokenMax int
 }
 
-func NewObserver(m agent.Model, repo agent.ActivityRepo, counter session.TokenCounter) *Observer {
+func NewObserver(m agent.Model, repo agent.ActivityRepo, counter agent.TokenCounter) *Observer {
 	return &Observer{
 		model:        m,
 		repo:         repo,
@@ -74,7 +74,7 @@ func (o *Observer) Intercept(ctx context.Context, request string, agentID agent.
 			OnComplete: func(_ agent.ID, _ session.ID, c *agent.Completion) {
 				inter.mu.Lock()
 				inter.activity += agent.NewAgentMessage(c.Content, c.ToolCalls).String()
-				inter.tokens += o.counter.Calc(c.Content)
+				inter.tokens += o.counter.RawString(c.Content)
 				shouldFlush := inter.tokens >= o.tokenMax
 				inter.mu.Unlock()
 

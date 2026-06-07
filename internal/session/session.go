@@ -3,9 +3,7 @@ package session
 import (
 	"arch-agent/internal/agent"
 	"fmt"
-	"log/slog"
 	"slices"
-	"strings"
 	"time"
 )
 
@@ -13,10 +11,6 @@ const TokenLimit = 20000
 
 // validate struct asn iface
 var _ Session = (*session)(nil)
-
-type TokenCounter interface {
-	Calc(string) int
-}
 
 type ID string
 
@@ -33,9 +27,7 @@ type Session interface {
 	Subsession(agent.ID) (ID, bool)
 	AddSubsession(agent.ID, ID)
 
-	Tokens() int
-	MessageTokens() int
-	SummaryTokens() int
+	MessagesTokens() int
 
 	AddSummary(string)
 	Summary() string
@@ -47,35 +39,33 @@ type Session interface {
 }
 
 type session struct {
-	id            ID
-	title         string
-	tokens        int
-	summaryTokens int
-	summaries     string
-	messages      []agent.Message
-	subsessions   map[agent.ID]ID
-	tokenCounter  TokenCounter
-	createdAt     time.Time
-	updatedAt     time.Time
+	id             ID
+	title          string
+	messagesTokens int
+	summaries      string
+	messages       []agent.Message
+	subsessions    map[agent.ID]ID
+	tokenCounter   agent.TokenCounter
+	createdAt      time.Time
+	updatedAt      time.Time
 }
 
-func NewSession(id ID, tokenCounter TokenCounter) *session {
+func NewSession(id ID, tokenCounter agent.TokenCounter) *session {
 	return &session{
-		id:           id,
-		tokens:       0,
-		messages:     []agent.Message{},
-		subsessions:  map[agent.ID]ID{},
-		tokenCounter: tokenCounter,
-		createdAt:    time.Now(),
+		id:             id,
+		messagesTokens: 0,
+		messages:       []agent.Message{},
+		subsessions:    map[agent.ID]ID{},
+		tokenCounter:   tokenCounter,
+		createdAt:      time.Now(),
 	}
 }
 
 func NewRestoredSession(
 	id ID,
-	tokens int,
-	summaryTokens int,
 	messages []agent.Message,
-	tokenCounter TokenCounter,
+	messagesTokens int,
+	tokenCounter agent.TokenCounter,
 	summaries string,
 	subsessions map[agent.ID]ID,
 	createdAt time.Time,
@@ -85,15 +75,14 @@ func NewRestoredSession(
 	}
 
 	return &session{
-		id:            id,
-		tokens:        tokens,
-		summaryTokens: summaryTokens,
-		messages:      messages,
-		subsessions:   subsessions,
-		tokenCounter:  tokenCounter,
-		summaries:     summaries,
-		createdAt:     createdAt,
-		updatedAt:     time.Now(),
+		id:             id,
+		messagesTokens: messagesTokens,
+		messages:       messages,
+		subsessions:    subsessions,
+		tokenCounter:   tokenCounter,
+		summaries:      summaries,
+		createdAt:      createdAt,
+		updatedAt:      time.Now(),
 	}
 }
 
@@ -101,9 +90,7 @@ func (s *session) ID() ID                { return s.id }
 func (s *session) Title() string         { return s.title }
 func (s *session) SetTitle(title string) { s.title = title }
 
-func (s *session) Tokens() int        { return s.tokens + s.summaryTokens }
-func (s *session) MessageTokens() int { return s.tokens }
-func (s *session) SummaryTokens() int { return s.summaryTokens }
+func (s *session) MessagesTokens() int { return s.messagesTokens }
 
 func (s *session) GetLastAssistantMessageContent() string {
 	for _, message := range slices.Backward(s.messages) {
@@ -137,13 +124,12 @@ func (s *session) Messages() []agent.Message {
 }
 
 func (s *session) AddMessages(msgs []agent.Message) {
-	s.tokens += messagesTokens(s.tokenCounter, msgs)
+	s.messagesTokens += s.tokenCounter.Messages(msgs)
 	s.messages = slices.Concat(s.messages, msgs)
 }
 
 func (s *session) AddSummary(summary string) {
 	content := fmt.Sprintf("%s/n/n", summary)
-	s.summaryTokens += s.tokenCounter.Calc(content)
 	s.summaries += content
 }
 
@@ -152,8 +138,7 @@ func (s *session) Summary() string {
 }
 
 func (s *session) OverwriteMessages(new []agent.Message) {
-	s.tokens = messagesTokens(s.tokenCounter, new)
-	s.tokens += s.tokenCounter.Calc(s.summaries)
+	s.messagesTokens += s.tokenCounter.Messages(new)
 	s.messages = new
 }
 
@@ -162,31 +147,4 @@ func (s *session) CreatedAt() time.Time {
 }
 func (s *session) UpdatedAt() time.Time {
 	return s.updatedAt
-}
-
-func messagesTokens(counter TokenCounter, msgs []agent.Message) int {
-
-	if counter == nil {
-		slog.Warn("session without token counters")
-		return 0
-	}
-
-	// TODO check complexity
-	var heap strings.Builder
-	for _, msg := range msgs {
-		heap.WriteString(msg.Content())
-
-		switch typedMsg := msg.(type) {
-		case agent.AgentMessage:
-			for _, call := range typedMsg.ToolCalls() {
-				heap.WriteString(call.ID)
-				heap.WriteString(string(call.ToolName))
-				heap.Write(call.Arguments)
-			}
-		case agent.ToolResultMessage:
-			heap.WriteString(typedMsg.ToolCallID())
-		}
-	}
-
-	return counter.Calc(heap.String())
 }

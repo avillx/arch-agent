@@ -16,10 +16,10 @@ var _ session.SessionsRepo = (*SessionFiles)(nil)
 
 type SessionFiles struct {
 	fs           *FileSystem
-	tokenCounter session.TokenCounter
+	tokenCounter agent.TokenCounter
 }
 
-func NewSessionFiles(fs *FileSystem, tc session.TokenCounter) *SessionFiles {
+func NewSessionFiles(fs *FileSystem, tc agent.TokenCounter) *SessionFiles {
 	return &SessionFiles{
 		fs:           fs,
 		tokenCounter: tc,
@@ -89,9 +89,8 @@ func (r *SessionFiles) dtoToSession(id session.ID, dto SessionDTO) (session.Sess
 	}
 	return session.NewRestoredSession(
 		id,
-		dto.MessageTokens,
-		dto.SummaryTokens,
 		msgs,
+		dto.MessageTokens,
 		r.tokenCounter,
 		dto.Summaries,
 		nil,
@@ -101,7 +100,6 @@ func (r *SessionFiles) dtoToSession(id session.ID, dto SessionDTO) (session.Sess
 
 type SessionDTO struct {
 	MessageTokens int          `json:"message_tokens"`
-	SummaryTokens int          `json:"summary_tokens"`
 	CreatedAt     time.Time    `json:"created_at"`
 	UpdatedAt     time.Time    `json:"updated_at"`
 	Summaries     string       `json:"summary"`
@@ -110,8 +108,7 @@ type SessionDTO struct {
 
 func marshalSession(s session.Session) ([]byte, error) {
 	return json.MarshalIndent(SessionDTO{
-		SummaryTokens: s.SummaryTokens(),
-		MessageTokens: s.MessageTokens(),
+		MessageTokens: s.MessagesTokens(),
 		CreatedAt:     s.CreatedAt(),
 		UpdatedAt:     s.UpdatedAt(),
 		Summaries:     s.Summary(),

@@ -156,3 +156,9 @@ func ExcludeToolCallsData(msgs []Message, toolNames []ToolName) []Message {
 		return false
 	})
 }
+
+type TokenCounter interface {
+	RawString(string) int
+	Messages([]Message) int
+	Tools([]Tool) int
+}

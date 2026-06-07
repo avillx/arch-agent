@@ -16,10 +16,10 @@ type UUIDGenerator interface {
 type Service struct {
 	repo         SessionsRepo
 	uuid         UUIDGenerator
-	tokenCounter TokenCounter
+	tokenCounter agent.TokenCounter
 }
 
-func NewService(repo SessionsRepo, uuid UUIDGenerator, tokenCounter TokenCounter) *Service {
+func NewService(repo SessionsRepo, uuid UUIDGenerator, tokenCounter agent.TokenCounter) *Service {
 	return &Service{
 		repo:         repo,
 		uuid:         uuid,

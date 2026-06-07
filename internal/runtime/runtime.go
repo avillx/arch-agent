@@ -10,15 +10,18 @@ import (
 type AgentRuntime struct {
 	observer         *Observer
 	contextAssembler *ContextAssembler
+	compactor        *Compactor
 }
 
 func NewAgentRuntime(
 	observer *Observer,
 	contextAssembler *ContextAssembler,
+	compactor *Compactor,
 ) *AgentRuntime {
 	return &AgentRuntime{
 		observer:         observer,
 		contextAssembler: contextAssembler,
+		compactor:        compactor,
 	}
 }
 
@@ -46,20 +49,6 @@ func (r *AgentRuntime) RunStream(
 		default:
 		}
 
-		if shouldCompact(sess, model) {
-			doCompact(ctx, CompactionRequest{
-				sess:  sess,
-				agt:   agt,
-				model: model,
-			})
-			sink <- NewCompactionEvent(
-				agt.ID(),
-				sess.ID(),
-				sess.Summary(),
-			)
-
-		}
-
 		done, err := r.runTurn(ctx, model, agt, tools, sess, sink)
 		if err != nil {
 			sink <- NewErrEvent(agt.ID(), sess.ID(), err)
@@ -81,26 +70,46 @@ func (r *AgentRuntime) runTurn(
 	sink chan Event,
 ) (bool, error) {
 
-	messages := sess.Messages()
-
-	summary := sess.Summary()
-	if summary != "" {
-		messages = append(summaryToDialog(summary), messages...)
+	// build system message
+	precontextMessages := []agent.Message{
+		r.contextAssembler.assembeSystemMessage(agt, tools),
 	}
 
-	systemMessage := r.contextAssembler.assembeSystemMessage(agt, tools)
+	// append summary
+	summary := sess.Summary()
+	if summary != "" {
+		precontextMessages = append(
+			precontextMessages,
+			summaryToDialog(summary)...,
+		)
+	}
 
+	// check compaction
+	if r.compactor.shouldCompact(sess, precontextMessages, tools, model) {
+		r.compactor.doCompact(ctx, sess, agt, model, sink)
+	}
+
+	// run completion
 	result, err := model.Complete(
 		ctx,
 		tools,
-		append([]agent.Message{systemMessage}, messages...),
+		append(precontextMessages, sess.Messages()...),
 	)
 	if err != nil {
 		return true, err
 	}
 
-	sess.AddMessages([]agent.Message{agent.NewAgentMessage(result.Content, result.ToolCalls)})
+	// append completion message
+	sess.AddMessages(
+		[]agent.Message{
+			agent.NewAgentMessage(
+				result.Content,
+				result.ToolCalls,
+			),
+		},
+	)
 
+	// add event
 	sink <- NewCompleteEvent(agt.ID(), sess.ID(), result)
 
 	r.processToolCalls(ctx, agt, tools, result.ToolCalls, sess, sink)

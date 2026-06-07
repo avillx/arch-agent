@@ -8,22 +8,33 @@ import (
 )
 
 const compactionRatio = 0.7
+const defaultContextLimit = 100_000
 
-type CompactionRequest struct {
-	sess  session.Session
-	agt   agent.Agent
-	model agent.Model
+type Compactor struct {
+	tokenCounter agent.TokenCounter
 }
 
-func doCompact(ctx context.Context, req CompactionRequest) error {
+func NewCompactor(tc agent.TokenCounter) *Compactor {
+	return &Compactor{
+		tokenCounter: tc,
+	}
+}
 
-	msgs := req.sess.Messages()
+func (c *Compactor) doCompact(
+	ctx context.Context,
+	sess session.Session,
+	agt agent.Agent,
+	model agent.Model,
+	evCh chan Event,
+) error {
+
+	msgs := sess.Messages()
 
 	divide := int(float32(len(msgs)) * compactionRatio)
 	toCompact := msgs[:divide]
 	tail := msgs[divide:]
 
-	completion, err := req.model.Complete(ctx, nil,
+	completion, err := model.Complete(ctx, nil,
 		[]agent.Message{
 			agent.NewSystemMessage(prompt.CompactionPrompt()),
 			agent.NewUserMessage(agent.StringifyConversation(toCompact)),
@@ -33,12 +44,38 @@ func doCompact(ctx context.Context, req CompactionRequest) error {
 		return err
 	}
 
-	req.sess.AddSummary(completion.Content)
-	req.sess.OverwriteMessages(tail)
+	sess.AddSummary(completion.Content)
+	sess.OverwriteMessages(tail)
+
+	evCh <- NewCompactionEvent(
+		agt.ID(),
+		sess.ID(),
+		sess.Summary(),
+	)
 
 	return nil
 }
 
-func shouldCompact(sess session.Session, model agent.Model) bool {
-	return sess.Tokens() >= (model.ContextLimit() * 90 / 100)
+func (c *Compactor) shouldCompact(
+	sess session.Session,
+	additionalMessages []agent.Message,
+	tools []agent.Tool,
+	model agent.Model,
+) bool {
+
+	modelContextLimit := model.ContextLimit()
+	if modelContextLimit == 0 {
+		modelContextLimit = defaultContextLimit
+	}
+	thereshold := modelContextLimit * 90 / 100
+
+	tokenCount := sess.MessagesTokens()
+	if len(additionalMessages) > 0 {
+		tokenCount += c.tokenCounter.Messages(additionalMessages)
+	}
+	if len(tools) > 0 {
+		tokenCount += c.tokenCounter.Tools(tools)
+	}
+
+	return tokenCount >= thereshold
 }
