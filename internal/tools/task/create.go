@@ -10,13 +10,13 @@ import (
 
 // add task
 type AddTaskTool struct {
-	taskService *task.TaskService
+	taskSvc     *task.Service
 	cronFactory func(string) (task.Cron, error)
 }
 
-func NewAddTaskTool(s *task.TaskService, cronFactory func(string) (task.Cron, error)) *AddTaskTool {
+func NewAddTaskTool(s *task.Service, cronFactory func(string) (task.Cron, error)) *AddTaskTool {
 	return &AddTaskTool{
-		taskService: s,
+		taskSvc:     s,
 		cronFactory: cronFactory,
 	}
 }
@@ -104,12 +104,12 @@ func (t *AddTaskTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (st
 		args.Oneshot,
 	)
 
-	taskID, err := t.taskService.New(task)
+	taskID, err := t.taskSvc.New(task)
 	if err != nil {
 		return "task is not created", err
 	}
 
-	if err := t.taskService.Start(taskID); err != nil {
+	if err := t.taskSvc.Start(taskID); err != nil {
 		return "task was not runned", err
 	}
 

@@ -9,12 +9,12 @@ import (
 )
 
 type ToggleTaskTool struct {
-	taskService *task.TaskService
+	taskSvc *task.Service
 }
 
-func NewToggleTaskTool(s *task.TaskService) *ToggleTaskTool {
+func NewToggleTaskTool(s *task.Service) *ToggleTaskTool {
 	return &ToggleTaskTool{
-		taskService: s,
+		taskSvc: s,
 	}
 }
 
@@ -44,7 +44,7 @@ func (t *ToggleTaskTool) Call(ctx context.Context, rawArgs agent.ToolArguments) 
 		return "", err
 	}
 
-	tasks, err := t.taskService.All()
+	tasks, err := t.taskSvc.All()
 	if err != nil {
 		return "", err
 	}
@@ -56,12 +56,12 @@ func (t *ToggleTaskTool) Call(ctx context.Context, rawArgs agent.ToolArguments) 
 
 	switch task.Active {
 	case true:
-		if err := t.taskService.Stop(args.Name); err != nil {
+		if err := t.taskSvc.Stop(args.Name); err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("task %s deactivated", args.Name), nil
 	default:
-		if err := t.taskService.Start(args.Name); err != nil {
+		if err := t.taskSvc.Start(args.Name); err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("task %s activated", args.Name), nil

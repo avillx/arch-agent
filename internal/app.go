@@ -29,8 +29,8 @@ type App struct {
 	ToolSvc           *tools.Service
 	runtime           *runtime.AgentRuntime
 	TelegramOrchestra *telegram.BotOrchestrator
-	TaskSvc           *task.TaskService
-	SessionSvc        *session.SessionService
+	TaskSvc           *task.Service
+	SessionSvc        *session.Service
 	// TelegramA2AInterceptor *telegram.A2AInterceptor
 }
 
@@ -53,24 +53,24 @@ func BuildModelsRepo(fs *files.FileSystem) (agent.ModelRepository, error) {
 	)
 }
 
-func BuildTaskService(
+func BuildTaskSvc(
 	ctx context.Context,
 	fs *files.FileSystem,
-	sessionSvc *session.SessionService,
-	chatSvc *chat.ChatService,
-) (*task.TaskService, error) {
+	sessionSvc *session.Service,
+	chatSvc *chat.Service,
+) (*task.Service, error) {
 
 	taskRepo, err := files.NewTaskFiles(fs, func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) })
 	if err != nil {
 		return nil, err
 	}
 
-	executor := task.NewTaskExecutor(
+	executor := task.NewExecutor(
 		sessionSvc,
 		chatSvc,
 	)
 
-	return task.NewTaskService(
+	return task.NewService(
 		ctx,
 		taskRepo,
 		executor,
@@ -102,7 +102,7 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 
 	agentRepo := files.NewAgentFiles(fs)
 
-	sessSvc := session.NewSessionService(
+	sessSvc := session.NewService(
 		files.NewSessionFiles(fs, tokenizer),
 		uuid.NewUUIDGenerator(),
 		tokenizer,
@@ -115,10 +115,10 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 	contextAssembler := runtime.NewContextAssembler(skillFiles)
 	rt := runtime.NewAgentRuntime(observer, contextAssembler)
 
-	toolService := tools.NewService()
-	chatSvc := chat.NewChatService(agentRepo, sessSvc, modelRepo, toolService, rt)
+	toolSvc := tools.NewService()
+	chatSvc := chat.NewService(agentRepo, sessSvc, modelRepo, toolSvc, rt)
 
-	taskSvc, err := BuildTaskService(
+	taskSvc, err := BuildTaskSvc(
 		ctx,
 		fs,
 		sessSvc,
@@ -139,7 +139,7 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 
 	todoStorage := todo.NewInMemoryStore()
 
-	toolService.AddTools(
+	toolSvc.AddTools(
 		// filesystem tools
 		fstools.NewListDirTool(fs),
 		fstools.NewReadFileTool(fs),

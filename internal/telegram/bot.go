@@ -35,8 +35,8 @@ type Bot struct {
 	updateChannel tgbotapi.UpdatesChannel
 	Stickers      StickerMap
 	blockedUsers  []int64
-	sessionSvc    *session.SessionService
-	chatSvc       *chat.ChatService
+	sessionSvc    *session.Service
+	chatSvc       *chat.Service
 	agentID       agent.ID
 
 	sessionTimer *time.Timer
@@ -112,8 +112,8 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 }
 
 func (b *Bot) Wire(
-	sessionSvc *session.SessionService,
-	chatSvc *chat.ChatService,
+	sessionSvc *session.Service,
+	chatSvc *chat.Service,
 ) {
 	b.chatSvc = chatSvc
 	b.sessionSvc = sessionSvc

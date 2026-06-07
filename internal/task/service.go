@@ -18,19 +18,19 @@ type TaskRepo interface {
 }
 
 // service
-type TaskService struct {
+type Service struct {
 	runtime  *TaskRuntime
-	executor *taskExecutor
+	executor *executor
 	repo     TaskRepo
 }
 
-func NewTaskService(
+func NewService(
 	ctx context.Context,
 	repo TaskRepo,
-	executor *taskExecutor,
-) (*TaskService, error) {
+	executor *executor,
+) (*Service, error) {
 
-	s := &TaskService{
+	s := &Service{
 		repo:     repo,
 		runtime:  NewTaskRuntime(),
 		executor: executor,
@@ -58,11 +58,11 @@ func NewTaskService(
 	return s, nil
 }
 
-func (s *TaskService) All() (map[string]*TaskRecord, error) {
+func (s *Service) All() (map[string]*TaskRecord, error) {
 	return s.repo.All()
 }
 
-func (s *TaskService) New(t Task) (string, error) {
+func (s *Service) New(t Task) (string, error) {
 
 	// validate
 	// if err := s.executor.Validate(t); err != nil {
@@ -77,7 +77,7 @@ func (s *TaskService) New(t Task) (string, error) {
 	return t.Name, nil
 }
 
-func (s *TaskService) Start(id string) error {
+func (s *Service) Start(id string) error {
 
 	rec, err := s.repo.Get(id)
 	if err != nil {
@@ -90,18 +90,18 @@ func (s *TaskService) Start(id string) error {
 	return s.repo.Save(id, rec)
 }
 
-func (s *TaskService) Stop(id string) error {
+func (s *Service) Stop(id string) error {
 	return s.runtime.Kill(id)
 }
 
-func (s *TaskService) Delete(id string) error {
+func (s *Service) Delete(id string) error {
 	s.runtime.Kill(id)
 
 	return s.repo.Delete(id)
 }
 
 // blocking
-func (s *TaskService) processDoneTasks(ctx context.Context) {
+func (s *Service) processDoneTasks(ctx context.Context) {
 	go func() {
 		for {
 			select {

@@ -11,12 +11,12 @@ import (
 
 // get tasks
 type GetTasksTool struct {
-	taskService *task.TaskService
+	taskSvc *task.Service
 }
 
-func NewGetTasksTool(s *task.TaskService) *GetTasksTool {
+func NewGetTasksTool(s *task.Service) *GetTasksTool {
 	return &GetTasksTool{
-		taskService: s,
+		taskSvc: s,
 	}
 }
 
@@ -44,7 +44,7 @@ func (t *GetTasksTool) Schema() []agent.ToolProperty {
 
 func (t *GetTasksTool) Call(ctx context.Context, _ agent.ToolArguments) (string, error) {
 
-	tasks, err := t.taskService.All()
+	tasks, err := t.taskSvc.All()
 	if err != nil {
 		return "task is not created", err
 	}

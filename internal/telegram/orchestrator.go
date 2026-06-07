@@ -54,8 +54,8 @@ func (o *BotOrchestrator) Get(agentID agent.ID) (*Bot, error) {
 }
 
 func (o *BotOrchestrator) Wire(
-	sessionSvc *session.SessionService,
-	chatSvc *chat.ChatService,
+	sessionSvc *session.Service,
+	chatSvc *chat.Service,
 ) {
 	for _, b := range o.bots {
 		b.Wire(

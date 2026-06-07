@@ -13,17 +13,17 @@ import (
 )
 
 type Service struct {
-	sessionSevice *session.SessionService
-	chatSvc       *chat.ChatService
+	sessionSvc *session.Service
+	chatSvc    *chat.Service
 }
 
 func NewService(
-	chatSvc *chat.ChatService,
-	sessionSvc *session.SessionService,
+	chatSvc *chat.Service,
+	sessionSvc *session.Service,
 ) *Service {
 	return &Service{
-		chatSvc:       chatSvc,
-		sessionSevice: sessionSvc,
+		chatSvc:    chatSvc,
+		sessionSvc: sessionSvc,
 	}
 }
 
@@ -35,14 +35,14 @@ func (s *Service) Call(
 	request string,
 ) (string, error) {
 
-	sess, err := s.sessionSevice.Get(callerAgentID, sessionID)
+	sess, err := s.sessionSvc.Get(callerAgentID, sessionID)
 	if err != nil {
 		return "", err
 	}
 
 	subSessionID, ok := sess.Subsession(recivierAgentID)
 	if !ok {
-		subSessionID, err = s.sessionSevice.Create(recivierAgentID)
+		subSessionID, err = s.sessionSvc.Create(recivierAgentID)
 		if err != nil {
 			return "", err
 		}

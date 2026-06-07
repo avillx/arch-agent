@@ -10,17 +10,17 @@ import (
 	"log/slog"
 )
 
-type taskExecutor struct {
-	sessionSvc *session.SessionService
-	chatSvc    *chat.ChatService
+type executor struct {
+	sessionSvc *session.Service
+	chatSvc    *chat.Service
 }
 
 // executor
-func NewTaskExecutor(
-	sessionSvc *session.SessionService,
-	chatSvc *chat.ChatService,
-) *taskExecutor {
-	return &taskExecutor{
+func NewExecutor(
+	sessionSvc *session.Service,
+	chatSvc *chat.Service,
+) *executor {
+	return &executor{
 		sessionSvc: sessionSvc,
 		chatSvc:    chatSvc,
 	}
@@ -47,7 +47,7 @@ func NewTaskExecutor(
 // 	return nil
 // }
 
-func (s *taskExecutor) execute(ctx context.Context, t Task) {
+func (s *executor) execute(ctx context.Context, t Task) {
 	for _, r := range t.Recipients {
 		slog.Info("processing task", "agent", r, "task", t.Name)
 		if err := s.processRecipientTask(ctx, agent.ID(r), t.Name, t.Request); err != nil {
@@ -56,7 +56,7 @@ func (s *taskExecutor) execute(ctx context.Context, t Task) {
 	}
 }
 
-func (s *taskExecutor) processRecipientTask(ctx context.Context, agentID agent.ID, taskName, request string) error {
+func (s *executor) processRecipientTask(ctx context.Context, agentID agent.ID, taskName, request string) error {
 
 	const autonomusWorking = "Now You working autonomusly if somthing wrong try to contact with someone"
 

@@ -13,21 +13,21 @@ type UUIDGenerator interface {
 	New() string
 }
 
-type SessionService struct {
+type Service struct {
 	repo         SessionsRepo
 	uuid         UUIDGenerator
 	tokenCounter TokenCounter
 }
 
-func NewSessionService(repo SessionsRepo, uuid UUIDGenerator, tokenCounter TokenCounter) *SessionService {
-	return &SessionService{
+func NewService(repo SessionsRepo, uuid UUIDGenerator, tokenCounter TokenCounter) *Service {
+	return &Service{
 		repo:         repo,
 		uuid:         uuid,
 		tokenCounter: tokenCounter,
 	}
 }
 
-func (s *SessionService) Get(agentID agent.ID, id ID) (Session, error) {
+func (s *Service) Get(agentID agent.ID, id ID) (Session, error) {
 	sess, err := s.repo.Session(agentID, id)
 	if err != nil {
 		return nil, err
@@ -35,7 +35,7 @@ func (s *SessionService) Get(agentID agent.ID, id ID) (Session, error) {
 	return sess, nil
 }
 
-func (s *SessionService) Create(agentID agent.ID) (ID, error) {
+func (s *Service) Create(agentID agent.ID) (ID, error) {
 	newSession := NewSession(ID(s.uuid.New()), s.tokenCounter)
 	if err := s.repo.Save(agentID, newSession); err != nil {
 		return "", err
@@ -43,10 +43,10 @@ func (s *SessionService) Create(agentID agent.ID) (ID, error) {
 	return newSession.ID(), nil
 }
 
-func (s *SessionService) Save(agentID agent.ID, sess Session) error {
+func (s *Service) Save(agentID agent.ID, sess Session) error {
 	return s.repo.Save(agentID, sess)
 }
 
-func (s *SessionService) Delete(agentID agent.ID, sessionID ID) error {
+func (s *Service) Delete(agentID agent.ID, sessionID ID) error {
 	return s.repo.Delete(agentID, sessionID)
 }

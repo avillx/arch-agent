@@ -15,9 +15,9 @@ type SkillRegestry interface {
 	Get(...agent.SkillID) ([]agent.Skill, error)
 }
 
-type ChatService struct {
+type Service struct {
 	agentRepo    agent.Repo
-	sessionSvc   *session.SessionService
+	sessionSvc   *session.Service
 	modelRepo    agent.ModelRepository
 	toolRegistry agent.ToolRegistry
 	// sessSkillRepo SessionSkillRepo
@@ -25,14 +25,14 @@ type ChatService struct {
 	runtime *runtime.AgentRuntime
 }
 
-func NewChatService(
+func NewService(
 	agentRepo agent.Repo,
-	sessionSvc *session.SessionService,
+	sessionSvc *session.Service,
 	modelRepo agent.ModelRepository,
 	toolRegistry agent.ToolRegistry,
 	runtime *runtime.AgentRuntime,
-) *ChatService {
-	return &ChatService{
+) *Service {
+	return &Service{
 		agentRepo:    agentRepo,
 		sessionSvc:   sessionSvc,
 		modelRepo:    modelRepo,
@@ -41,7 +41,7 @@ func NewChatService(
 	}
 }
 
-func (s *ChatService) Chat(
+func (s *Service) Chat(
 	ctx context.Context,
 	agentID agent.ID,
 	sessionID session.ID,
