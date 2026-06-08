@@ -4,10 +4,13 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/chat"
 	"arch-agent/internal/session"
+	tgtools "arch-agent/internal/telegram/telegram"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -71,6 +74,7 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 		blockedUsers: []int64{},
 		agentID:      agent.ID(cfg.Agent),
 		isWebhook:    cfg.Host != "",
+		tools:        []agent.Tool{},
 	}
 
 	// Load stickers if configured
@@ -78,6 +82,7 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 		if err := bot.loadStickers(cfg.StickerSetName); err != nil {
 			slog.Warn("failed to load stickers", "error", err)
 		}
+		bot.tools = append(bot.tools, tgtools.NewSendStickerTool(bot))
 	}
 
 	// Configure update channel based on mode
@@ -222,11 +227,7 @@ func (b *Bot) loadStickers(setName string) error {
 
 // AllowedEmojis returns the list of available sticker emojis
 func (b *Bot) AllowedEmojis() []string {
-	emojis := make([]string, 0, len(b.stickerMap))
-	for emoji := range b.stickerMap {
-		emojis = append(emojis, emoji)
-	}
-	return emojis
+	return slices.Collect(maps.Keys(b.stickerMap))
 }
 
 // SendMessage sends a text message to a user
