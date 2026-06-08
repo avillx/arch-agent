@@ -227,3 +227,20 @@ Return your result directly. Start with the result, not with "I will now...".
 %s`, task)
 
 }
+
+func SummaryExplanation(summary string) string {
+	return fmt.Sprintf(
+		`Here is context for this current conversation:\n%s\n\n now you already continue this conversation.`,
+		summary,
+	)
+}
+
+func ActivityExplanation(activityContent string) string {
+	return fmt.Sprintf(`This is your activity for a last 24 hours:
+%s
+
+this is what you last remeber before this conversation. 
+do not read today activity. this is already it.`,
+		activityContent,
+	)
+}

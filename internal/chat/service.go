@@ -48,6 +48,7 @@ func (s *Service) Chat(
 	request string,
 	reader runtime.EventReader,
 	providedTools []agent.Tool,
+	addActivity bool,
 ) error {
 
 	// session

@@ -99,12 +99,13 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 
 	agentRepo := files.NewAgentFiles(fs)
 
+	activityRepo := files.NewActivityFiles(fs)
 	sessSvc := session.NewService(
 		files.NewSessionFiles(fs),
 		uuid.NewUUIDGenerator(),
+		activityRepo,
 	)
 
-	activityRepo := files.NewActivityFiles(fs)
 	observer := runtime.NewObserver(observerModel, activityRepo)
 
 	skillFiles := files.NewSkillFiles(fs)

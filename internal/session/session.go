@@ -44,7 +44,7 @@ type session struct {
 	title        string
 	inputTokens  int64
 	outputTokens int64
-	summaries    string
+	summary      string
 	messages     []agent.Message
 	subsessions  map[agent.ID]ID
 	createdAt    time.Time
@@ -67,7 +67,7 @@ func NewRestoredSession(
 	messages []agent.Message,
 	inputTokens int64,
 	outputTokens int64,
-	summaries string,
+	summary string,
 	subsessions map[agent.ID]ID,
 	createdAt time.Time,
 ) *session {
@@ -78,7 +78,7 @@ func NewRestoredSession(
 		id:          id,
 		messages:    messages,
 		subsessions: subsessions,
-		summaries:   summaries,
+		summary:     summary,
 		createdAt:   createdAt,
 		updatedAt:   time.Now(),
 
@@ -133,11 +133,11 @@ func (s *session) ApplyCompletion(completion *agent.Completion) {
 
 func (s *session) AddSummary(summary string) {
 	content := fmt.Sprintf("%s/n/n", summary)
-	s.summaries += content
+	s.summary += content
 }
 
 func (s *session) Summary() string {
-	return s.summaries
+	return s.summary
 }
 
 func (s *session) OverwriteMessages(inputTokens int64, new []agent.Message) {

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/prompt"
 	"arch-agent/internal/session"
 	"context"
 	"fmt"
@@ -76,12 +77,10 @@ func (r *AgentRuntime) runTurn(
 		r.contextAssembler.assembeSystemMessage(agt, tools),
 	}
 
-	// append summary
-	summary := sess.Summary()
-	if summary != "" {
+	if sess.Summary() != "" {
 		precontextMessages = append(
 			precontextMessages,
-			summaryToDialog(summary)...,
+			preContextHookDialogue(sess.Summary())...,
 		)
 	}
 
@@ -173,9 +172,9 @@ func toolsToMap(tools []agent.Tool) map[agent.ToolName]agent.Tool {
 	return toolMap
 }
 
-func summaryToDialog(summary string) []agent.Message {
+func preContextHookDialogue(instructions string) []agent.Message {
 	return []agent.Message{
-		agent.NewUserMessage(fmt.Sprintf("Here is summary of previous conversations%s", summary)),
+		agent.NewUserMessage(prompt.SummaryExplanation(instructions)),
 		agent.NewAgentMessage("okay i will account it", nil),
 	}
 }

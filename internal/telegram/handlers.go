@@ -116,6 +116,7 @@ func (b *Bot) handleMessage(ctx context.Context, message *tgbotapi.Message) erro
 		messageText,
 		eventReader,
 		b.tools,
+		true,
 	)
 
 	if err != nil {
@@ -142,7 +143,7 @@ func (b *Bot) ensureSession() error {
 	}
 
 	// Create new session
-	sessionID, err := b.sessionSvc.Create(b.agentID)
+	sessionID, err := b.sessionSvc.Create(b.agentID, true)
 	if err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
 	}

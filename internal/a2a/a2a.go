@@ -42,7 +42,7 @@ func (s *Service) Call(
 
 	subSessionID, ok := sess.Subsessions()[recivierAgentID]
 	if !ok {
-		subSessionID, err = s.sessionSvc.Create(recivierAgentID)
+		subSessionID, err = s.sessionSvc.Create(recivierAgentID, false)
 		if err != nil {
 			return "", err
 		}
@@ -56,7 +56,7 @@ func (s *Service) Call(
 		},
 	}
 
-	err = s.chatSvc.Chat(ctx, recivierAgentID, subSessionID, request, evReader, nil)
+	err = s.chatSvc.Chat(ctx, recivierAgentID, subSessionID, request, evReader, nil, false)
 
 	return lastAgentMessageContent, err
 }
