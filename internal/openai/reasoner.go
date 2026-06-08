@@ -61,8 +61,8 @@ func NewOpenAIReasoner(secrets SecretsRepo, settings map[string]any) (*OpenAIRea
 	}, nil
 }
 
-func (r *OpenAIReasoner) ContextLimit() int {
-	contextLimit, ok, err := getInt(r.settings, "context_limit")
+func (r *OpenAIReasoner) ContextLimit() int64 {
+	contextLimit, ok, err := getInt64(r.settings, "context_limit")
 	if !ok || err != nil {
 		slog.Error("context_limit is not found", "error", err)
 		return 0

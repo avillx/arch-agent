@@ -8,20 +8,18 @@ import (
 )
 
 type AgentRuntime struct {
+	// TODO: expose observer out of runtime as higher level conception
 	observer         *Observer
 	contextAssembler *ContextAssembler
-	compactor        *Compactor
 }
 
 func NewAgentRuntime(
 	observer *Observer,
 	contextAssembler *ContextAssembler,
-	compactor *Compactor,
 ) *AgentRuntime {
 	return &AgentRuntime{
 		observer:         observer,
 		contextAssembler: contextAssembler,
-		compactor:        compactor,
 	}
 }
 
@@ -34,6 +32,9 @@ func (r *AgentRuntime) RunStream(
 	sess session.Session,
 	evCh chan Event,
 ) error {
+
+	// WithLogging
+	// WithActivityPreload
 
 	ctx = withAgentID(ctx, agt.ID())
 	ctx = withSessionID(ctx, sess.ID())
@@ -85,8 +86,8 @@ func (r *AgentRuntime) runTurn(
 	}
 
 	// check compaction
-	if r.compactor.shouldCompact(sess, precontextMessages, tools, model) {
-		r.compactor.doCompact(ctx, sess, agt, model, sink)
+	if shouldCompact(sess.InputTokens(), sess.OutputTokens(), model.ContextLimit()) {
+		doCompact(ctx, sess, agt, model, sink)
 	}
 
 	// run completion
@@ -99,15 +100,7 @@ func (r *AgentRuntime) runTurn(
 		return true, err
 	}
 
-	// append completion message
-	sess.AddMessages(
-		[]agent.Message{
-			agent.NewAgentMessage(
-				result.Content,
-				result.ToolCalls,
-			),
-		},
-	)
+	sess.ApplyCompletion(result)
 
 	// add event
 	sink <- NewCompleteEvent(agt.ID(), sess.ID(), result)

@@ -7,20 +7,13 @@ import (
 	"context"
 )
 
-const compactionRatio = 0.7
-const defaultContextLimit = 100_000
+const (
+	compactionRatio     = 0.7
+	defaultContextLimit = 100_000
+	thereshold          = 0.9
+)
 
-type Compactor struct {
-	tokenCounter agent.TokenCounter
-}
-
-func NewCompactor(tc agent.TokenCounter) *Compactor {
-	return &Compactor{
-		tokenCounter: tc,
-	}
-}
-
-func (c *Compactor) doCompact(
+func doCompact(
 	ctx context.Context,
 	sess session.Session,
 	agt agent.Agent,
@@ -45,7 +38,12 @@ func (c *Compactor) doCompact(
 	}
 
 	sess.AddSummary(completion.Content)
-	sess.OverwriteMessages(tail)
+
+	var estimateTokens int64 = 0
+	for _, m := range tail {
+		estimateTokens += estimateMessageTokens(m)
+	}
+	sess.OverwriteMessages(estimateTokens, tail)
 
 	evCh <- NewCompactionEvent(
 		agt.ID(),
@@ -56,26 +54,34 @@ func (c *Compactor) doCompact(
 	return nil
 }
 
-func (c *Compactor) shouldCompact(
-	sess session.Session,
-	additionalMessages []agent.Message,
-	tools []agent.Tool,
-	model agent.Model,
+func shouldCompact(
+	inputTokens,
+	outputTokens,
+	contextLimit int64,
 ) bool {
+	return (inputTokens + outputTokens) >= int64(float64(contextLimit)*thereshold)
+}
 
-	modelContextLimit := model.ContextLimit()
-	if modelContextLimit == 0 {
-		modelContextLimit = defaultContextLimit
-	}
-	thereshold := modelContextLimit * 90 / 100
+func estimateMessageTokens(msg agent.Message) int64 {
+	// charsPerToken: average characters per token. 4 is a widely-used
+	// heuristic for English; slightly overestimates for code/JSON (~3.5).
+	const charsPerToken = 4
 
-	tokenCount := sess.MessagesTokens()
-	if len(additionalMessages) > 0 {
-		tokenCount += c.tokenCounter.Messages(additionalMessages)
-	}
-	if len(tools) > 0 {
-		tokenCount += c.tokenCounter.Tools(tools)
+	// perMessageOverhead: role, ToolCallID, delimiters, etc.
+	const perMessageOverhead = 5
+
+	var chars int
+	chars += len(msg.Content())
+
+	if agentMessage, ok := msg.(*agent.AgentMessage); ok {
+		for _, tc := range agentMessage.ToolCalls() {
+			chars += len(tc.ToolName)
+			chars += len(string(tc.Arguments))
+		}
 	}
 
-	return tokenCount >= thereshold
+	if chars == 0 {
+		return perMessageOverhead
+	}
+	return int64(chars/charsPerToken) + perMessageOverhead
 }

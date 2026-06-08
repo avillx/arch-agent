@@ -10,7 +10,7 @@ type ModelSettings map[string]any
 
 type Model interface {
 	Settings() ModelSettings
-	ContextLimit() int
+	ContextLimit() int64
 	SetSettings(ModelSettings) error
 	Complete(context.Context, []Tool, []Message) (*Completion, error)
 }
@@ -22,7 +22,9 @@ type ModelRepository interface {
 }
 
 type Completion struct {
-	ToolCalls []*ToolCall
-	Content   string
-	Done      bool
+	ToolCalls        []*ToolCall
+	Content          string
+	Done             bool
+	InputTokens      int64
+	CompletionTokens int64
 }

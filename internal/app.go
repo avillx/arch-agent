@@ -12,7 +12,6 @@ import (
 	"arch-agent/internal/session"
 	"arch-agent/internal/task"
 	"arch-agent/internal/telegram"
-	tiktoken "arch-agent/internal/tokenizer"
 	"arch-agent/internal/tools"
 	"arch-agent/internal/tools/fetch"
 	fstools "arch-agent/internal/tools/fs"
@@ -98,22 +97,19 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 		return nil, errors.New("has no observer model")
 	}
 
-	tt := tiktoken.New()
-
 	agentRepo := files.NewAgentFiles(fs)
 
 	sessSvc := session.NewService(
-		files.NewSessionFiles(fs, tt),
+		files.NewSessionFiles(fs),
 		uuid.NewUUIDGenerator(),
-		tt,
 	)
 
 	activityRepo := files.NewActivityFiles(fs)
-	observer := runtime.NewObserver(observerModel, activityRepo, tt)
+	observer := runtime.NewObserver(observerModel, activityRepo)
 
 	skillFiles := files.NewSkillFiles(fs)
 	contextAssembler := runtime.NewContextAssembler(skillFiles)
-	rt := runtime.NewAgentRuntime(observer, contextAssembler, runtime.NewCompactor(tt))
+	rt := runtime.NewAgentRuntime(observer, contextAssembler)
 
 	toolSvc := tools.NewService()
 	chatSvc := chat.NewService(agentRepo, sessSvc, modelRepo, toolSvc, rt)

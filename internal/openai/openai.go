@@ -214,9 +214,11 @@ func OpenAICompletionToReasonResult(completion *openai.ChatCompletion) (*agent.C
 	}
 
 	result := &agent.Completion{
-		ToolCalls: toolCalls,
-		Content:   message.Content,
-		Done:      IsDoneOpenAI(completion.Choices[0].FinishReason),
+		ToolCalls:        toolCalls,
+		Content:          message.Content,
+		Done:             IsDoneOpenAI(completion.Choices[0].FinishReason),
+		InputTokens:      completion.Usage.PromptTokens,
+		CompletionTokens: completion.Usage.CompletionTokens,
 	}
 
 	return result, nil

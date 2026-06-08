@@ -14,16 +14,14 @@ type UUIDGenerator interface {
 }
 
 type Service struct {
-	repo         SessionsRepo
-	uuid         UUIDGenerator
-	tokenCounter agent.TokenCounter
+	repo SessionsRepo
+	uuid UUIDGenerator
 }
 
-func NewService(repo SessionsRepo, uuid UUIDGenerator, tokenCounter agent.TokenCounter) *Service {
+func NewService(repo SessionsRepo, uuid UUIDGenerator) *Service {
 	return &Service{
-		repo:         repo,
-		uuid:         uuid,
-		tokenCounter: tokenCounter,
+		repo: repo,
+		uuid: uuid,
 	}
 }
 
@@ -36,7 +34,7 @@ func (s *Service) Get(agentID agent.ID, id ID) (Session, error) {
 }
 
 func (s *Service) Create(agentID agent.ID) (ID, error) {
-	newSession := NewSession(ID(s.uuid.New()), s.tokenCounter)
+	newSession := NewSession(ID(s.uuid.New()))
 	if err := s.repo.Save(agentID, newSession); err != nil {
 		return "", err
 	}

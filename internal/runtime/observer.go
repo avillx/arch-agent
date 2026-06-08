@@ -25,7 +25,7 @@ type interaction struct {
 	agentID   agent.ID
 	sessionID session.ID
 	activity  string
-	tokens    int
+	tokens    int64
 	timer     *time.Timer
 }
 
@@ -35,15 +35,13 @@ type Observer struct {
 
 	model    agent.Model
 	repo     agent.ActivityRepo
-	counter  agent.TokenCounter
-	tokenMax int
+	tokenMax int64
 }
 
-func NewObserver(m agent.Model, repo agent.ActivityRepo, counter agent.TokenCounter) *Observer {
+func NewObserver(m agent.Model, repo agent.ActivityRepo) *Observer {
 	return &Observer{
 		model:        m,
 		repo:         repo,
-		counter:      counter,
 		tokenMax:     m.ContextLimit(),
 		interactions: map[sessionKey]*interaction{},
 	}
@@ -74,11 +72,9 @@ func (o *Observer) Intercept(ctx context.Context, request string, agentID agent.
 			OnComplete: func(_ agent.ID, _ session.ID, c *agent.Completion) {
 				inter.mu.Lock()
 				inter.activity += agent.NewAgentMessage(c.Content, c.ToolCalls).String()
-				inter.tokens += o.counter.RawString(c.Content)
-				shouldFlush := inter.tokens >= o.tokenMax
 				inter.mu.Unlock()
 
-				if shouldFlush {
+				if shouldCompact(c.InputTokens, c.CompletionTokens, o.model.ContextLimit()) {
 					if err := o.flush(ctx, key); err != nil {
 						slog.Error("observer", "error", err)
 					}
