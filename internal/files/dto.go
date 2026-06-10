@@ -6,11 +6,38 @@ import (
 	"fmt"
 )
 
+type ContentPartDTO struct {
+	Text  string `json:"text"`
+	Image string `json:"image"`
+}
+
+func contentToDTO(parts []agent.ContentPart) []ContentPartDTO {
+	res := make([]ContentPartDTO, len(parts))
+	for i, p := range parts {
+		res[i] = ContentPartDTO{
+			Text:  p.Text,
+			Image: p.ImageURL,
+		}
+	}
+	return res
+}
+
+func dtoToContent(dtos []ContentPartDTO) []agent.ContentPart {
+	res := make([]agent.ContentPart, len(dtos))
+	for i, dto := range dtos {
+		res[i] = agent.ContentPart{
+			Text:     dto.Text,
+			ImageURL: dto.Image,
+		}
+	}
+	return res
+}
+
 type MessageDTO struct {
-	Role      string        `json:"role"`
-	Content   string        `json:"content"`
-	ToolCalls []ToolCallDTO `json:"tool_calls,omitempty"`
-	CallID    string        `json:"call_id,omitempty"`
+	Role      string           `json:"role"`
+	Content   []ContentPartDTO `json:"content"`
+	ToolCalls []ToolCallDTO    `json:"tool_calls,omitempty"`
+	CallID    string           `json:"call_id,omitempty"`
 }
 
 type ToolCallDTO struct {
@@ -22,7 +49,7 @@ type ToolCallDTO struct {
 func MessageToDTO(msg agent.Message) MessageDTO {
 	dto := MessageDTO{
 		Role:    string(msg.Role()),
-		Content: msg.Content(),
+		Content: contentToDTO(msg.Content()),
 	}
 
 	switch typed := msg.(type) {
@@ -56,12 +83,13 @@ func ToolcallsToDTO(calls []*agent.ToolCall) []ToolCallDTO {
 }
 
 func DtoToMessage(dto MessageDTO) (agent.Message, error) {
+
 	switch dto.Role {
 	case "user":
-		return agent.NewUserMessage(dto.Content), nil
+		return agent.NewUserMessage(dtoToContent(dto.Content)), nil
 
 	case "system":
-		return agent.NewSystemMessage(dto.Content), nil
+		return agent.NewSystemMessage(dtoToContent(dto.Content)), nil
 
 	case "agent":
 		var toolCalls []*agent.ToolCall
@@ -69,10 +97,10 @@ func DtoToMessage(dto MessageDTO) (agent.Message, error) {
 			newToolCall := agent.NewToolCall(tc.ID, tc.Tool, agent.ToolArguments(tc.Args))
 			toolCalls = append(toolCalls, newToolCall)
 		}
-		return agent.NewAgentMessage(dto.Content, toolCalls), nil
+		return agent.NewAgentMessage(dtoToContent(dto.Content), toolCalls), nil
 
 	case "tool":
-		return agent.NewToolResultMessage(dto.CallID, dto.Content), nil
+		return agent.NewToolResultMessage(dto.CallID, dtoToContent(dto.Content)), nil
 
 	default:
 		return nil, fmt.Errorf("unknown role: %s", dto.Role)

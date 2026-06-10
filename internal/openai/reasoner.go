@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"slices"
 	"sync"
 
 	"github.com/openai/openai-go/v3"
@@ -127,6 +128,24 @@ func (r *OpenAIReasoner) Complete(
 	slog.Debug("reasoning", "result", castedRes)
 
 	return castedRes, err
+}
+
+func (r *OpenAIReasoner) SupportedModalities() []agent.Modality {
+
+	modalities, ok, err := getArray[agent.Modality](r.settings, "modalities")
+	if err != nil {
+		slog.Error("supproted modalities", "error", err)
+		return []agent.Modality{agent.TextModality}
+	}
+	if !ok {
+		return []agent.Modality{agent.TextModality}
+	}
+
+	if !slices.Contains(modalities, agent.TextModality) {
+		modalities = append(modalities, agent.TextModality)
+	}
+
+	return modalities
 }
 
 func (r *OpenAIReasoner) buildCompletionParams(

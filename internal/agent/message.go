@@ -17,25 +17,58 @@ const (
 
 type Message interface {
 	Role() Role
-	Content() string
+	Content() []ContentPart
+	SetContent([]ContentPart)
 	String() string
+}
+
+type ContentPart struct {
+	Text     string
+	ImageURL string
+	// InputAudio
+	// File
 }
 
 type messageBase struct {
 	role    Role
-	content string
+	content []ContentPart
 }
 
-func (b messageBase) String() string {
-	return fmt.Sprintf("%s:\n%s\n\n", b.role, b.content)
+func newMessageBase[T string | []ContentPart](role Role, content T) messageBase {
+	var contentParts []ContentPart
+	switch v := any(content).(type) {
+	case string:
+		contentParts = []ContentPart{{Text: v}}
+	case []ContentPart:
+		contentParts = v
+	}
+
+	return messageBase{
+		role:    role,
+		content: contentParts,
+	}
 }
 
-func (b messageBase) Role() Role {
+func (b *messageBase) String() string {
+
+	var textParts strings.Builder
+	for _, c := range b.content {
+		textParts.WriteString(c.Text)
+	}
+
+	return fmt.Sprintf("%s:\n%s\n\n", b.role, textParts.String())
+}
+
+func (b *messageBase) Role() Role {
 	return b.role
 }
 
-func (b messageBase) Content() string {
+func (b *messageBase) Content() []ContentPart {
 	return b.content
+}
+
+func (b *messageBase) SetContent(cp []ContentPart) {
+	b.content = cp
 }
 
 type UserMessage struct {
@@ -47,11 +80,11 @@ type AgentMessage struct {
 	toolCalls []*ToolCall
 }
 
-func (b AgentMessage) ToolCalls() []*ToolCall {
+func (b *AgentMessage) ToolCalls() []*ToolCall {
 	return b.toolCalls
 }
 
-func (b AgentMessage) String() string {
+func (b *AgentMessage) String() string {
 	toolCalls := ""
 	if len(b.toolCalls) > 0 {
 		toolCalls = toolCallsString(b.toolCalls)
@@ -72,41 +105,29 @@ type SystemMessage struct {
 	messageBase
 }
 
-func NewUserMessage(content string) *UserMessage {
+func NewUserMessage[T string | []ContentPart](content T) *UserMessage {
 	return &UserMessage{
-		messageBase: messageBase{
-			role:    UserMessageRole,
-			content: content,
-		},
+		messageBase: newMessageBase(UserMessageRole, content),
 	}
 }
 
-func NewAgentMessage(content string, tc []*ToolCall) *AgentMessage {
+func NewAgentMessage[T string | []ContentPart](content T, tc []*ToolCall) *AgentMessage {
 	return &AgentMessage{
-		messageBase: messageBase{
-			role:    AgentMessageRole,
-			content: content,
-		},
-		toolCalls: tc,
+		messageBase: newMessageBase(AgentMessageRole, content),
+		toolCalls:   tc,
 	}
 }
 
-func NewToolResultMessage(id string, content string) *ToolResultMessage {
+func NewToolResultMessage[T string | []ContentPart](id string, content T) *ToolResultMessage {
 	return &ToolResultMessage{
-		toolCallID: id,
-		messageBase: messageBase{
-			role:    ToolMessageRole,
-			content: content,
-		},
+		toolCallID:  id,
+		messageBase: newMessageBase(ToolMessageRole, content),
 	}
 }
 
-func NewSystemMessage(content string) *SystemMessage {
+func NewSystemMessage[T string | []ContentPart](content T) *SystemMessage {
 	return &SystemMessage{
-		messageBase: messageBase{
-			role:    SystemMessageRole,
-			content: content,
-		},
+		messageBase: newMessageBase(SystemMessageRole, content),
 	}
 }
 
@@ -155,4 +176,24 @@ func ExcludeToolCallsData(msgs []Message, toolNames []ToolName) []Message {
 		}
 		return false
 	})
+}
+
+// agent package
+func CloneMessage(m Message) Message {
+	switch v := m.(type) {
+	case *UserMessage:
+		c := *v
+		return &c
+	case *AgentMessage:
+		c := *v
+		return &c
+	case *ToolResultMessage:
+		c := *v
+		return &c
+	case *SystemMessage:
+		c := *v
+		return &c
+	default:
+		return m
+	}
 }

@@ -70,7 +70,8 @@ func (s *executor) processRecipientTask(ctx context.Context, agentID agent.ID, t
 	return s.chatSvc.Chat(
 		ctx,
 		agentID,
-		sessID, fmt.Sprintf("%s\n\n%s", autonomusWorking, request),
+		sessID,
+		agent.NewUserMessage(fmt.Sprintf("%s\n\n%s", autonomusWorking, request)),
 		runtime.EventReader{},
 		nil,
 		false,

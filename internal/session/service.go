@@ -3,6 +3,7 @@ package session
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/prompt"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -50,7 +51,10 @@ func (s *Service) Create(agentID agent.ID, withLastActivity bool) (ID, error) {
 	if withLastActivity {
 		activity, err := s.activityRepo.GetActivity(agentID, time.Now())
 		if err != nil {
-			return newSession.ID(), fmt.Errorf("reading activity %w", err)
+			if !errors.Is(err, agent.ErrNoActivity) {
+				return newSession.ID(), fmt.Errorf("reading activity %w", err)
+			}
+			activity += "this is the first conversation today."
 		}
 		newSession.AddSummary(prompt.ActivityExplanation(activity))
 	}

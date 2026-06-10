@@ -45,18 +45,66 @@ func messageToOpenAI(internalFromatMessage agent.Message) openai.ChatCompletionM
 
 	switch msg := internalFromatMessage.(type) {
 	case *agent.AgentMessage:
-		assistantMsg := openai.AssistantMessage(msg.Content())
+
+		internalContent := msg.Content()
+		openAIContent := make([]openai.ChatCompletionAssistantMessageParamContentArrayOfContentPartUnion, len(internalContent))
+		for i, cp := range internalContent {
+			openAIContent[i] = openai.ChatCompletionAssistantMessageParamContentArrayOfContentPartUnion{
+				OfText: &openai.ChatCompletionContentPartTextParam{
+					Text: cp.Text,
+				},
+			}
+		}
+
+		assistantMsg := openai.AssistantMessage(openAIContent)
+
 		toolCalls := msg.ToolCalls()
 		if len(toolCalls) > 0 {
 			assistantMsg.OfAssistant.ToolCalls = toolCallsToOpenAi(toolCalls)
 		}
 		result = assistantMsg
+
 	case *agent.SystemMessage:
-		result = openai.SystemMessage(msg.Content())
+
+		internalContent := msg.Content()
+		openAIContent := make([]openai.ChatCompletionContentPartTextParam, len(internalContent))
+		for i, cp := range internalContent {
+			openAIContent[i] = openai.ChatCompletionContentPartTextParam{Text: cp.Text}
+		}
+		result = openai.SystemMessage(openAIContent)
 	case *agent.UserMessage:
-		result = openai.UserMessage(msg.Content())
+
+		internalContent := msg.Content()
+		openAIContent := make([]openai.ChatCompletionContentPartUnionParam, len(internalContent))
+		for i, cp := range internalContent {
+			if cp.Text != "" {
+				openAIContent[i].OfText = &openai.ChatCompletionContentPartTextParam{Text: cp.Text}
+			}
+			if cp.ImageURL != "" {
+				openAIContent[i].OfImageURL = &openai.ChatCompletionContentPartImageParam{
+					ImageURL: openai.ChatCompletionContentPartImageImageURLParam{URL: cp.ImageURL},
+				}
+			}
+		}
+		result = openai.UserMessage(openAIContent)
+
 	case *agent.ToolResultMessage:
-		result = openai.ToolMessage(msg.Content(), msg.ToolCallID())
+
+		// TODO: can't provide image because
+		// OpenAI API is not support tool message with images of other possible content
+		// Only text
+		// Need to cereate additional user message with provided content
+		// for safely convert internal type in openAI API bindings
+
+		internalContent := msg.Content()
+
+		openAIContent := make([]openai.ChatCompletionContentPartTextParam, len(internalContent))
+
+		for i, cp := range internalContent {
+			openAIContent[i] = openai.ChatCompletionContentPartTextParam{Text: cp.Text}
+		}
+
+		result = openai.ToolMessage(openAIContent, msg.ToolCallID())
 	}
 
 	return result
@@ -297,4 +345,29 @@ func getExtras(settings map[string]any, key string) (map[string]any, bool, error
 		return nil, true, fmt.Errorf("%s must be map[string]any, got %T", key, v)
 	}
 	return m, true, nil
+}
+
+func getArray[T any](settings map[string]any, key string) ([]T, bool, error) {
+	v, ok := settings[key]
+	if !ok {
+		return nil, false, nil
+	}
+
+	raw, ok := v.([]any)
+	if !ok {
+		return nil, true, fmt.Errorf("%s must be array, got %T", key, v)
+	}
+
+	targetType := reflect.TypeOf((*T)(nil)).Elem()
+	result := make([]T, len(raw))
+	for i, item := range raw {
+		val := reflect.ValueOf(item)
+		if !val.Type().ConvertibleTo(targetType) {
+			var zero T
+			return nil, true, fmt.Errorf("%s[%d] must be %T, got %T", key, i, zero, item)
+		}
+		result[i] = val.Convert(targetType).Interface().(T)
+	}
+
+	return result, true, nil
 }

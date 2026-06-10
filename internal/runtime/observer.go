@@ -47,7 +47,7 @@ func NewObserver(m agent.Model, repo agent.ActivityRepo) *Observer {
 	}
 }
 
-func (o *Observer) Intercept(ctx context.Context, request string, agentID agent.ID, sessID session.ID, evCh chan Event) chan Event {
+func (o *Observer) Intercept(ctx context.Context, additionalMessages []agent.Message, agentID agent.ID, sessID session.ID, evCh chan Event) chan Event {
 	key := sessionKey{agentID, sessID}
 
 	o.mu.Lock()
@@ -56,7 +56,9 @@ func (o *Observer) Intercept(ctx context.Context, request string, agentID agent.
 		inter = o.createInteraction(key)
 		o.interactions[key] = inter
 	}
-	inter.activity += agent.NewUserMessage(request).String()
+	for _, m := range additionalMessages {
+		inter.activity += m.String()
+	}
 	o.mu.Unlock()
 
 	sinkCh := make(chan Event, 16)

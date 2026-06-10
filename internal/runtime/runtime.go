@@ -6,6 +6,7 @@ import (
 	"arch-agent/internal/session"
 	"context"
 	"fmt"
+	"slices"
 )
 
 type AgentRuntime struct {
@@ -41,7 +42,7 @@ func (r *AgentRuntime) RunStream(
 	ctx = withSessionID(ctx, sess.ID())
 
 	// wraps event channel for observing avtivity
-	sink := r.observer.Intercept(ctx, sess.GetLastUserMessageContent(), agt.ID(), sess.ID(), evCh)
+	sink := r.observer.Intercept(ctx, []agent.Message{sess.GetLastUserMessage()}, agt.ID(), sess.ID(), evCh)
 	defer close(sink)
 
 	for {
@@ -89,11 +90,15 @@ func (r *AgentRuntime) runTurn(
 		doCompact(ctx, sess, agt, model, sink)
 	}
 
+	inputMessages := append(precontextMessages, sess.Messages()...)
+
+	distillMessages := excludeUnsupportedModalities(inputMessages, model.SupportedModalities())
+
 	// run completion
 	result, err := model.Complete(
 		ctx,
 		tools,
-		append(precontextMessages, sess.Messages()...),
+		distillMessages,
 	)
 	if err != nil {
 		return true, err
@@ -120,26 +125,32 @@ func (r *AgentRuntime) processToolCalls(
 	toolkit := toolsToMap(tools)
 
 	for _, call := range toolcalls {
-		var resultMessage *agent.ToolResultMessage
 
 		tool, exist := toolkit[call.ToolName]
-
-		if exist {
-			res, err := tool.Call(ctx, call.Arguments)
-			if err != nil {
-				sink <- NewErrToolCallEvent(agt.ID(), sess.ID(), err)
-				res += err.Error()
-			}
-			resultMessage = agent.NewToolResultMessage(call.ID, res)
-
-		} else {
-			resultMessage = agent.NewToolResultMessage(
-				call.ID,
-				fmt.Sprintf("tool %s is not exist", call.ToolName),
+		if !exist {
+			sess.AddMessages(
+				agent.NewToolResultMessage(
+					call.ID,
+					fmt.Sprintf("tool %s is not exist", call.ToolName),
+				),
 			)
+			return
 		}
-		sess.AddMessages([]agent.Message{resultMessage})
-		sink <- NewToolCallResultEvent(agt.ID(), sess.ID(), resultMessage.Content())
+
+		res, err := tool.Call(ctx, call.Arguments)
+		if err != nil {
+			sink <- NewErrToolCallEvent(agt.ID(), sess.ID(), err)
+			res += err.Error()
+		}
+
+		sess.AddMessages(
+			agent.NewToolResultMessage(
+				call.ID,
+				res,
+			),
+		)
+
+		sink <- NewToolCallResultEvent(agt.ID(), sess.ID(), res)
 	}
 }
 
@@ -177,4 +188,46 @@ func preContextHookDialogue(instructions string) []agent.Message {
 		agent.NewUserMessage(prompt.SummaryExplanation(instructions)),
 		agent.NewAgentMessage("okay i will account it", nil),
 	}
+}
+
+func excludeUnsupportedModalities(msgs []agent.Message, mdls []agent.Modality) []agent.Message {
+	var distill []agent.Message
+
+	if !slices.Contains(mdls, agent.ImageModality) {
+		for i, m := range msgs {
+
+			var shouldReplaceMsg bool
+
+			contentParts := m.Content()
+			for contentPartIdx := range contentParts {
+
+				if contentParts[contentPartIdx].ImageURL != "" {
+
+					if !shouldReplaceMsg {
+						shouldReplaceMsg = true
+						contentParts = slices.Clone(contentParts)
+					}
+
+					contentParts[contentPartIdx].ImageURL = ""
+					contentParts[contentPartIdx].Text += prompt.ExcludedUnsupportedModality(agent.ImageModality)
+				}
+
+			}
+
+			if shouldReplaceMsg {
+				if distill == nil {
+					distill = slices.Clone(msgs)
+				}
+
+				distill[i] = agent.CloneMessage(msgs[i])
+				distill[i].SetContent(contentParts)
+			}
+		}
+	}
+
+	if distill == nil {
+		return msgs
+	}
+
+	return distill
 }

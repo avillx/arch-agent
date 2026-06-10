@@ -5,9 +5,12 @@ import (
 	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 
@@ -80,9 +83,6 @@ func (b *Bot) handleMessage(ctx context.Context, message *tgbotapi.Message) erro
 	typingCancel := b.SetTypingAction(message.Chat.ID)
 	defer typingCancel()
 
-	// Convert message to text format
-	messageText := b.formatMessage(message)
-
 	// Create event reader for handling agent events
 	eventReader := runtime.EventReader{
 		OnCompaction: func(agentID agent.ID, sessionID session.ID, reason string) {
@@ -113,7 +113,7 @@ func (b *Bot) handleMessage(ctx context.Context, message *tgbotapi.Message) erro
 		ctx,
 		b.agentID,
 		b.sessionID,
-		messageText,
+		b.toMessage(message),
 		eventReader,
 		b.tools,
 		true,
@@ -165,7 +165,7 @@ func (b *Bot) ensureSession() error {
 }
 
 // formatMessage converts a Telegram message to a standardized text format
-func (b *Bot) formatMessage(msg *tgbotapi.Message) string {
+func (b *Bot) toMessage(msg *tgbotapi.Message) *agent.UserMessage {
 	var sb strings.Builder
 
 	// Basic message info
@@ -179,16 +179,64 @@ func (b *Bot) formatMessage(msg *tgbotapi.Message) string {
 		fmt.Fprintf(&sb, "Sticker: %s\n", msg.Sticker.Emoji)
 	}
 
+	parts := []agent.ContentPart{}
+
 	// Message text
 	if msg.Text != "" {
 		sb.WriteString(msg.Text)
 	}
 
-	return sb.String()
+	parts = append(parts, agent.ContentPart{
+		Text: sb.String(),
+	})
+
+	if len(msg.Photo) > 0 {
+		photo := msg.Photo[len(msg.Photo)-1]
+		contentPart, err := b.resolveImage(photo)
+
+		if err != nil {
+			slog.Error("can't resolve image", "error", err)
+			contentPart = agent.ContentPart{
+				Text: "some errors in reading image",
+			}
+		}
+		parts = append(parts, contentPart)
+	}
+
+	return agent.NewUserMessage(parts)
+}
+
+func (b *Bot) resolveImage(image tgbotapi.PhotoSize) (agent.ContentPart, error) {
+	file, err := b.api.GetFile(tgbotapi.FileConfig{FileID: image.FileID})
+	if err != nil {
+		return agent.ContentPart{}, err
+	}
+
+	resp, err := http.Get(file.Link(b.api.Token))
+	if err != nil {
+		return agent.ContentPart{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return agent.ContentPart{}, fmt.Errorf("bad request status %d %s", resp.StatusCode, http.StatusText(resp.StatusCode))
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return agent.ContentPart{}, err
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(data)
+	mimeType := http.DetectContentType(data)
+
+	return agent.ContentPart{
+		ImageURL: fmt.Sprintf("data:%s;base64,%s", mimeType, encoded),
+	}, nil
 }
 
 // handleCommand processes bot commands
-func (b *Bot) handleCommand(ctx context.Context, update tgbotapi.Update) error {
+func (b *Bot) handleCommand(_ context.Context, update tgbotapi.Update) error {
 	command := update.Message.Command()
 
 	switch command {

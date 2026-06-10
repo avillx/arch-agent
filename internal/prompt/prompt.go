@@ -1,6 +1,7 @@
 package prompt
 
 import (
+	"arch-agent/internal/agent"
 	"fmt"
 	"strings"
 )
@@ -243,4 +244,9 @@ this is what you last remeber before this conversation.
 do not read today activity. this is already it.`,
 		activityContent,
 	)
+}
+
+func ExcludedUnsupportedModality(modality agent.Modality) string {
+	return fmt.Sprintf(`
+	Message contain unupported modality "%s"!`, modality)
 }

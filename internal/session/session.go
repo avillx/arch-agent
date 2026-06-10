@@ -18,11 +18,11 @@ type Session interface {
 	ID() ID
 
 	Messages() []agent.Message
-	GetLastAssistantMessageContent() string
-	GetLastUserMessageContent() string
+	GetLastAgentMessage() *agent.AgentMessage
+	GetLastUserMessage() *agent.UserMessage
 
 	ApplyCompletion(*agent.Completion)
-	AddMessages([]agent.Message)
+	AddMessages(...agent.Message)
 
 	Subsessions() map[agent.ID]ID
 	AddSubsession(agent.ID, ID)
@@ -94,21 +94,21 @@ func (s *session) SetTitle(title string) { s.title = title }
 func (s *session) InputTokens() int64  { return s.inputTokens }
 func (s *session) OutputTokens() int64 { return s.outputTokens }
 
-func (s *session) GetLastAssistantMessageContent() string {
+func (s *session) GetLastAgentMessage() *agent.AgentMessage {
 	for _, message := range slices.Backward(s.messages) {
 		if typedMessage, ok := message.(*agent.AgentMessage); ok {
-			return typedMessage.Content()
+			return typedMessage
 		}
 	}
-	return ""
+	return nil
 }
-func (s *session) GetLastUserMessageContent() string {
+func (s *session) GetLastUserMessage() *agent.UserMessage {
 	for _, message := range slices.Backward(s.messages) {
 		if typedMessage, ok := message.(*agent.UserMessage); ok {
-			return typedMessage.Content()
+			return typedMessage
 		}
 	}
-	return ""
+	return nil
 }
 
 func (s *session) AddSubsession(agentID agent.ID, subsessionID ID) {
@@ -123,7 +123,7 @@ func (s *session) Messages() []agent.Message {
 	messages := []agent.Message{}
 	return append(messages, s.messages...)
 }
-func (s *session) AddMessages(msgs []agent.Message) { s.messages = append(s.messages, msgs...) }
+func (s *session) AddMessages(msgs ...agent.Message) { s.messages = append(s.messages, msgs...) }
 
 func (s *session) ApplyCompletion(completion *agent.Completion) {
 	s.inputTokens = completion.InputTokens

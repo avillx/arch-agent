@@ -19,11 +19,11 @@ All memory stores in `/agent/data/...`
 - [X] All services names to Service to svc 
 - [X] Polish telegram module
 - [X] Should compact refactor (systemPrompt and summarization dialog accounting and tools)
+- [X] preload last 50 lines of logs when option
+- [ ] Skill adding tools
+- [ ] Refactor openAI adapter (settings map parsing)
 - [ ] Observer skill selected tool - result excluded
 - [ ] func (a *agent) HasMemory() bool
-- [ ] preload last 50 lines of logs when option
-- [ ] chatSvc add options (WithProvidedTools, WithPreloadedActivity, WithMemory) 
-- [ ] bm25 fileSearch
 - [ ] AutoDream
 - [ ] Error system refactor
 - [ ] check depricated (before restruct) variable names
@@ -31,6 +31,7 @@ All memory stores in `/agent/data/...`
 - [ ] agent fs as sandbox iface over fs
 - [ ] better web search gateway 
 - [ ] MCP Service and tools
-- [ ] Multimodal input
+- [X] Multimodal input
 - [ ] API endpints
 - [ ] view over file_read (files, images and docs)
+- [ ] bm25 fileSearch

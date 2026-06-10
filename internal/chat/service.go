@@ -45,7 +45,7 @@ func (s *Service) Chat(
 	ctx context.Context,
 	agentID agent.ID,
 	sessionID session.ID,
-	request string,
+	request *agent.UserMessage,
 	reader runtime.EventReader,
 	providedTools []agent.Tool,
 	addActivity bool,
@@ -57,7 +57,7 @@ func (s *Service) Chat(
 		return err
 	}
 
-	sess.AddMessages([]agent.Message{agent.NewUserMessage(request)})
+	sess.AddMessages(request)
 
 	//agent
 	agt, err := s.agentRepo.Get(agentID)
