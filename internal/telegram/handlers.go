@@ -320,7 +320,8 @@ func (b *Bot) formatToolCalls(calls []*agent.ToolCall, msg *tgbotapi.Message) (s
 			if args.Oneshot {
 				sb.WriteString("(one-time)")
 			}
-
+		case "send_sticker":
+			// do nothing
 		default:
 			fmt.Fprintf(&sb, "🔧 Using tool: %s\n", call.ToolName)
 		}
