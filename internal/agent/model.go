@@ -17,9 +17,8 @@ const (
 
 type Model interface {
 	Settings() ModelSettings
-	ContextLimit() int64
-	SetSettings(ModelSettings) error
 	Complete(context.Context, []Tool, []Message) (*Completion, error)
+	ContextLimit() int64
 	SupportedModalities() []Modality
 }
 

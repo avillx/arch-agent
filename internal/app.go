@@ -6,6 +6,7 @@ import (
 	"arch-agent/internal/chat"
 	"arch-agent/internal/cron"
 	"arch-agent/internal/files"
+	"arch-agent/internal/model"
 	"arch-agent/internal/openai"
 	"arch-agent/internal/runtime"
 	"arch-agent/internal/searxng"
@@ -45,11 +46,14 @@ func BuildModelsRepo(fs *files.FileSystem) (agent.ModelRepository, error) {
 		return nil, err
 	}
 
-	openaiFactory := openai.NewOpenAIFactory(secretsRepo)
+	modelFiles, err := files.NewModelFiles(fs)
+	if err != nil {
+		return nil, err
+	}
 
-	return files.NewModelFiles(fs,
-		files.WithFactory(openaiFactory.Type(), openaiFactory.Produce),
-	)
+	openaiFactory := openai.NewOpenAIModelFactory(secretsRepo)
+
+	return model.NewService(modelFiles, openaiFactory)
 }
 
 func BuildTaskSvc(

@@ -3,7 +3,6 @@ package openai
 import (
 	"arch-agent/internal/agent"
 	"errors"
-	"fmt"
 
 	"reflect"
 
@@ -14,21 +13,6 @@ import (
 
 type SecretsRepo interface {
 	Get(string) (string, bool)
-}
-
-type openAIFactory struct {
-	secrets SecretsRepo
-}
-
-func NewOpenAIFactory(s SecretsRepo) *openAIFactory {
-	return &openAIFactory{
-		secrets: s,
-	}
-}
-
-func (f *openAIFactory) Type() string { return "open_ai" }
-func (f *openAIFactory) Produce(settings agent.ModelSettings) (agent.Model, error) {
-	return NewOpenAIReasoner(f.secrets, settings)
 }
 
 func messagesToOpenAI(internalFromatMessages []agent.Message) []openai.ChatCompletionMessageParamUnion {
@@ -89,12 +73,6 @@ func messageToOpenAI(internalFromatMessage agent.Message) openai.ChatCompletionM
 		result = openai.UserMessage(openAIContent)
 
 	case *agent.ToolResultMessage:
-
-		// TODO: can't provide image because
-		// OpenAI API is not support tool message with images of other possible content
-		// Only text
-		// Need to cereate additional user message with provided content
-		// for safely convert internal type in openAI API bindings
 
 		internalContent := msg.Content()
 
@@ -273,101 +251,5 @@ func OpenAICompletionToReasonResult(completion *openai.ChatCompletion) (*agent.C
 }
 
 func IsDoneOpenAI(finishReason string) bool {
-	if finishReason == "stop" {
-		return true
-	}
-	return false
-}
-
-// validators
-
-func getString(settings map[string]any, key string) (string, bool, error) {
-	v, ok := settings[key]
-	if !ok {
-		return "", false, nil
-	}
-	s, ok := v.(string)
-	if !ok {
-		return "", true, fmt.Errorf("%s must be a string, got %T", key, v)
-	}
-	return s, true, nil
-}
-
-func getInt(settings map[string]any, key string) (int, bool, error) {
-	v, ok := settings[key]
-	if !ok {
-		return 0, false, nil
-	}
-	switch n := v.(type) {
-	case int:
-		return n, true, nil
-	case float64:
-		return int(n), true, nil
-	}
-	return 0, true, fmt.Errorf("%s must be int, got %T", key, v)
-}
-
-func getInt64(settings map[string]any, key string) (int64, bool, error) {
-	v, ok := settings[key]
-	if !ok {
-		return 0, false, nil
-	}
-	switch n := v.(type) {
-	case int64:
-		return n, true, nil
-	case float64:
-		return int64(n), true, nil
-	}
-	return 0, true, fmt.Errorf("%s must be int64, got %T", key, v)
-}
-
-func getFloat32(settings map[string]any, key string) (float32, bool, error) {
-	v, ok := settings[key]
-	if !ok {
-		return 0, false, nil
-	}
-	switch n := v.(type) {
-	case float32:
-		return n, true, nil
-	case float64:
-		return float32(n), true, nil
-	}
-	return 0, true, fmt.Errorf("%s must be float32, got %T", key, v)
-}
-
-func getExtras(settings map[string]any, key string) (map[string]any, bool, error) {
-	v, ok := settings[key]
-	if !ok {
-		return nil, false, nil
-	}
-	m, ok := v.(map[string]any)
-	if !ok {
-		return nil, true, fmt.Errorf("%s must be map[string]any, got %T", key, v)
-	}
-	return m, true, nil
-}
-
-func getArray[T any](settings map[string]any, key string) ([]T, bool, error) {
-	v, ok := settings[key]
-	if !ok {
-		return nil, false, nil
-	}
-
-	raw, ok := v.([]any)
-	if !ok {
-		return nil, true, fmt.Errorf("%s must be array, got %T", key, v)
-	}
-
-	targetType := reflect.TypeOf((*T)(nil)).Elem()
-	result := make([]T, len(raw))
-	for i, item := range raw {
-		val := reflect.ValueOf(item)
-		if !val.Type().ConvertibleTo(targetType) {
-			var zero T
-			return nil, true, fmt.Errorf("%s[%d] must be %T, got %T", key, i, zero, item)
-		}
-		result[i] = val.Convert(targetType).Interface().(T)
-	}
-
-	return result, true, nil
+	return finishReason == "stop"
 }
