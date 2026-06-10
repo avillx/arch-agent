@@ -14,8 +14,7 @@ func NewWriteFileTool(fs FS) *WriteFileTool { return &WriteFileTool{fs} }
 
 func (t *WriteFileTool) Name() agent.ToolName { return "write_file" }
 func (t *WriteFileTool) Description() string {
-	return `write content to a file, creating it if it does not exist.
-mode: "overwrite" (default) replaces the file; "append" adds to the end`
+	return "Write content to a file, creating it if it does not exist; default mode overwrites"
 }
 func (t *WriteFileTool) Schema() []agent.ToolProperty {
 	return []agent.ToolProperty{
@@ -36,6 +35,7 @@ func (t *WriteFileTool) Schema() []agent.ToolProperty {
 			Required:    false,
 			Type:        agent.TypeString,
 			Description: `"overwrite" (default) or "append"`,
+			Enum:        []string{"overwrite", "append"},
 		},
 	}
 }

@@ -2,7 +2,6 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/runtime"
 	"arch-agent/internal/tools"
 	"context"
 	"fmt"
@@ -14,24 +13,26 @@ import (
 const skillMD = "SKILL.md"
 
 // read_file
-var _ runtime.Instructed = (*ReadFileTool)(nil)
+// var _ runtime.Instructed = (*ReadFileTool)(nil)
 
 type ReadFileTool struct{ fs FS }
 
 func NewReadFileTool(fs FS) *ReadFileTool { return &ReadFileTool{fs} }
 
-func (t *ReadFileTool) Instruction() string {
-	return `Files:
-- Files are stored in root "file:///"
-- 'file:///activity/{agent_name}/YYYY/MM/DD/YYYY-MM-DD.md' — memory logs of all agents. 
-  Use search_files to find information, Read only the minimum amount of data required. 
-  If activity not exist's - nothing is happening. Contains your activity`
-}
+// TODO:
+// Instruction for activity searching should be a part of memory prompt
+// func (t *ReadFileTool) Instruction() string {
+// 	return `Files:
+// - Files are stored in root "file:///"
+// - 'file:///activity/{agent_name}/YYYY/MM/DD/YYYY-MM-DD.md' — memory logs of all agents.
+//   Use search_files to find information, Read only the minimum amount of data required.
+//   If activity not exist's - nothing is happening. Contains your activity`
+// }
 
 func (t *ReadFileTool) Name() agent.ToolName { return "read_file" }
 
 func (t *ReadFileTool) Description() string {
-	return "read file content, optionally limited to a line range (1-indexed)"
+	return "Read file content, optionally limited to a line range (1-indexed)"
 }
 func (t *ReadFileTool) Schema() []agent.ToolProperty {
 	return []agent.ToolProperty{
@@ -39,19 +40,19 @@ func (t *ReadFileTool) Schema() []agent.ToolProperty {
 			Name:        "path",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "file path, e.g. file:///notes/README.md",
+			Description: "File path, e.g. file:///notes/README.md",
 		},
 		{
 			Name:        "start_line",
 			Required:    false,
 			Type:        agent.TypeNumber,
-			Description: "first line to read (default: 1)",
+			Description: "First line to read (default: 1)",
 		},
 		{
 			Name:        "end_line",
 			Required:    false,
 			Type:        agent.TypeNumber,
-			Description: "last line to read (default: end of file)",
+			Description: "Last line to read (default: end of file)",
 		},
 	}
 }

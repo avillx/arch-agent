@@ -30,7 +30,7 @@ func (t *SendStickerTool) Name() agent.ToolName {
 }
 
 func (t *SendStickerTool) Description() string {
-	return "send sticker in chat"
+	return "Send a sticker  to the current chat by emoji"
 }
 
 func (t *SendStickerTool) Schema() []agent.ToolProperty {
@@ -39,13 +39,13 @@ func (t *SendStickerTool) Schema() []agent.ToolProperty {
 			Name:        "chat_id",
 			Required:    true,
 			Type:        agent.TypeNumber,
-			Description: "chat id that sticker will be sended",
+			Description: "Telegram chat ID to send sticker to",
 		},
 		{
 			Name:        "emoji",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "sticker emoji, never use not allowed emojis, only from enum. Only one emoji",
+			Description: "Single emoji character representing the reaction. Must be one of the allowed values from enum.",
 			Enum:        t.bot.AllowedEmojis(),
 		},
 	}

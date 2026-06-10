@@ -24,19 +24,19 @@ func (t *EditFileTool) Schema() []agent.ToolProperty {
 			Name:        "path",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "file path",
+			Description: "File path",
 		},
 		{
 			Name:        "old_str",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "the unique string to find",
+			Description: "Unique string to replace",
 		},
 		{
 			Name:        "new_str",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "replacement string (empty string to delete)",
+			Description: "Replacement string; empty string to delete",
 		},
 	}
 }

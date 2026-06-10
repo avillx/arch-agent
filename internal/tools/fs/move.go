@@ -22,13 +22,13 @@ func (t *MoveFileTool) Schema() []agent.ToolProperty {
 			Name:        "src",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "source file path",
+			Description: "Source file path",
 		},
 		{
 			Name:        "dst",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "destination file path",
+			Description: "Destination file path",
 		},
 	}
 }

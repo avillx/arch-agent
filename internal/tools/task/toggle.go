@@ -23,7 +23,7 @@ func (t *ToggleTaskTool) Name() agent.ToolName {
 }
 
 func (t *ToggleTaskTool) Description() string {
-	return "turn task, actives - inactive tasks and deactivate - active tasks"
+	return "Toggle a task's active state: activates inactive tasks and deactivates active ones"
 }
 func (t *ToggleTaskTool) Schema() []agent.ToolProperty {
 	return []agent.ToolProperty{
@@ -31,7 +31,7 @@ func (t *ToggleTaskTool) Schema() []agent.ToolProperty {
 			Name:        "name",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "name of task",
+			Description: "Task name",
 		},
 	}
 }

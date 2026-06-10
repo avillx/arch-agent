@@ -33,7 +33,7 @@ func (t *WebSearchTool) Name() agent.ToolName {
 }
 
 func (t *WebSearchTool) Description() string {
-	return "searchs web"
+	return "Search the web; returns titles, URLs, and snippets for each result"
 }
 
 func (t *WebSearchTool) Schema() []agent.ToolProperty {
@@ -42,13 +42,13 @@ func (t *WebSearchTool) Schema() []agent.ToolProperty {
 			Name:        "query",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "search query",
+			Description: "Search query; use specific keywords, not full sentences",
 		},
 		{
 			Name:        "results",
 			Required:    true,
 			Type:        agent.TypeNumber,
-			Description: "number of results",
+			Description: "Number of results to return (e.g. 5)",
 		},
 	}
 }

@@ -122,18 +122,16 @@ Rules:
 - Write in past tense, first person from agent Perspective.
 
 Output format:
-No header, No statuses only session records. no empy lines.
+One entry per line, past tense, no headers or status lines, no empty lines.
 
-<log entries, one per line>
-
+<log entries>
 Example:
-- User John request to test project X
-- I clone project X repository from https://github.com/john/project-x.git
-- Review project X
-- I conversate with John about backend vulnerabilities of project X
-- Project X marked as depricated
-- Jonh is irritated and mention refactor of project X on a new stack with python
-...`
+- User John requested to test project X
+- I cloned project X from https://github.com/john/project-x.git
+- Reviewed project X codebase
+- I discussed backend vulnerabilities with John
+- Project X marked as deprecated
+- John expressed frustration and proposed migrating project X to Python`
 }
 
 func ReportRequest() string {
@@ -231,22 +229,23 @@ Return your result directly. Start with the result, not with "I will now...".
 
 func SummaryExplanation(summary string) string {
 	return fmt.Sprintf(
-		`Here is context for this current conversation:\n%s\n\n now you already continue this conversation.`,
+		`Here is context for this conversation:
+%s
+
+Continue from where it left off.`,
 		summary,
 	)
 }
 
 func ActivityExplanation(activityContent string) string {
-	return fmt.Sprintf(`This is your activity for a last 24 hours:
+	return fmt.Sprintf(`Your activity over the last 24 hours:
 %s
 
-this is what you last remeber before this conversation. 
-do not read today activity. this is already it.`,
+This is background context — it has already happened. Do not act on it again.`,
 		activityContent,
 	)
 }
 
 func ExcludedUnsupportedModality(modality agent.Modality) string {
-	return fmt.Sprintf(`
-	Message contain unupported modality "%s"!`, modality)
+	return fmt.Sprintf(`Message contains unsupported modality: "%s"`, modality)
 }

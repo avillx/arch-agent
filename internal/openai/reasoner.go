@@ -13,6 +13,8 @@ import (
 
 var _ agent.Model = (*OpenAIReasoner)(nil)
 
+const defaultContextLimit = 100_000
+
 type OpenAIReasoner struct {
 	client     *openai.Client
 	settings   OpenAIModelSettings
@@ -28,7 +30,10 @@ func NewOpenAIReasoner(client *openai.Client, settings OpenAIModelSettings) *Ope
 }
 
 func (r *OpenAIReasoner) ContextLimit() int64 {
-	return *r.settings.ContextLimit
+	if r.settings.ContextLimit != nil {
+		return *r.settings.ContextLimit
+	}
+	return defaultContextLimit
 }
 
 func (r *OpenAIReasoner) Settings() agent.ModelSettings {

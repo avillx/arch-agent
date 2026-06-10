@@ -59,6 +59,9 @@ func shouldCompact(
 	outputTokens,
 	contextLimit int64,
 ) bool {
+	if contextLimit <= 0 {
+		contextLimit = defaultContextLimit
+	}
 	return (inputTokens + outputTokens) >= int64(float64(contextLimit)*thereshold)
 }
 

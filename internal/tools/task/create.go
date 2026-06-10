@@ -26,10 +26,7 @@ func (t *AddTaskTool) Name() agent.ToolName {
 }
 
 func (t *AddTaskTool) Description() string {
-	return "creates a task that will be sended for agents by reglament" +
-		"for some reminds or request to do somthing at some time once, use oneshot." +
-		"before create a regular task ensure that actually what you should do" +
-		"if debt - clarify it"
+	return "Create a scheduled task that dispatches a request to agents on a cron schedule; use oneshot for one-time reminders"
 }
 func (t *AddTaskTool) Schema() []agent.ToolProperty {
 	return []agent.ToolProperty{
@@ -37,37 +34,37 @@ func (t *AddTaskTool) Schema() []agent.ToolProperty {
 			Name:        "name",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "short unique name for task (e.g. some_task)",
+			Description: "Short unique task name (e.g. daily_report)",
 		},
 		{
 			Name:        "description",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "one-line hook description of task",
+			Description: "One-line summary of the task",
 		},
 		{
 			Name:        "recipients",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "agents ID's who recive task, enumirate them with whitespaces, (e.g. agent1 agent2 agent3 ), ensure agents existance (use lower case)",
+			Description: "Space-separated agent IDs in lowercase (e.g. agent1 agent2); verify agents exist",
 		},
 		{
-			Name:        "reglament",
+			Name:        "schedule",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "cron like reglament (e.g. * * * * * )",
+			Description: "Cron expression (e.g. * * * * *)",
 		},
 		{
 			Name:        "request",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "This is request for agent, what is need to do, create a detailed explaination of task",
+			Description: "Detailed instructions sent to the agent on each invocation",
 		},
 		{
 			Name:        "oneshot",
 			Required:    true,
 			Type:        agent.TypeBoolean,
-			Description: "if true - invokes only once, and deactives when done",
+			Description: "If true, runs once then deactivates automatically",
 		},
 	}
 }
@@ -77,7 +74,7 @@ func (t *AddTaskTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (st
 		Name        string `json:"name"`
 		Description string `json:"description"`
 		Recipients  string `json:"recipients"`
-		Reglament   string `json:"reglament"`
+		Reglament   string `json:"schedule"`
 		Request     string `json:"request"`
 		Oneshot     bool   `json:"oneshot"`
 	}](rawArgs)

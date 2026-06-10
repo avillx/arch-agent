@@ -22,7 +22,7 @@ func (t *DeleteTool) Schema() []agent.ToolProperty {
 			Name:        "path",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "path to delete",
+			Description: "Path to the file or directory",
 		},
 	}
 }

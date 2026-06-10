@@ -50,7 +50,7 @@ func (t *CallAgentTool) Name() agent.ToolName {
 }
 
 func (t *CallAgentTool) Description() string {
-	return "send request to another agent"
+	return "Delegate a task or question to another agent"
 }
 
 func (t *CallAgentTool) Schema() []agent.ToolProperty {
@@ -59,13 +59,13 @@ func (t *CallAgentTool) Schema() []agent.ToolProperty {
 			Name:        "name",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "name of agent",
+			Description: "Target agent name",
 		},
 		{
 			Name:        "request",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "This is your message to another agent",
+			Description: "Task or question to send to the agent",
 		},
 	}
 }

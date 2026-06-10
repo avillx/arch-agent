@@ -29,7 +29,7 @@ func (t *FetchTool) Name() agent.ToolName {
 }
 
 func (t *FetchTool) Description() string {
-	return "fetch web pagens on provided URL"
+	return "Fetch content of a web page by URL"
 }
 
 func (t *FetchTool) Schema() []agent.ToolProperty {
@@ -38,13 +38,13 @@ func (t *FetchTool) Schema() []agent.ToolProperty {
 			Name:        "url",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "request url",
+			Description: "URL of the page to fetch",
 		},
 		{
 			Name:        "format",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "format of result. if html on page is important use it. If you need only information use markdown",
+			Description: "Output format: 'rawHTML' preserves page structure, 'markdown' extracts readable content",
 			Enum:        []string{"rawHTML", "markdown"},
 		},
 	}

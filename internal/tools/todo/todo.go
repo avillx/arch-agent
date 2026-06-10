@@ -39,11 +39,11 @@ func renderList(items []TodoItem) string {
 type CreateTodoTool struct{ Store Store }
 
 func (t *CreateTodoTool) Name() agent.ToolName { return "create_todo" }
-func (t *CreateTodoTool) Description() string  { return "create one or more todo items" }
+func (t *CreateTodoTool) Description() string  { return "Create one or more todos" }
 
 func (t *CreateTodoTool) Instruction() string {
-	return `Todo management:
-- Use create_todo to plan steps before starting a task.
+	return `Todo managment:
+- Use create_todo to plan steps before starting a multistep task.
 - Keep titles short and action-oriented.`
 }
 
@@ -54,7 +54,7 @@ func (t *CreateTodoTool) Schema() []agent.ToolProperty {
 			Required:    true,
 			IsArray:     true,
 			Type:        agent.TypeString,
-			Description: "list of todo titles to create",
+			Description: "Todo titles to create",
 		},
 	}
 }
@@ -83,9 +83,7 @@ func (t *CreateTodoTool) Call(ctx context.Context, rawArgs agent.ToolArguments) 
 type UpdateTodoTool struct{ Store Store }
 
 func (t *UpdateTodoTool) Name() agent.ToolName { return "update_todo" }
-func (t *UpdateTodoTool) Description() string  { return "update the status of a todo by id" }
-
-func (t *UpdateTodoTool) Instruction() string { return "" }
+func (t *UpdateTodoTool) Description() string  { return "Update a todo's status by ID" }
 
 func (t *UpdateTodoTool) Schema() []agent.ToolProperty {
 	return []agent.ToolProperty{
@@ -93,13 +91,14 @@ func (t *UpdateTodoTool) Schema() []agent.ToolProperty {
 			Name:        "id",
 			Required:    true,
 			Type:        agent.TypeNumber,
-			Description: "todo id to update",
+			Description: "Todo ID",
 		},
 		{
 			Name:        "status",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "new status: pending | in_progress | done | declined",
+			Description: "New status value",
+			Enum:        []string{"pending", "in_progress", "done", "declined"},
 		},
 	}
 }
@@ -128,10 +127,8 @@ type ListTodoTool struct{ Store Store }
 
 func (t *ListTodoTool) Name() agent.ToolName { return "list_todo" }
 func (t *ListTodoTool) Description() string {
-	return "list all todos for the current session and agent"
+	return "List all todos in the current session"
 }
-
-func (t *ListTodoTool) Instruction() string { return "" }
 
 func (t *ListTodoTool) Schema() []agent.ToolProperty { return nil }
 

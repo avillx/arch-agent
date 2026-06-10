@@ -14,6 +14,13 @@ type SearchFilesTool struct{ fs FS }
 
 func NewSearchFilesTool(fs FS) *SearchFilesTool { return &SearchFilesTool{fs} }
 
+func (t *SearchFilesTool) Instruction() string {
+	return `Search strategy:
+- Use short, specific terms — function names, identifiers, keywords.
+- Avoid natural language phrases; prefer exact tokens that appear in code or text.
+- Narrow root to the smallest relevant directory to reduce noise.`
+}
+
 func (t *SearchFilesTool) Name() agent.ToolName { return "search_files" }
 func (t *SearchFilesTool) Description() string {
 	return "recursively search file contents under root; returns matching lines as path:line: text"
@@ -24,19 +31,19 @@ func (t *SearchFilesTool) Schema() []agent.ToolProperty {
 			Name:        "root",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "directory to search under, e.g. file:///some_dir/",
+			Description: "Directory to search under, e.g. file:///some_dir/",
 		},
 		{
 			Name:        "query",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "case-insensitive substring to search for",
+			Description: "Case-insensitive substring to search for",
 		},
 		{
 			Name:        "max_results",
 			Required:    false,
 			Type:        agent.TypeNumber,
-			Description: "maximum matches to return (default: 20)",
+			Description: "Maximum matches to return (Default: 20)",
 		},
 	}
 }

@@ -16,7 +16,7 @@ func NewListDirTool(fs FS) *ListDirTool { return &ListDirTool{fs} }
 func (t *ListDirTool) Name() agent.ToolName { return "list_dir" }
 
 func (t *ListDirTool) Description() string {
-	return "list entries in a directory; returns one file:/// path per line"
+	return "List entries in a directory; returns one file:/// URI per line"
 }
 func (t *ListDirTool) Schema() []agent.ToolProperty {
 	return []agent.ToolProperty{

@@ -2,7 +2,6 @@ package tasktools
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/runtime"
 	"arch-agent/internal/task"
 	"context"
 	"fmt"
@@ -20,23 +19,23 @@ func NewGetTasksTool(s *task.Service) *GetTasksTool {
 	}
 }
 
-var _ runtime.Instructed = (*GetTasksTool)(nil)
+// var _ runtime.Instructed = (*GetTasksTool)(nil)
 
-func (t *GetTasksTool) Instruction() string {
-	return `Tasks:
-- Tasks is a cron-like sheduling yhat invokes you or other agents to process some request
-- Tasks use cases:
-  'remind somthing regular or only once, greet coworkers, congrat some one with birthday, check some status, etc...'
-- When you manage tasks notify user directly like:
-  'Okay, i remind you','Understand, i will texting you at this time', 'I won't read logs every... anymore.'.`
-}
+// func (t *GetTasksTool) Instruction() string {
+// 	return `Tasks:
+// - Tasks is a cron-like sheduling yhat invokes you or other agents to process some request
+// - Tasks use cases:
+//   'remind somthing regular or only once, greet coworkers, congrat some one with birthday, check some status, etc...'
+// - When you manage tasks notify user directly like:
+//   'Okay, i remind you','Understand, i will texting you at this time', 'I won't read logs every... anymore.'.`
+// }
 
 func (t *GetTasksTool) Name() agent.ToolName {
 	return "get_tasks"
 }
 
 func (t *GetTasksTool) Description() string {
-	return "returns full list of tasks"
+	return "List all tasks with their current active state"
 }
 func (t *GetTasksTool) Schema() []agent.ToolProperty {
 	return []agent.ToolProperty{}
