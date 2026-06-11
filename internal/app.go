@@ -26,13 +26,18 @@ import (
 	"slices"
 )
 
+type AppConfig struct {
+	DataPath         string
+	SearchHostScheme string
+	SearchHost       string
+	TelegramGroupID  int64
+	BotConfigs       []telegram.BotConfig
+}
+
 type App struct {
-	A2ASvc            *a2a.Service
-	ToolSvc           *tools.Service
 	runtime           *runtime.AgentRuntime
 	TelegramOrchestra *telegram.BotOrchestrator
 	TaskSvc           *task.Service
-	SessionSvc        *session.Service
 	Memory            *memory.Memory
 }
 
@@ -82,9 +87,9 @@ func BuildTaskSvc(
 	)
 }
 
-func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string, groupID int64, botCfgs ...telegram.BotConfig) (*App, error) {
+func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 
-	fs, err := files.NewFS(dataPath)
+	fs, err := files.NewFS(cfg.DataPath)
 	if err != nil {
 		return nil, err
 	}
@@ -126,14 +131,9 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 		return nil, err
 	}
 
-	// a2aFiles, err := files.NewA2AFiles(fs,)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	a2aSvc := a2a.NewService(chatSvc, sessSvc)
 
-	searx := searxng.NewSearXSearch(searchHostScheme, searchHost)
+	searx := searxng.NewSearXSearch(cfg.SearchHostScheme, cfg.SearchHost)
 
 	todoStorage := todo.NewInMemoryStore()
 
@@ -184,7 +184,7 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 	memoryConsolidator.SetModel(consolidatorModel)
 
 	// Telegram Bots
-	botOrchestra, err := telegram.NewBotOrchestrator(botCfgs...)
+	botOrchestra, err := telegram.NewBotOrchestrator(cfg.BotConfigs...)
 	if err != nil {
 		return nil, err
 	}
@@ -196,12 +196,9 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 	)
 
 	return &App{
-		A2ASvc:            a2aSvc,
 		runtime:           rt,
 		TelegramOrchestra: botOrchestra,
 		TaskSvc:           taskSvc,
-		SessionSvc:        sessSvc,
 		Memory:            memoryConsolidator,
-		ToolSvc:           toolSvc,
 	}, nil
 }
