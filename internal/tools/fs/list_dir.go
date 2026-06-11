@@ -3,7 +3,9 @@ package fstools
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/tools"
+	"bytes"
 	"context"
+	"fmt"
 	"path"
 	"strings"
 )
@@ -36,12 +38,10 @@ func (t *ListDirTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (st
 	if err != nil {
 		return "", err
 	}
-
 	internal, err := toInternal(args.Path)
 	if err != nil {
 		return "", err
 	}
-
 	entries, err := t.fs.ReadDir(internal)
 	if err != nil {
 		return "", wrapFSError(err, args.Path)
@@ -53,7 +53,40 @@ func (t *ListDirTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (st
 
 	lines := make([]string, len(entries))
 	for i, name := range entries {
-		lines[i] = toAgent(path.Join(internal, name))
+		filePath := path.Join(internal, name)
+		lines[i] = formatEntry(t.fs, filePath)
 	}
 	return strings.Join(lines, "\n"), nil
+}
+
+func formatEntry(fs FS, filePath string) string {
+	label := toAgent(filePath)
+
+	content, err := fs.ReadFile(filePath)
+	if err != nil {
+		return label // директория или нет доступа — просто путь
+	}
+
+	size := formatSize(len(content))
+
+	if !IsTextFile(filePath) {
+		return fmt.Sprintf("%s %s", label, size)
+	}
+
+	lineCount := bytes.Count(content, []byte("\n"))
+	if len(content) > 0 && content[len(content)-1] != '\n' {
+		lineCount++
+	}
+	return fmt.Sprintf("%s %s [%d lines]", label, size, lineCount)
+}
+
+func formatSize(n int) string {
+	switch {
+	case n >= 1024*1024:
+		return fmt.Sprintf("%.1fmb", float64(n)/1024/1024)
+	case n >= 1024:
+		return fmt.Sprintf("%.1fkb", float64(n)/1024)
+	default:
+		return fmt.Sprintf("%db", n)
+	}
 }
