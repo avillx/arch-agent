@@ -1,0 +1,1 @@
+Produce an activity log for the following session transcript.

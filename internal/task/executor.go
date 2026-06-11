@@ -3,10 +3,10 @@ package task
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/chat"
+	"arch-agent/internal/prompt"
 	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"context"
-	"fmt"
 	"log/slog"
 )
 
@@ -57,9 +57,6 @@ func (s *executor) execute(ctx context.Context, t Task) {
 }
 
 func (s *executor) processRecipientTask(ctx context.Context, agentID agent.ID, taskName, request string) error {
-
-	const autonomusWorking = "Now You working autonomusly if somthing wrong try to contact with someone"
-
 	slog.Info("task executes in background", "task", taskName)
 
 	sessID, err := s.sessionSvc.Create(agentID)
@@ -71,7 +68,7 @@ func (s *executor) processRecipientTask(ctx context.Context, agentID agent.ID, t
 		ctx,
 		agentID,
 		sessID,
-		agent.NewUserMessage(fmt.Sprintf("%s\n\n%s", autonomusWorking, request)),
+		agent.NewUserMessage(prompt.GetAutonomusRequest(request)),
 		runtime.EventReader{},
 		nil,
 		true,
