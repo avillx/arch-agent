@@ -42,7 +42,7 @@ func (s *Service) Call(
 
 	subSessionID, ok := sess.Subsessions()[recivierAgentID]
 	if !ok {
-		subSessionID, err = s.sessionSvc.Create(recivierAgentID, false)
+		subSessionID, err = s.sessionSvc.Create(recivierAgentID)
 		if err != nil {
 			return "", err
 		}

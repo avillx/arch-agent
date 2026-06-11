@@ -33,17 +33,18 @@ func (r *AgentRuntime) RunStream(
 	tools []agent.Tool,
 	sess session.Session,
 	evCh chan Event,
+	logActivity bool,
 ) error {
-
-	// WithLogging
-	// WithActivityPreload
 
 	ctx = withAgentID(ctx, agt.ID())
 	ctx = withSessionID(ctx, sess.ID())
 
 	// wraps event channel for observing avtivity
-	sink := r.observer.Intercept(ctx, []agent.Message{sess.GetLastUserMessage()}, agt.ID(), sess.ID(), evCh)
-	defer close(sink)
+	if logActivity {
+		evCh = r.observer.Intercept(ctx, []agent.Message{sess.GetLastUserMessage()}, agt.ID(), sess.ID(), evCh)
+	}
+
+	defer close(evCh)
 
 	for {
 		select {
@@ -52,9 +53,9 @@ func (r *AgentRuntime) RunStream(
 		default:
 		}
 
-		done, err := r.runTurn(ctx, model, agt, tools, sess, sink)
+		done, err := r.runTurn(ctx, model, agt, tools, sess, evCh)
 		if err != nil {
-			sink <- NewErrEvent(agt.ID(), sess.ID(), err)
+			evCh <- NewErrEvent(agt.ID(), sess.ID(), err)
 			return err
 		}
 
@@ -70,27 +71,26 @@ func (r *AgentRuntime) runTurn(
 	agt agent.Agent,
 	tools []agent.Tool,
 	sess session.Session,
-	sink chan Event,
+	evCh chan Event,
 ) (bool, error) {
 
 	// build system message
-	precontextMessages := []agent.Message{
+	contextMessages := []agent.Message{
 		r.contextAssembler.assembeSystemMessage(agt, tools),
 	}
 
-	if sess.Summary() != "" {
-		precontextMessages = append(
-			precontextMessages,
-			preContextHookDialogue(sess.Summary())...,
-		)
+	// resolve precontext hooks
+	hooks := r.contextAssembler.resolvePreContextHooks(agt, sess)
+	if len(hooks) > 0 {
+		contextMessages = append(contextMessages, hooks...)
 	}
 
 	// check compaction
 	if shouldCompact(sess.InputTokens(), sess.OutputTokens(), model.ContextLimit()) {
-		doCompact(ctx, sess, agt, model, sink)
+		doCompact(ctx, sess, agt, model, evCh)
 	}
 
-	inputMessages := append(precontextMessages, sess.Messages()...)
+	inputMessages := append(contextMessages, sess.Messages()...)
 
 	distillMessages := excludeUnsupportedModalities(inputMessages, model.SupportedModalities())
 
@@ -107,9 +107,9 @@ func (r *AgentRuntime) runTurn(
 	sess.ApplyCompletion(result)
 
 	// add event
-	sink <- NewCompleteEvent(agt.ID(), sess.ID(), result)
+	evCh <- NewCompleteEvent(agt.ID(), sess.ID(), result)
 
-	r.processToolCalls(ctx, agt, tools, result.ToolCalls, sess, sink)
+	r.processToolCalls(ctx, agt, tools, result.ToolCalls, sess, evCh)
 
 	return result.Done, nil
 }
@@ -120,7 +120,7 @@ func (r *AgentRuntime) processToolCalls(
 	tools []agent.Tool,
 	toolcalls []*agent.ToolCall,
 	sess session.Session,
-	sink chan Event,
+	evCh chan Event,
 ) {
 	toolkit := toolsToMap(tools)
 
@@ -139,7 +139,7 @@ func (r *AgentRuntime) processToolCalls(
 
 		res, err := tool.Call(ctx, call.Arguments)
 		if err != nil {
-			sink <- NewErrToolCallEvent(agt.ID(), sess.ID(), err)
+			evCh <- NewErrToolCallEvent(agt.ID(), sess.ID(), err)
 			res += err.Error()
 		}
 
@@ -150,7 +150,7 @@ func (r *AgentRuntime) processToolCalls(
 			),
 		)
 
-		sink <- NewToolCallResultEvent(agt.ID(), sess.ID(), res)
+		evCh <- NewToolCallResultEvent(agt.ID(), sess.ID(), res)
 	}
 }
 
@@ -181,13 +181,6 @@ func toolsToMap(tools []agent.Tool) map[agent.ToolName]agent.Tool {
 	}
 
 	return toolMap
-}
-
-func preContextHookDialogue(instructions string) []agent.Message {
-	return []agent.Message{
-		agent.NewUserMessage(prompt.SummaryExplanation(instructions)),
-		agent.NewAgentMessage("okay i will account it", nil),
-	}
 }
 
 func excludeUnsupportedModalities(msgs []agent.Message, mdls []agent.Modality) []agent.Message {

@@ -143,7 +143,7 @@ func (b *Bot) ensureSession() error {
 	}
 
 	// Create new session
-	sessionID, err := b.sessionSvc.Create(b.agentID, true)
+	sessionID, err := b.sessionSvc.Create(b.agentID)
 	if err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
 	}
@@ -236,11 +236,15 @@ func (b *Bot) resolveImage(image tgbotapi.PhotoSize) (agent.ContentPart, error) 
 }
 
 // handleCommand processes bot commands
-func (b *Bot) handleCommand(_ context.Context, update tgbotapi.Update) error {
+func (b *Bot) handleCommand(ctx context.Context, update tgbotapi.Update) error {
 	command := update.Message.Command()
 
 	switch command {
 	case "start":
+		_, err := b.SendMessage(update.Message.From.ID, "Hello! I'm your assistant bot.", 0)
+		return err
+	case "dream":
+		b.d.DreamImmidate(ctx, b.agentID)
 		_, err := b.SendMessage(update.Message.From.ID, "Hello! I'm your assistant bot.", 0)
 		return err
 	default:

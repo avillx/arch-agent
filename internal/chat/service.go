@@ -48,7 +48,7 @@ func (s *Service) Chat(
 	request *agent.UserMessage,
 	reader runtime.EventReader,
 	providedTools []agent.Tool,
-	addActivity bool,
+	logging bool,
 ) error {
 
 	// session
@@ -108,6 +108,7 @@ func (s *Service) Chat(
 		tools,
 		sess,
 		evCh,
+		logging,
 	)
 
 	if err != nil {

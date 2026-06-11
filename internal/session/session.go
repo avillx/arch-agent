@@ -37,6 +37,9 @@ type Session interface {
 
 	CreatedAt() time.Time
 	UpdatedAt() time.Time
+
+	SetExtras(map[string]any)
+	Extras() map[string]any
 }
 
 type session struct {
@@ -49,6 +52,8 @@ type session struct {
 	subsessions  map[agent.ID]ID
 	createdAt    time.Time
 	updatedAt    time.Time
+
+	extras map[string]any
 }
 
 func NewSession(id ID) *session {
@@ -59,6 +64,7 @@ func NewSession(id ID) *session {
 		messages:     []agent.Message{},
 		subsessions:  map[agent.ID]ID{},
 		createdAt:    time.Now(),
+		extras:       map[string]any{},
 	}
 }
 
@@ -70,10 +76,16 @@ func NewRestoredSession(
 	summary string,
 	subsessions map[agent.ID]ID,
 	createdAt time.Time,
+	extras map[string]any,
 ) *session {
 	if subsessions == nil {
 		subsessions = map[agent.ID]ID{}
 	}
+
+	if extras == nil {
+		extras = map[string]any{}
+	}
+
 	return &session{
 		id:          id,
 		messages:    messages,
@@ -84,6 +96,8 @@ func NewRestoredSession(
 
 		inputTokens:  inputTokens,
 		outputTokens: outputTokens,
+
+		extras: extras,
 	}
 }
 
@@ -152,3 +166,6 @@ func (s *session) CreatedAt() time.Time {
 func (s *session) UpdatedAt() time.Time {
 	return s.updatedAt
 }
+
+func (s *session) SetExtras(e map[string]any) { s.extras = e }
+func (s *session) Extras() map[string]any     { return s.extras }

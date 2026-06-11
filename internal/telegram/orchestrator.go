@@ -56,11 +56,13 @@ func (o *BotOrchestrator) Get(agentID agent.ID) (*Bot, error) {
 func (o *BotOrchestrator) Wire(
 	sessionSvc *session.Service,
 	chatSvc *chat.Service,
+	dreamer Dreamer,
 ) {
 	for _, b := range o.bots {
 		b.Wire(
 			sessionSvc,
 			chatSvc,
+			dreamer,
 		)
 	}
 }

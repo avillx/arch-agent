@@ -2,63 +2,65 @@ package prompt
 
 import (
 	"arch-agent/internal/agent"
+	"bytes"
+	_ "embed"
 	"fmt"
+	"log/slog"
 	"strings"
+	"text/template"
+	"time"
 )
 
-// func DreamerAgent() string {
-// 	return `You are a senior memory consolidator.
-// Your sole task is maintain flat and laconic memory database in moderate small or markdown files.
-// Write in first person from agent perspective, like telling a friend — honest, direct, slightly informal.
+//go:embed templates/consolidate_memory.md
+var memoriztionPromptRaw string
+var memorizationTmpl = template.Must(template.New("memory").Parse(memoriztionPromptRaw))
 
-// <voice>
-// One sentence that captures the pattern beats five that describe its symptoms.
-// "He shuts down when stressed" — not "exhibits withdrawal under stress".
-// If 3+ observations point to the same thing — collapse into one.
-// If enough observations show who this person is — write it as a held opinion, not a list of facts.
-// </voice>
+func GetMemorizationPrompt(agent agent.ID) string {
+	var buf bytes.Buffer
+	if err := memorizationTmpl.Execute(&buf, map[string]any{"Agent": agent}); err != nil {
+		slog.Error("Memory consolidation prompt is not resolved", "error", err)
+		panic("memory consolidation prompt can't be resolved")
+	}
 
-// <keep_if>
-// Forgetting it would concretely change future responses, OR
-// it reveals a stable personality trait.
-// </keep_if>
+	fmt.Print(buf.String())
 
-// <discard_if>
-// Tied to timing ("mentioned yesterday", "currently doing X") OR
-// already exists in another file OR
-// fills space without adding meaning.
-// </discard_if>
+	return buf.String()
+}
 
-// <domains>
-// people · projects · concepts · instructions · self · work
-// </domains>
+func GetMemorizationRequest(agentID agent.ID) string {
+	return fmt.Sprintf("Process data for agent %s , for %s", agentID, time.Now().AddDate(0, 0, -1).Format("2006.01.02"))
+}
 
-// <file_format>
-// Flat list only. No headers, no sections.
-// - Concrete beats vague — "I ran today" lands better than "I'll be fine".
-// - He gets quiet when overwhelmed. I've learned not to push then.
-// </file_format>
+func MemoryHeaderPrompt() string { return `You have persistent memory across conversations.` }
 
-// <steps>
-// 1. Open only files relevant to transcript domain
-// 2. Extract candidates → apply keep/discard → drop immediately
-// 3. Prune existing lines by same rules
-// 4. Merge files with < 3 surviving facts into closest neighbor
-// 5. Write survivors as flat first-person observations
-// 6. Collapse similar observations into one
-// 7. Split oversized files by topic
-// 8. Update index if needed
-// </steps>
+func EpisodicMemoryPrompt() string {
+	return `## Episodic Memory
+- Stored at: 'file:///activity/{your_name}/YYYY/MM/DD/YYYY-MM-DD.md'
+- Contains raw activity logs — read them to recall what happened on a specific date.
+- Use file name search to locate the right file before reading.
+- Search first to confirm the file exists and is the correct date — never load blindly.
+- Never read more than 2 files at once.
+- If a file or folder doesn't exist, you were inactive or nothing occurred that day.
+- Never tell the user you are reading memory files. Refer to it naturally: "let me think back…" or "I don't remember that."`
+}
 
-// Do not call tools found in the transcript. Only file operations allowed.
-// Never create tracking, log, or history files.
-// Prefer 2 focused files over 1 large and complex one.
-
-// <output_format>
-// Short report: what was deleted, added, merged.
-// </output_format>
-// `
-// }
+func PersistentMemoryPrompt(memoryIndex string) string {
+	return fmt.Sprintf(`## Knowledge Memory
+- Stored at: 'file:///memory/{your_name}/'
+- All available knowledge files are listed in 'INDEX.md'.
+- Read relevant files when the context involves a known domain, project, or person.
+- If unsure whether a file is needed, search before reading.
+- Refer to this as your memory — not as files.
+- This is not episodic memory; it contains recurring facts and persistent knowledge.
+- To check if something exists, a one-line scan of the index is enough — only open the full file when you need details.
+- NEVER re-write memory files! It genereates automaticly.
+- If you want to memorize somthing important you can create 'note_YY-MM-DD.md' 
+  and write it to this file. or append if file aleary exists. Use it for promises, hard rules, etc...
+<index>
+This is INDEX.md — do not re-read this file, it is already loaded.
+%s
+</index>`, memoryIndex)
+}
 
 func SummarizationAgent() string {
 	return `You are an expert in dialogue summarization. Your sole task is to extract key facts, significant events, decisions made, ideas, and general conclusions from dialogues.
@@ -137,18 +139,6 @@ Example:
 func ReportRequest() string {
 	return "Produce an activity log for the following session transcript."
 }
-
-// func Memorize() string {
-// 	return `<system>
-// The context is about to be cleared.
-
-// Write yourself a short diary-style note — one paragraph — to recall this conversation tomorrow.
-
-// Capture: what the user is working on, key decisions made, open questions, anything that would help you pick up naturally where you left off.
-
-// Tone: personal, warm, first-person. Like a quick journal entry, not a summary.
-// <system>`
-// }
 
 func ConcatStrings(str ...string) string {
 	return strings.Join(str, "\n")

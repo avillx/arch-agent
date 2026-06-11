@@ -62,7 +62,7 @@ func (s *executor) processRecipientTask(ctx context.Context, agentID agent.ID, t
 
 	slog.Info("task executes in background", "task", taskName)
 
-	sessID, err := s.sessionSvc.Create(agentID, false)
+	sessID, err := s.sessionSvc.Create(agentID)
 	if err != nil {
 		return err
 	}
@@ -74,6 +74,6 @@ func (s *executor) processRecipientTask(ctx context.Context, agentID agent.ID, t
 		agent.NewUserMessage(fmt.Sprintf("%s\n\n%s", autonomusWorking, request)),
 		runtime.EventReader{},
 		nil,
-		false,
+		true,
 	)
 }

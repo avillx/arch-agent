@@ -18,6 +18,10 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
+type Dreamer interface {
+	DreamImmidate(context.Context, agent.ID) error
+}
+
 const (
 	maxMessageLength   = 4096
 	sessionTimeout     = 10 * time.Minute
@@ -53,6 +57,8 @@ type Bot struct {
 
 	// mode
 	isWebhook bool
+
+	d Dreamer
 }
 
 // NewBot creates a new Telegram bot instance
@@ -94,9 +100,10 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 }
 
 // Wire connects the bot to services
-func (b *Bot) Wire(sessionSvc *session.Service, chatSvc *chat.Service) {
+func (b *Bot) Wire(sessionSvc *session.Service, chatSvc *chat.Service, d Dreamer) {
 	b.sessionSvc = sessionSvc
 	b.chatSvc = chatSvc
+	b.d = d
 }
 
 // Run starts the bot's update loop

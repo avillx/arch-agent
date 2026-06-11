@@ -9,6 +9,7 @@ import (
 	"arch-agent/internal/model"
 	"arch-agent/internal/openai"
 	"arch-agent/internal/runtime"
+	"arch-agent/internal/runtime/memory"
 	"arch-agent/internal/searxng"
 	"arch-agent/internal/session"
 	"arch-agent/internal/task"
@@ -22,6 +23,7 @@ import (
 	"arch-agent/internal/uuid"
 	"context"
 	"errors"
+	"slices"
 )
 
 type App struct {
@@ -31,11 +33,11 @@ type App struct {
 	TelegramOrchestra *telegram.BotOrchestrator
 	TaskSvc           *task.Service
 	SessionSvc        *session.Service
-	// TelegramA2AInterceptor *telegram.A2AInterceptor
+	Memory            *memory.Memory
 }
 
 func (a *App) Run(ctx context.Context) {
-	// go a.TelegramA2AInterceptor.Run(ctx)
+	go a.Memory.Run(ctx)
 	a.TelegramOrchestra.Run(ctx)
 }
 
@@ -82,11 +84,6 @@ func BuildTaskSvc(
 
 func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string, groupID int64, botCfgs ...telegram.BotConfig) (*App, error) {
 
-	botOrchestra, err := telegram.NewBotOrchestrator(botCfgs...)
-	if err != nil {
-		return nil, err
-	}
-
 	fs, err := files.NewFS(dataPath)
 	if err != nil {
 		return nil, err
@@ -113,7 +110,7 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 	observer := runtime.NewObserver(observerModel, activityRepo)
 
 	skillFiles := files.NewSkillFiles(fs)
-	contextAssembler := runtime.NewContextAssembler(skillFiles)
+	contextAssembler := runtime.NewContextAssembler(skillFiles, activityRepo, files.NewMemoryFiles(fs))
 	rt := runtime.NewAgentRuntime(observer, contextAssembler)
 
 	toolSvc := tools.NewService()
@@ -140,8 +137,8 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 
 	todoStorage := todo.NewInMemoryStore()
 
-	toolSvc.AddTools(
-		// filesystem tools
+	// Tools
+	fsTools := []agent.Tool{
 		fstools.NewListDirTool(fs),
 		fstools.NewReadFileTool(fs),
 		fstools.NewWriteFileTool(fs),
@@ -149,32 +146,53 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 		fstools.NewMoveFileTool(fs),
 		fstools.NewDeleteTool(fs),
 		fstools.NewSearchFilesTool(fs),
+	}
 
-		// task scheduling tools
-		tasktools.NewToggleTaskTool(taskSvc),
-		tasktools.NewGetTasksTool(taskSvc),
-		tasktools.NewAddTaskTool(taskSvc, func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) }),
-
-		// callagent tools
-		tools.NewCallAgentTool(a2aSvc, agentRepo),
-
-		// // telegram tools
-		// tgtools.NewSendMessageTool(botOrchestra),
-		// tgtools.NewSendStickerTool(botOrchestra),
-
-		// web tools
-		fetch.NewFetchTool(),
-		search.NewWebSearchTool(searx),
-
-		// todo tools
+	todoTools := []agent.Tool{
 		&todo.CreateTodoTool{Store: todoStorage},
 		&todo.ListTodoTool{Store: todoStorage},
 		&todo.UpdateTodoTool{Store: todoStorage},
+	}
+
+	taskControlTools := []agent.Tool{
+		tasktools.NewToggleTaskTool(taskSvc),
+		tasktools.NewGetTasksTool(taskSvc),
+		tasktools.NewAddTaskTool(taskSvc, func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) }),
+	}
+
+	webTools := []agent.Tool{
+		fetch.NewFetchTool(),
+		search.NewWebSearchTool(searx),
+	}
+
+	callAgentTool := tools.NewCallAgentTool(a2aSvc, agentRepo)
+
+	toolSvc.AddTools(
+		append(slices.Concat(fsTools, todoTools, taskControlTools, webTools), callAgentTool)...,
 	)
+
+	// memory consolidation
+	memoryConsolidator := memory.NewMemory(
+		agentRepo,
+		rt,
+		append(fsTools, todoTools...),
+	)
+	consolidatorModel, err := modelRepo.Get("consolidator")
+	if err != nil {
+		return nil, err
+	}
+	memoryConsolidator.SetModel(consolidatorModel)
+
+	// Telegram Bots
+	botOrchestra, err := telegram.NewBotOrchestrator(botCfgs...)
+	if err != nil {
+		return nil, err
+	}
 
 	botOrchestra.Wire(
 		sessSvc,
 		chatSvc,
+		memoryConsolidator,
 	)
 
 	return &App{
@@ -183,6 +201,7 @@ func BuildApp(ctx context.Context, dataPath, searchHostScheme, searchHost string
 		TelegramOrchestra: botOrchestra,
 		TaskSvc:           taskSvc,
 		SessionSvc:        sessSvc,
-		// TelegramA2AInterceptor: telegram.NewA2AInterceptor(groupID, botOrchestra, a2aSvc),
+		Memory:            memoryConsolidator,
+		ToolSvc:           toolSvc,
 	}, nil
 }
