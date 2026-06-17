@@ -1,5 +1,9 @@
 package agent
 
+type SkillRegestry interface {
+	Get(SkillID) (Skill, error)
+}
+
 type SkillID string
 
 type Skill interface {

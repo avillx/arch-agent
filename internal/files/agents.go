@@ -32,7 +32,7 @@ func (s *AgentFiles) All() ([]agent.Agent, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	entries, err := os.ReadDir(s.fs.Dir())
+	entries, err := s.fs.ReadDir(".")
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -46,8 +46,7 @@ func (s *AgentFiles) All() ([]agent.Agent, error) {
 			continue
 		}
 
-		id := agent.ID(strings.TrimPrefix(e.Name(), "agent."))
-		dto, err := s.readConfig(id)
+		dto, err := s.readConfig(agent.ID(e.Name()))
 		if err != nil {
 			continue
 		}
@@ -92,15 +91,11 @@ func (s *AgentFiles) Save(agt agent.Agent) error {
 		return err
 	}
 
-	return s.fs.WriteToFile(fmt.Sprintf("/agent.%s/agent.md", agt.ID()), data)
+	return s.fs.WriteToFile(resolveAgentFilePath(agt.ID()), data)
 }
 
-// func (s *AgentFiles) Delete(id agent.ID) error {
-// 	s.fs.D
-// }
-
 func (s *AgentFiles) readConfig(id agent.ID) (AgentDTO, error) {
-	data, err := s.fs.ReadFile(fmt.Sprintf("/agent.%s/agent.md", id))
+	data, err := s.fs.ReadFile(resolveAgentFilePath(id))
 	if err != nil {
 		return AgentDTO{}, err
 	}
@@ -180,4 +175,8 @@ func marshalAgentFile(agt agent.Agent) ([]byte, error) {
 	buf.WriteString("---\n")
 	buf.WriteString(agt.SystemPrompt())
 	return buf.Bytes(), nil
+}
+
+func resolveAgentFilePath(agentID agent.ID) string {
+	return fmt.Sprintf("/agents/%s/agent.md", agentID)
 }

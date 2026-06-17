@@ -11,7 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const skillsFolder = "/files/skills"
+const skillsFolder = "/skills"
 const skillFile = "SKILL.md"
 
 var _ runtime.SkillIndexer = (*SkillFiles)(nil)
@@ -63,7 +63,7 @@ func (f *SkillFiles) loadSkills() error {
 			continue
 		}
 
-		if !validateSkillName(skillFolder, skill.ID()) {
+		if !validateSkillName(skillFolder.Name(), skill.ID()) {
 			slog.Error("skillfolder must named as skill", "skill folder", skillFolder, "skill name", skill.ID())
 			continue
 		}

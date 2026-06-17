@@ -24,9 +24,9 @@ func NewSessionFiles(fs *FileSystem) *SessionFiles {
 	}
 }
 
-func (r *SessionFiles) Session(agentID agent.ID, sesstionID session.ID) (session.Session, error) {
+func (r *SessionFiles) Session(agentID agent.ID, sessionID session.ID) (session.Session, error) {
 
-	sessionFilePath := fmt.Sprintf("/agent.%s/sessions/%s.json", agentID, sesstionID)
+	sessionFilePath := resolveSessionPath(agentID, sessionID)
 
 	data, err := r.fs.ReadFile(sessionFilePath)
 	if err != nil {
@@ -36,7 +36,7 @@ func (r *SessionFiles) Session(agentID agent.ID, sesstionID session.ID) (session
 		return nil, err
 	}
 
-	return r.unmarshalSession(sesstionID, data)
+	return r.unmarshalSession(sessionID, data)
 }
 
 func (r *SessionFiles) Save(agentID agent.ID, s session.Session) error {
@@ -45,48 +45,50 @@ func (r *SessionFiles) Save(agentID agent.ID, s session.Session) error {
 		return err
 	}
 
-	sessionFilePath := fmt.Sprintf("/agent.%s/sessions/%s.json", agentID, string(s.ID()))
+	sessionFilePath := resolveSessionPath(agentID, s.ID())
 	return r.fs.WriteToFile(sessionFilePath, data)
 }
 
-func (r *SessionFiles) Delete(agentID agent.ID, id session.ID) error {
-	sessionFilePath := fmt.Sprintf("/agent.%s/sessions/%s.json", agentID, string(id))
+func (r *SessionFiles) Delete(agentID agent.ID, sessionID session.ID) error {
+	sessionFilePath := resolveSessionPath(agentID, sessionID)
 	return r.fs.Delete(sessionFilePath)
 }
 
 func (r *SessionFiles) List(agentID agent.ID) ([]session.ID, error) {
 
-	sessionDir := fmt.Sprintf("/agent.%s/sessions", agentID)
-
-	filenames, err := r.fs.ReadDir(sessionDir)
+	sessionDir := resolveSessionFolderPath(agentID)
+	files, err := r.fs.ReadDir(sessionDir)
 	if err != nil {
 		return nil, err
 	}
 
-	sessionIDs := make([]session.ID, len(filenames))
-	for _, filename := range filenames {
-		sessionID := strings.TrimRight(filename, filepath.Ext(filename))
+	sessionIDs := make([]session.ID, len(files))
+	for _, file := range files {
+
+		fileName := file.Name()
+
+		sessionID := strings.TrimRight(fileName, filepath.Ext(fileName))
 		sessionIDs = append(sessionIDs, session.ID(sessionID))
 	}
 
 	return sessionIDs, nil
 }
 
-func (r *SessionFiles) unmarshalSession(id session.ID, data []byte) (session.Session, error) {
+func (r *SessionFiles) unmarshalSession(sessionID session.ID, data []byte) (session.Session, error) {
 	var dto SessionDTO
 	if err := json.Unmarshal(data, &dto); err != nil {
 		return nil, err
 	}
-	return r.dtoToSession(id, dto)
+	return r.dtoToSession(sessionID, dto)
 }
 
-func (r *SessionFiles) dtoToSession(id session.ID, dto SessionDTO) (session.Session, error) {
+func (r *SessionFiles) dtoToSession(sessionID session.ID, dto SessionDTO) (session.Session, error) {
 	msgs, err := DtoToMessages(dto.Messages)
 	if err != nil {
 		return nil, err
 	}
 	return session.NewRestoredSession(
-		id,
+		sessionID,
 		msgs,
 		dto.InputTokens,
 		dto.OutputTokens,
@@ -119,4 +121,11 @@ func marshalSession(s session.Session) ([]byte, error) {
 		SubSessions:  s.Subsessions(),
 		Extras:       s.Extras(),
 	}, "", "	")
+}
+
+func resolveSessionPath(agentID agent.ID, sessionID session.ID) string {
+	return filepath.Join(resolveSessionFolderPath(agentID), fmt.Sprintf("%s.json", sessionID))
+}
+func resolveSessionFolderPath(agentID agent.ID) string {
+	return fmt.Sprintf("/agents/%s/sessions", agentID)
 }

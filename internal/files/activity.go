@@ -20,11 +20,11 @@ func NewActivityFiles(fs *FileSystem) *ActivityFiles {
 
 func (f *ActivityFiles) Log(id agent.ID, r agent.ActivityRecord) error {
 	data := []byte(r.String())
-	return f.fs.AppendToFile(resolveFilePath(id, time.Now()), data)
+	return f.fs.AppendToFile(resolveActivityFilePath(id, time.Now()), data)
 }
 
 func (f *ActivityFiles) GetActivity(id agent.ID, date time.Time) (string, error) {
-	data, err := f.fs.ReadFile(resolveFilePath(id, date))
+	data, err := f.fs.ReadFile(resolveActivityFilePath(id, date))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", agent.ErrNoActivity
@@ -34,9 +34,9 @@ func (f *ActivityFiles) GetActivity(id agent.ID, date time.Time) (string, error)
 	return string(data), nil
 }
 
-func resolveFilePath(agentID agent.ID, t time.Time) string {
+func resolveActivityFilePath(agentID agent.ID, t time.Time) string {
 	return filepath.Join(
-		fmt.Sprintf("/files/activity/%s", agentID),
+		fmt.Sprintf("/agents/%s/activity", agentID),
 		t.Format("2006/01/02/"),
 		fmt.Sprintf("%s.md", t.Format("2006-01-02")),
 	)

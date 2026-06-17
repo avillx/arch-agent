@@ -19,6 +19,7 @@ func newLockTable() *lockTable {
 func (lt *lockTable) acquire(path string) *entry {
 	lt.mu.Lock()
 	defer lt.mu.Unlock()
+
 	e := lt.locks[path]
 	if e == nil {
 		e = &entry{}
@@ -30,31 +31,28 @@ func (lt *lockTable) acquire(path string) *entry {
 
 func (lt *lockTable) release(path string, e *entry) {
 	lt.mu.Lock()
+	defer lt.mu.Unlock()
+
 	e.refs--
 	if e.refs == 0 {
 		delete(lt.locks, path)
 	}
-	lt.mu.Unlock()
 }
 
-func (lt *lockTable) RLock(path string) *entry {
-	e := lt.acquire(path)
-	e.mu.RLock()
-	return e
-}
-
-func (lt *lockTable) RUnlock(path string, e *entry) {
-	e.mu.RUnlock()
-	lt.release(path, e)
-}
-
-func (lt *lockTable) Lock(path string) *entry {
+func (lt *lockTable) Lock(path string) func() {
 	e := lt.acquire(path)
 	e.mu.Lock()
-	return e
+	return func() {
+		e.mu.Unlock()
+		lt.release(path, e)
+	}
 }
 
-func (lt *lockTable) Unlock(path string, e *entry) {
-	e.mu.Unlock()
-	lt.release(path, e)
+func (lt *lockTable) RLock(path string) func() {
+	e := lt.acquire(path)
+	e.mu.RLock()
+	return func() {
+		e.mu.RUnlock()
+		lt.release(path, e)
+	}
 }

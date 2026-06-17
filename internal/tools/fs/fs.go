@@ -14,7 +14,7 @@ type FS interface {
 	WriteToFile(path string, data []byte) error
 	AppendToFile(path string, data []byte) error
 	Delete(path string) error
-	ReadDir(path string) ([]string, error)
+	ReadDir(path string) ([]os.DirEntry, error)
 }
 
 func matchLines(agentPath, content, query string, limit int) []string {

@@ -1,11 +1,11 @@
 package files
 
 import (
-	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 )
+
+const FileMode = 0644
 
 type FileSystem struct {
 	locks *lockTable
@@ -13,7 +13,7 @@ type FileSystem struct {
 }
 
 func NewFS(dir string) (*FileSystem, error) {
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, FileMode); err != nil {
 		return nil, err
 	}
 	return &FileSystem{
@@ -22,93 +22,54 @@ func NewFS(dir string) (*FileSystem, error) {
 	}, nil
 }
 
-func (fs *FileSystem) ReadDir(path string) ([]string, error) {
-	entries, err := os.ReadDir(fs.pathTo(path))
-	if err != nil {
-		return nil, err
-	}
-	names := make([]string, 0, len(entries))
-	for _, e := range entries {
-		entryName := e.Name()
+func (fs *FileSystem) ReadDir(path string) ([]os.DirEntry, error) {
+	unlock := fs.locks.RLock(path)
+	defer unlock()
 
-		if e.IsDir() {
-			entryName += "/"
-		}
-		names = append(names, entryName)
-	}
-	return names, nil
+	return os.ReadDir(fs.resolveAbsolutePath(path))
 }
 
 func (fs *FileSystem) ReadFile(path string) ([]byte, error) {
-	e := fs.locks.RLock(path)
-	defer fs.locks.RUnlock(path, e)
+	unlock := fs.locks.RLock(path)
+	defer unlock()
 
-	return os.ReadFile(fs.pathTo(path))
+	return os.ReadFile(fs.resolveAbsolutePath(path))
 }
 
 func (fs *FileSystem) WriteToFile(path string, data []byte) error {
-	e := fs.locks.Lock(path)
-	defer fs.locks.Unlock(path, e)
+	unlock := fs.locks.Lock(path)
+	defer unlock()
 
-	fullPath := fs.pathTo(path)
+	fullPath := fs.resolveAbsolutePath(path)
 
-	if err := os.WriteFile(fullPath, data, 0644); err != nil {
-
-		var pathErr *os.PathError
-		if !errors.As(err, &pathErr) {
-			return err
-		}
-		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-			return err
-		}
-
-		return os.WriteFile(fullPath, data, 0644)
+	if err := os.MkdirAll(filepath.Dir(fullPath), FileMode); err != nil {
+		return err
 	}
-	return nil
+
+	return os.WriteFile(fullPath, data, FileMode)
 }
 
 func (fs *FileSystem) AppendToFile(path string, data []byte) error {
-	e := fs.locks.Lock(path)
+	unlock := fs.locks.Lock(path)
+	defer unlock()
 
-	f, err := os.OpenFile(fs.pathTo(path), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(fs.resolveAbsolutePath(path), os.O_CREATE|os.O_APPEND|os.O_WRONLY, FileMode)
 	if err != nil {
-		if os.IsNotExist(err) {
-			fs.locks.Unlock(path, e)
-			return fs.WriteToFile(path, data)
-		}
-		fs.locks.Unlock(path, e)
-		return fmt.Errorf("can't open file %s: %w", path, err)
-
+		return err
 	}
 	defer f.Close()
 	_, err = f.Write(data)
 
-	fs.locks.Unlock(path, e)
 	return err
 }
 
 func (fs *FileSystem) Delete(path string) error {
-	e := fs.locks.RLock(path)
-	defer fs.locks.RUnlock(path, e)
+	unlock := fs.locks.Lock(path)
+	defer unlock()
 
-	return os.Remove(fs.pathTo(path))
+	return os.Remove(fs.resolveAbsolutePath(path))
 }
 
-func (fs *FileSystem) Dir() string {
-	return fs.dir
-}
-
-func (fs *FileSystem) pathTo(name string) string {
-	return filepath.Join(fs.dir, name)
-}
-
-func (fs *FileSystem) touchFile(path string) error {
-	f, err := os.OpenFile(fs.pathTo(path), os.O_CREATE|os.O_EXCL, 0644)
-	if os.IsExist(err) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	return f.Close()
+func (fs *FileSystem) resolveAbsolutePath(relativePath string) string {
+	return filepath.Join(fs.dir, relativePath)
 }

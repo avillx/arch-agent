@@ -52,8 +52,8 @@ func (t *ListDirTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (st
 	}
 
 	lines := make([]string, len(entries))
-	for i, name := range entries {
-		filePath := path.Join(internal, name)
+	for i, e := range entries {
+		filePath := path.Join(internal, e.Name())
 		lines[i] = formatEntry(t.fs, filePath)
 	}
 	return strings.Join(lines, "\n"), nil
