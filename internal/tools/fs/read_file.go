@@ -12,22 +12,9 @@ import (
 
 const skillMD = "SKILL.md"
 
-// read_file
-// var _ runtime.Instructed = (*ReadFileTool)(nil)
-
 type ReadFileTool struct{ fs FS }
 
 func NewReadFileTool(fs FS) *ReadFileTool { return &ReadFileTool{fs} }
-
-// TODO:
-// Instruction for activity searching should be a part of memory prompt
-// func (t *ReadFileTool) Instruction() string {
-// 	return `Files:
-// - Files are stored in root "file:///"
-// - 'file:///activity/{agent_name}/YYYY/MM/DD/YYYY-MM-DD.md' — memory logs of all agents.
-//   Use search_files to find information, Read only the minimum amount of data required.
-//   If activity not exist's - nothing is happening. Contains your activity`
-// }
 
 func (t *ReadFileTool) Name() agent.ToolName { return "read_file" }
 

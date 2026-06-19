@@ -2,32 +2,34 @@ package ruledfiles
 
 import (
 	"arch-agent/internal/files"
+	"fmt"
 	"os"
+	"slices"
+	"strings"
 )
 
 type Rules[T any] struct {
-	validators   []func(T) error
-	modificators []func(T) T
+	rules []func(T) (T, error)
 }
 
 func NewRules[T any]() *Rules[T] {
 	return &Rules[T]{
-		modificators: make([]func(T) T, 0),
-		validators:   make([]func(T) error, 0),
+		rules: make([]func(T) (T, error), 0),
 	}
 }
 
+func (f *Rules[T]) AddRule(r func(T) (T, error)) {
+	f.rules = append(f.rules, r)
+}
+
 func (f *Rules[T]) Apply(value T) (T, error) {
-	for _, v := range f.validators {
-		if err := v(value); err != nil {
+	for _, v := range f.rules {
+		newValue, err := v(value)
+		if err != nil {
 			return value, err
 		}
+		value = newValue
 	}
-
-	for _, m := range f.modificators {
-		value = m(value)
-	}
-
 	return value, nil
 }
 
@@ -41,37 +43,46 @@ type RuledFileSystem struct {
 	fs *files.FileSystem
 
 	// Path rules
-	ReadPath   *Rules[string]
-	WritePath  *Rules[string]
-	AppendPath *Rules[string]
-	DeletePath *Rules[string]
+	readDirPath *Rules[string]
+	readPath    *Rules[string]
+	writePath   *Rules[string]
+	appendPath  *Rules[string]
+	deletePath  *Rules[string]
 
 	// Data rules
-	DirOutput   *Rules[DirResult]
-	WriteInput  *Rules[[]byte]
-	AppendInput *Rules[[]byte]
+	dirOutput    *Rules[DirResult]
+	writeInput   *Rules[[]byte]
+	appendOutput *Rules[[]byte]
+	readOutput   *Rules[[]byte]
 }
 
-func NewRuledFileSystem(fs *files.FileSystem, opts ...Option) *RuledFileSystem {
-	rfs := &RuledFileSystem{
-		fs:         fs,
-		ReadPath:   NewRules[string](),
-		WritePath:  NewRules[string](),
-		AppendPath: NewRules[string](),
-		DeletePath: NewRules[string](),
+func NewRuledFileSystem(fs *files.FileSystem, opts ...Option) (*RuledFileSystem, error) {
+	if fs == nil {
+		return nil, fmt.Errorf("file system must be non nil")
+	}
 
-		DirOutput:   NewRules[DirResult](),
-		WriteInput:  NewRules[[]byte](),
-		AppendInput: NewRules[[]byte](),
+	rfs := &RuledFileSystem{
+		fs:          fs,
+		readDirPath: NewRules[string](),
+		readPath:    NewRules[string](),
+		writePath:   NewRules[string](),
+		appendPath:  NewRules[string](),
+		deletePath:  NewRules[string](),
+
+		dirOutput:    NewRules[DirResult](),
+		writeInput:   NewRules[[]byte](),
+		appendOutput: NewRules[[]byte](),
+		readOutput:   NewRules[[]byte](),
 	}
 	for _, opt := range opts {
 		opt(rfs)
 	}
-	return rfs
+
+	return rfs, nil
 }
 
 func (rfs *RuledFileSystem) ReadDir(path string) ([]os.DirEntry, error) {
-	safePath, err := rfs.ReadPath.Apply(path)
+	safePath, err := rfs.readDirPath.Apply(path)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +92,7 @@ func (rfs *RuledFileSystem) ReadDir(path string) ([]os.DirEntry, error) {
 		return nil, err
 	}
 
-	moded, err := rfs.DirOutput.Apply(DirResult{path: path, entries: entries})
+	moded, err := rfs.dirOutput.Apply(DirResult{path: safePath, entries: entries})
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +101,7 @@ func (rfs *RuledFileSystem) ReadDir(path string) ([]os.DirEntry, error) {
 }
 
 func (rfs *RuledFileSystem) ReadFile(path string) ([]byte, error) {
-	safePath, err := rfs.ReadPath.Apply(path)
+	safePath, err := rfs.readPath.Apply(path)
 	if err != nil {
 		return nil, err
 	}
@@ -98,27 +109,67 @@ func (rfs *RuledFileSystem) ReadFile(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	data, err = rfs.readOutput.Apply(data)
+	if err != nil {
+		return nil, err
+	}
+
 	return data, nil
 }
 
+func (rfs *RuledFileSystem) ReadLines(path string, from, to *int) (string, error) {
+	safePath, err := rfs.readPath.Apply(path)
+	if err != nil {
+		return "", err
+	}
+
+	data, err := rfs.fs.ReadFile(safePath)
+	if err != nil {
+		return "", err
+	}
+
+	// data, err := rfs.ReadFile(path)
+	// if err != nil {
+	// 	return "", err
+	// }
+
+	content := extractLines(data, from, to)
+
+	data, err = rfs.readOutput.Apply([]byte(content))
+	if err != nil {
+		return "", err
+	}
+
+	return string(data), nil
+}
+
 func (rfs *RuledFileSystem) WriteFile(path string, data []byte) error {
-	safePath, err := rfs.WritePath.Apply(path)
+	safePath, err := rfs.writePath.Apply(path)
 	if err != nil {
 		return err
 	}
-	safeData, err := rfs.WriteInput.Apply(data)
+	safeData, err := rfs.writeInput.Apply(data)
 	if err != nil {
 		return err
 	}
 	return rfs.fs.WriteToFile(safePath, safeData)
 }
 
-func (rfs *RuledFileSystem) AppendToFile(path string, data []byte) error {
-	safePath, err := rfs.AppendPath.Apply(path)
+func (rfs *RuledFileSystem) AppendToFile(path string, input []byte) error {
+	safePath, err := rfs.appendPath.Apply(path)
 	if err != nil {
 		return err
 	}
-	safeData, err := rfs.AppendInput.Apply(data)
+
+	data, err := rfs.fs.ReadFile(safePath)
+	if err != nil {
+		return err
+	}
+
+	appendedData := slices.Concat(data, input)
+
+	safeData, err := rfs.appendOutput.Apply(appendedData)
 	if err != nil {
 		return err
 	}
@@ -127,10 +178,30 @@ func (rfs *RuledFileSystem) AppendToFile(path string, data []byte) error {
 }
 
 func (rfs *RuledFileSystem) Delete(path string) error {
-	safePath, err := rfs.DeletePath.Apply(path)
+	safePath, err := rfs.deletePath.Apply(path)
 	if err != nil {
 		return err
 	}
 
 	return rfs.fs.Delete(safePath)
+}
+
+func extractLines(data []byte, from, to *int) string {
+	lines := strings.Split(string(data), "\n")
+	total := len(lines)
+
+	startLine := 1
+	endLine := total
+
+	if from != nil {
+		startLine = *from
+	}
+	if to != nil {
+		endLine = *to
+	}
+
+	startLine = max(1, min(startLine, total))
+	endLine = max(startLine, min(endLine, total))
+
+	return strings.Join(lines[startLine-1:endLine], "\n")
 }
