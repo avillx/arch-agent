@@ -108,7 +108,7 @@ func WithCleanPathOnly() Option {
 		cleaner := func(p string) (string, error) {
 			cleaned := path.Clean(p)
 			if cleaned != p {
-				return "", fmt.Errorf("only clean path's allowed. never use '/..' and '.' (current directory) and '/' on the end of path ")
+				return "", fmt.Errorf("only clean paths allowed. avoid '/..' and '.' (current directory)")
 			}
 			return p, nil
 		}

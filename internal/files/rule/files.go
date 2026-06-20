@@ -124,24 +124,19 @@ func (rfs *RuledFileSystem) ReadLines(path string, from, to *int) (string, error
 		return "", err
 	}
 
-	data, err := rfs.fs.ReadFile(safePath)
+	rawData, err := rfs.fs.ReadFile(safePath)
 	if err != nil {
 		return "", err
 	}
 
-	// data, err := rfs.ReadFile(path)
-	// if err != nil {
-	// 	return "", err
-	// }
+	extract := extractLines(rawData, from, to)
 
-	content := extractLines(data, from, to)
-
-	data, err = rfs.readOutput.Apply([]byte(content))
+	safeData, err := rfs.readOutput.Apply([]byte(extract))
 	if err != nil {
 		return "", err
 	}
 
-	return string(data), nil
+	return string(safeData), nil
 }
 
 func (rfs *RuledFileSystem) WriteFile(path string, data []byte) error {
@@ -164,7 +159,10 @@ func (rfs *RuledFileSystem) AppendToFile(path string, input []byte) error {
 
 	data, err := rfs.fs.ReadFile(safePath)
 	if err != nil {
-		return err
+		if !os.IsNotExist(err) {
+			return err
+		}
+		data = []byte{}
 	}
 
 	appendedData := slices.Concat(data, input)
