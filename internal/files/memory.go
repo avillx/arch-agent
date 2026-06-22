@@ -36,5 +36,5 @@ func (f *MemoryFiles) GetMemoryIndex(agentID agent.ID) (string, error) {
 }
 
 func resolvePathToIndex(agentID agent.ID) string {
-	return filepath.Join("files", "memory", string(agentID), MemIndexFile)
+	return filepath.Join("agents", string(agentID), "memory", MemIndexFile)
 }
