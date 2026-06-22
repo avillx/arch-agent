@@ -21,7 +21,7 @@ func ContainPath(base, target string) bool {
 
 func WithAccessOnPath(guardedPath string, read, write, append, delete bool) Option {
 
-	// forbrid operation with path and subpathes
+	// forbid operation with path and subpathes
 	accessValidator := func(operationName string) func(string) (string, error) {
 		return func(p string) (string, error) {
 			if ContainPath(p, guardedPath) {
@@ -31,7 +31,7 @@ func WithAccessOnPath(guardedPath string, read, write, append, delete bool) Opti
 		}
 	}
 
-	// forbrid operation with path and subpathes
+	// forbid operation with path and subpathes
 	hiddenValidator := func(p string) (string, error) {
 		if ContainPath(p, guardedPath) {
 			return "", os.ErrNotExist
@@ -93,15 +93,15 @@ func WithTrimPrefix(prefix string) Option {
 
 func WithPrefix(prefix string) Option {
 	return func(rfs *RuledFileSystem) {
-		prefix := func(p string) (string, error) {
+		addPrefix := func(p string) (string, error) {
 			return path.Join(prefix, p), nil
 		}
 
-		rfs.readDirPath.AddRule(prefix)
-		rfs.readPath.AddRule(prefix)
-		rfs.deletePath.AddRule(prefix)
-		rfs.appendPath.AddRule(prefix)
-		rfs.writePath.AddRule(prefix)
+		rfs.readDirPath.AddRule(addPrefix)
+		rfs.readPath.AddRule(addPrefix)
+		rfs.deletePath.AddRule(addPrefix)
+		rfs.appendPath.AddRule(addPrefix)
+		rfs.writePath.AddRule(addPrefix)
 	}
 }
 
@@ -143,7 +143,7 @@ func WithMount(mountPoint, targetPoint string) Option {
 				return dirResult, nil
 			}
 
-			pathBase := path.Base(mountPoint)
+			pathBase := path.Base(targetPoint)
 			entries, err := rfs.fs.ReadDir(path.Dir(mountPoint))
 			if err != nil {
 				slog.Error("can't read mountpoint root", "mount point", dirResult.path, "error", err)
@@ -240,7 +240,7 @@ func WithWhiteListVisibility(dir string, whitelist ...string) Option {
 		return dr, nil
 	}
 
-	// forbrid unallowed interactions
+	// forbid unallowed interactions
 	whitelistCheck := func(p string) (string, error) {
 		if !ContainPath(p, dir) {
 			return p, nil
