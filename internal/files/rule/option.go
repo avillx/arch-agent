@@ -2,7 +2,9 @@ package ruledfiles
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/files"
 	"fmt"
+	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
@@ -137,9 +139,23 @@ func WithMount(mountPoint, targetPoint string) Option {
 		rfs.writePath.AddRule(operationDispatcher)
 
 		directoryDispatcher := func(dirResult DirResult) (DirResult, error) {
-			if dirResult.path == path.Dir(targetPoint) {
-				dirResult.entries = append(dirResult.entries, &VirtualDirEntry{name: path.Base(targetPoint), isDir: true})
+			if dirResult.path != path.Dir(targetPoint) {
+				return dirResult, nil
 			}
+
+			pathBase := path.Base(mountPoint)
+			entries, err := rfs.fs.ReadDir(path.Dir(mountPoint))
+			if err != nil {
+				slog.Error("can't read mountpoint root", "mount point", dirResult.path, "error", err)
+				return dirResult, nil
+			}
+
+			for _, e := range entries {
+				if e.Name() == pathBase {
+					dirResult.entries = append(dirResult.entries, e)
+				}
+			}
+
 			return dirResult, nil
 		}
 
@@ -173,29 +189,14 @@ func WithReadOnlyTextFiles() Option {
 
 func WithReadSizeLimit(sizeLimit int) Option {
 	return func(rfs *RuledFileSystem) {
-		rfs.readOutput.AddRule(sizeLimiter(sizeLimit))
+		rfs.readOutput.AddRule(readSizeLimiter(sizeLimit))
 	}
 }
 
 func WithWriteSizeLimit(sizeLimit int) Option {
 	return func(rfs *RuledFileSystem) {
-		rfs.writeInput.AddRule(sizeLimiter(sizeLimit))
-		rfs.appendOutput.AddRule(sizeLimiter(sizeLimit))
-	}
-}
-
-func WithMustRegex(target string, regexp *regexp.Regexp) Option {
-
-	ensureRegex := func(data []byte) ([]byte, error) {
-		if !regexp.Match(data) {
-			return nil, fmt.Errorf("must match with regex %s", regexp.String())
-		}
-		return data, nil
-	}
-
-	return func(rfs *RuledFileSystem) {
-		rfs.appendOutput.AddRule(ensureRegex)
-		rfs.writeInput.AddRule(ensureRegex)
+		rfs.writeInput.AddRule(writeSizeLimiter(sizeLimit))
+		rfs.appendOutput.AddRule(writeSizeLimiter(sizeLimit))
 	}
 }
 
@@ -222,7 +223,7 @@ func WithWhiteListVisibility(dir string, whitelist ...string) Option {
 
 	whitelistMap := map[string]struct{}{}
 	for _, e := range whitelist {
-		whitelistMap[e] = struct{}{}
+		whitelistMap[path.Join(dir, e)] = struct{}{}
 	}
 
 	// Truncate visible entries
@@ -232,8 +233,8 @@ func WithWhiteListVisibility(dir string, whitelist ...string) Option {
 		}
 
 		dr.entries = slices.DeleteFunc(dr.entries, func(e os.DirEntry) bool {
-			_, ok := whitelistMap[e.Name()]
-			return ok
+			_, ok := whitelistMap[path.Join(dir, e.Name())]
+			return !ok
 		})
 
 		return dr, nil
@@ -242,6 +243,11 @@ func WithWhiteListVisibility(dir string, whitelist ...string) Option {
 	// forbrid unallowed interactions
 	whitelistCheck := func(p string) (string, error) {
 		if !ContainPath(p, dir) {
+			return p, nil
+		}
+
+		// allow for reading a directory
+		if p == dir {
 			return p, nil
 		}
 
@@ -264,8 +270,6 @@ func WithWhiteListVisibility(dir string, whitelist ...string) Option {
 	}
 }
 
-var indexRegex = regexp.MustCompile(`(?m)^\[(.+?)\]\((\/mnt\/.+?)\)\s*-\s*(.+)$`)
-
 func AgentAccessRules(agt agent.Agent) []Option {
 	prefix := fmt.Sprintf("/agents/%s", agt.ID())
 	const _10kb = 1024 * 10
@@ -285,7 +289,6 @@ func AgentAccessRules(agt agent.Agent) []Option {
 		// shared files
 		// TODO: all agents has access to shared files. make it as settable.
 		WithAccessOnPath(path.Join(prefix, "/shared"), true, true, true, true),
-		WithMustRegex("/shared/INDEX.md", indexRegex),
 		WithMount("/shared", path.Join(prefix, "/shared")),
 
 		// size limit
@@ -298,7 +301,6 @@ func AgentAccessRules(agt agent.Agent) []Option {
 		memoOpts := []Option{
 			WithAccessOnPath(path.Join(prefix, "/memory"), true, false, true, false),
 			WithAccessOnPath(path.Join(prefix, "/activity"), true, false, false, false),
-			WithMustRegex("/memory/INDEX.md", indexRegex),
 		}
 		opts = slices.Concat(opts, memoOpts)
 	}
@@ -319,20 +321,9 @@ func AgentAccessRules(agt agent.Agent) []Option {
 func skillIDToPaths(skillIDs []agent.SkillID) []string {
 	skillNames := make([]string, len(skillIDs))
 	for i, s := range skillIDs {
-		skillNames[i] = fmt.Sprintf("/%s", string(s))
+		skillNames[i] = string(s)
 	}
 	return skillNames
-}
-
-func formatSize(n int) string {
-	switch {
-	case n >= 1024*1024:
-		return fmt.Sprintf("%.1fmb", float64(n)/1024/1024)
-	case n >= 1024:
-		return fmt.Sprintf("%.1fkb", float64(n)/1024)
-	default:
-		return fmt.Sprintf("%db", n)
-	}
 }
 
 func isTextExt(path string) bool {
@@ -380,16 +371,30 @@ func isTextExt(path string) bool {
 	return false
 }
 
-func sizeLimiter(sizeLimit int) func([]byte) ([]byte, error) {
+func writeSizeLimiter(sizeLimit int) func(writeOp) (writeOp, error) {
+	return func(op writeOp) (writeOp, error) {
+		currentSize := len(op.data)
+		if currentSize > sizeLimit {
+			return writeOp{}, newErrOversize(currentSize, sizeLimit)
+		}
+		return op, nil
+	}
+}
+
+func readSizeLimiter(sizeLimit int) func([]byte) ([]byte, error) {
 	return func(b []byte) ([]byte, error) {
 		currentSize := len(b)
 		if currentSize > sizeLimit {
-			return nil, fmt.Errorf(
-				"file must be under %s current is %s",
-				formatSize(sizeLimit),
-				formatSize(currentSize),
-			)
+			return nil, newErrOversize(currentSize, sizeLimit)
 		}
 		return b, nil
 	}
+}
+
+func newErrOversize(current, limit int) error {
+	return fmt.Errorf(
+		"file must be under %s current is %s",
+		files.FormatSize(limit),
+		files.FormatSize(current),
+	)
 }

@@ -51,8 +51,8 @@ type RuledFileSystem struct {
 
 	// Data rules
 	dirOutput    *Rules[DirResult]
-	writeInput   *Rules[[]byte]
-	appendOutput *Rules[[]byte]
+	writeInput   *Rules[writeOp]
+	appendOutput *Rules[writeOp]
 	readOutput   *Rules[[]byte]
 }
 
@@ -69,10 +69,12 @@ func NewRuledFileSystem(fs *files.FileSystem, opts ...Option) (*RuledFileSystem,
 		appendPath:  NewRules[string](),
 		deletePath:  NewRules[string](),
 
-		dirOutput:    NewRules[DirResult](),
-		writeInput:   NewRules[[]byte](),
-		appendOutput: NewRules[[]byte](),
-		readOutput:   NewRules[[]byte](),
+		dirOutput: NewRules[DirResult](),
+
+		writeInput:   NewRules[writeOp](),
+		appendOutput: NewRules[writeOp](),
+
+		readOutput: NewRules[[]byte](),
 	}
 	for _, opt := range opts {
 		opt(rfs)
@@ -139,16 +141,21 @@ func (rfs *RuledFileSystem) ReadLines(path string, from, to *int) (string, error
 	return string(safeData), nil
 }
 
+type writeOp struct {
+	path string
+	data []byte
+}
+
 func (rfs *RuledFileSystem) WriteFile(path string, data []byte) error {
 	safePath, err := rfs.writePath.Apply(path)
 	if err != nil {
 		return err
 	}
-	safeData, err := rfs.writeInput.Apply(data)
+	safeOp, err := rfs.writeInput.Apply(writeOp{path: safePath, data: data})
 	if err != nil {
 		return err
 	}
-	return rfs.fs.WriteToFile(safePath, safeData)
+	return rfs.fs.WriteToFile(safePath, safeOp.data)
 }
 
 func (rfs *RuledFileSystem) AppendToFile(path string, input []byte) error {
@@ -167,12 +174,12 @@ func (rfs *RuledFileSystem) AppendToFile(path string, input []byte) error {
 
 	appendedData := slices.Concat(data, input)
 
-	safeData, err := rfs.appendOutput.Apply(appendedData)
+	safeOp, err := rfs.appendOutput.Apply(writeOp{path: safePath, data: appendedData})
 	if err != nil {
 		return err
 	}
 
-	return rfs.fs.WriteToFile(safePath, safeData)
+	return rfs.fs.WriteToFile(safePath, safeOp.data)
 }
 
 func (rfs *RuledFileSystem) Delete(path string) error {
