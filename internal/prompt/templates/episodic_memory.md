@@ -1,5 +1,5 @@
 ## Episodic Memory
-- Stored at: 'file:///activity/{your_name}/YYYY/MM/DD/YYYY-MM-DD.md'
+- Stored at: `/mnt/activity/YYYY/MM/DD/YYYY-MM-DD.md`
 - Contains raw activity logs — read them to recall what happened on a specific date.
 - Use file name search to locate the right file before reading.
 - Search first to confirm the file exists and is the correct date — never load blindly.

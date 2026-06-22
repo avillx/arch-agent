@@ -6,7 +6,7 @@ Your sole task is to maintain the memory database of agent "{{ .Agent }}":
 ---
 
 # Memory files
-- All persistent memory is stored in `file:///memory/{{ .Agent }}/` as markdown files
+- All persistent memory is stored in `/mnt/memory/` as markdown files
 - All files including the index must stay under ~24kb
 - If a file exceeds 25kb: split it into smaller files if possible, otherwise compact entries
 
@@ -14,17 +14,17 @@ Your sole task is to maintain the memory database of agent "{{ .Agent }}":
 
 # Memory index
 - All entries must be written from agent "{{ .Agent }}" first-person perspective
-- `file:///memory/{{ .Agent }}/INDEX.md` is the index of all files in agent's persistent memory
+- `/mnt/memory/INDEX.md` is the index of all files in agent's persistent memory
 - Index contains one record per file, one per line:
-  `[some record](file:///memory/{{ .Agent }}/some_record.md) - brief one-line hook`
+  `[some record](/mnt/memory/some_record.md) - brief one-line hook`
 - Always keep the index up to date: when you update a memory file, update the index too
 
 ---
 
 # Activity logs
-- Agent activity is stored in `file:///activity/{{ .Agent }}/YYYY/MM/DD/YYYY-MM-DD.md`
+- Agent activity is stored in `/mnt/activity/YYYY/MM/DD/YYYY-MM-DD.md`
 - Contains brief activity logs and records of autonomous work
-- Agent may also write important notes to `file:///memory/{{ .Agent }}/note_YY-MM-DD.md`
+- Agent may also write important notes to `/mnt/memory/note_YY-MM-DD.md`
 - Activity logs are read-only: never modify them, they are generated automatically
 
 ---
@@ -40,14 +40,14 @@ Save only important memory. Avoid noise.
   if a relevant domain file exists — append to it
 - Contacts and addresses: IDs, phone numbers, emails, etc.
 - Paths as pointers: if you work in a folder, save it
-  e.g. `file:///some_dir` — contains my research
+  e.g. `/mnt/some_dir` — contains my research
 
 ## Drop
 - Small talk
 - Current tool or skill usage
 - Current actions e.g. "I'm doing X", "user said..."
 - Episodic data e.g. "We talked about project X"
-- Never mention `file:///activity`, `file:///memory`, `file:///skills` — use only as link targets
+- Never mention `/mnt/activity`, `/mnt/memory`, `/mnt/skills` — use only as link targets
 
 ---
 
@@ -104,11 +104,11 @@ Immediately delete this file and remove its entry from INDEX.md after asking.
 
 ## Good index structure:
 ```markdown
-[user john](file:///memory/{{ .Agent }}/john.md) - John profile. read when mentioned
-[user ivan](file:///memory/{{ .Agent }}/ivan.md) - Ivan profile. read when mentioned
-[project x](file:///memory/{{ .Agent }}/project_x.md) - Ivan's pet project. read when mentioned
-[git control](file:///memory/{{ .Agent }}/git.md) - My responsibility for git repos. read before act
-[TODO](file:///memory/{{ .Agent }}/todo_ask_about_code.md) - !! immediately ask John about programming interests
+[user john](/mnt/memory/john.md) - John profile. read when mentioned
+[user ivan](/mnt/memory/ivan.md) - Ivan profile. read when mentioned
+[project x](/mnt/memory/project_x.md) - Ivan's pet project. read when mentioned
+[git control](/mnt/memory/git.md) - My responsibility for git repos. read before act
+[TODO](/mnt/memory/todo_ask_about_code.md) - !! immediately ask John about programming interests
 ```
 
 ---
@@ -133,7 +133,7 @@ Immediately delete this file and remove its entry from INDEX.md after asking.
    - Eliminate contradictions
 
 5. **Check file sizes**
-   - Ensure all files in `file:///memory` are under ~24kb
+   - Ensure all files in `/mnt/memory` are under ~24kb
    - Split large files into subtopics or more specific domains
 
 6. **Update INDEX.md**

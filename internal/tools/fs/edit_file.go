@@ -2,16 +2,21 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"context"
 	"fmt"
 	"strings"
 )
 
-// edit_file
-type EditFileTool struct{ fs FS }
+type EditFileTool struct {
+	fs   *files.FileSystem
+	repo agent.Repo
+}
 
-func NewEditFileTool(fs FS) *EditFileTool { return &EditFileTool{fs} }
+func NewEditFileTool(fs *files.FileSystem, repo agent.Repo) *EditFileTool {
+	return &EditFileTool{fs: fs, repo: repo}
+}
 
 func (t *EditFileTool) Name() agent.ToolName { return "edit_file" }
 func (t *EditFileTool) Description() string {
@@ -51,39 +56,29 @@ func (t *EditFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 		return "", err
 	}
 
-	if IsReadOnly(args.Path) {
-		return "", fmt.Errorf("this path is read only")
-	}
-
-	if !IsTextFile(args.Path) {
-		return "", fmt.Errorf("you can edit files only with text extensions")
-	}
-
-	internal, err := toInternal(args.Path)
+	rfs, err := newRuledFS(ctx, t.fs, t.repo)
 	if err != nil {
 		return "", err
 	}
 
-	data, err := t.fs.ReadFile(internal)
+	data, err := rfs.ReadFile(args.Path)
 	if err != nil {
-		return "", wrapFSError(err, args.Path)
+		return "", err
 	}
 
 	content := string(data)
 	count := strings.Count(content, args.OldStr)
 
-	switch count {
-	case 0:
+	switch {
+	case count == 0:
 		return "", fmt.Errorf("%s: old_str not found", args.Path)
-	case 1:
-		// exactly one match — safe to replace
-	default:
+	case count > 1:
 		return "", fmt.Errorf("%s: old_str found %d times, must be unique", args.Path, count)
 	}
 
 	updated := strings.Replace(content, args.OldStr, args.NewStr, 1)
-	if err := t.fs.WriteToFile(internal, []byte(updated)); err != nil {
-		return "", wrapFSError(err, args.Path)
+	if err := rfs.WriteFile(args.Path, []byte(updated)); err != nil {
+		return "", err
 	}
 
 	return fmt.Sprintf("edited %s", args.Path), nil

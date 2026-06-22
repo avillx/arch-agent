@@ -139,13 +139,13 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 
 	// Tools
 	fsTools := []agent.Tool{
-		fstools.NewListDirTool(fs),
-		fstools.NewReadFileTool(fs),
-		fstools.NewWriteFileTool(fs),
-		fstools.NewEditFileTool(fs),
-		fstools.NewMoveFileTool(fs),
-		fstools.NewDeleteTool(fs),
-		fstools.NewSearchFilesTool(fs),
+		fstools.NewListDirTool(fs, agentRepo),
+		fstools.NewReadFileTool(fs, agentRepo),
+		fstools.NewWriteFileTool(fs, agentRepo),
+		fstools.NewEditFileTool(fs, agentRepo),
+		fstools.NewMoveFileTool(fs, agentRepo),
+		fstools.NewDeleteTool(fs, agentRepo),
+		fstools.NewSearchFilesTool(fs, agentRepo),
 	}
 
 	todoTools := []agent.Tool{

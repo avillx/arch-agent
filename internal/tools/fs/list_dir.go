@@ -2,23 +2,28 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
-	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"path"
 	"strings"
 )
 
-// list_dir
-type ListDirTool struct{ fs FS }
+type ListDirTool struct {
+	fs   *files.FileSystem
+	repo agent.Repo
+}
 
-func NewListDirTool(fs FS) *ListDirTool { return &ListDirTool{fs} }
+func NewListDirTool(fs *files.FileSystem, repo agent.Repo) *ListDirTool {
+	return &ListDirTool{fs: fs, repo: repo}
+}
 
 func (t *ListDirTool) Name() agent.ToolName { return "list_dir" }
 
 func (t *ListDirTool) Description() string {
-	return "List entries in a directory; returns one file:/// URI per line"
+	return "List entries in a directory; returns one /mnt/ URI per line"
 }
 func (t *ListDirTool) Schema() []agent.ToolProperty {
 	return []agent.ToolProperty{
@@ -26,7 +31,7 @@ func (t *ListDirTool) Schema() []agent.ToolProperty {
 			Name:        "path",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "directory path, e.g. file:///notes/",
+			Description: "directory path, e.g. /mnt/notes/",
 		},
 	}
 }
@@ -38,13 +43,15 @@ func (t *ListDirTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (st
 	if err != nil {
 		return "", err
 	}
-	internal, err := toInternal(args.Path)
+
+	rfs, err := newRuledFS(ctx, t.fs, t.repo)
 	if err != nil {
 		return "", err
 	}
-	entries, err := t.fs.ReadDir(internal)
+
+	entries, err := rfs.ReadDir(args.Path)
 	if err != nil {
-		return "", wrapFSError(err, args.Path)
+		return "", err
 	}
 
 	if len(entries) == 0 {
@@ -53,40 +60,34 @@ func (t *ListDirTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (st
 
 	lines := make([]string, len(entries))
 	for i, e := range entries {
-		filePath := path.Join(internal, e.Name())
-		lines[i] = formatEntry(t.fs, filePath)
+		lines[i] = formatEntry(rfs, args.Path, e)
 	}
 	return strings.Join(lines, "\n"), nil
 }
 
-func formatEntry(fs FS, filePath string) string {
-	label := toAgent(filePath)
+func formatEntry(rfs interface {
+	ReadFile(path string) ([]byte, error)
+}, dirPath string, e os.DirEntry) string {
+	label := path.Join(dirPath, e.Name())
 
-	content, err := fs.ReadFile(filePath)
+	info, err := e.Info()
 	if err != nil {
-		return label // директория или нет доступа — просто путь
+		return label
 	}
+	size := files.FormatSize(int(info.Size()))
 
-	size := formatSize(len(content))
-
-	if !IsTextFile(filePath) {
+	if e.IsDir() {
 		return fmt.Sprintf("%s %s", label, size)
 	}
 
-	lineCount := bytes.Count(content, []byte("\n"))
+	content, err := rfs.ReadFile(path.Join(dirPath, e.Name()))
+	if err != nil {
+		return fmt.Sprintf("%s %s", label, size)
+	}
+
+	lineCount := strings.Count(string(content), "\n")
 	if len(content) > 0 && content[len(content)-1] != '\n' {
 		lineCount++
 	}
 	return fmt.Sprintf("%s %s [%d lines]", label, size, lineCount)
-}
-
-func formatSize(n int) string {
-	switch {
-	case n >= 1024*1024:
-		return fmt.Sprintf("%.1fmb", float64(n)/1024/1024)
-	case n >= 1024:
-		return fmt.Sprintf("%.1fkb", float64(n)/1024)
-	default:
-		return fmt.Sprintf("%db", n)
-	}
 }

@@ -2,15 +2,20 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"context"
 	"fmt"
 )
 
-// write_file
-type WriteFileTool struct{ fs FS }
+type WriteFileTool struct {
+	fs   *files.FileSystem
+	repo agent.Repo
+}
 
-func NewWriteFileTool(fs FS) *WriteFileTool { return &WriteFileTool{fs} }
+func NewWriteFileTool(fs *files.FileSystem, repo agent.Repo) *WriteFileTool {
+	return &WriteFileTool{fs: fs, repo: repo}
+}
 
 func (t *WriteFileTool) Name() agent.ToolName { return "write_file" }
 func (t *WriteFileTool) Description() string {
@@ -22,7 +27,7 @@ func (t *WriteFileTool) Schema() []agent.ToolProperty {
 			Name:        "path",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "file path, e.g. file:///notes/README.md",
+			Description: "file path, e.g. /mnt/notes/README.md",
 		},
 		{
 			Name:        "content",
@@ -50,15 +55,7 @@ func (t *WriteFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 		return "", err
 	}
 
-	if IsReadOnly(args.Path) {
-		return "", fmt.Errorf("this path is read only")
-	}
-
-	if !IsTextFile(args.Path) {
-		return "", fmt.Errorf("you can write only files with text extensions")
-	}
-
-	internal, err := toInternal(args.Path)
+	rfs, err := newRuledFS(ctx, t.fs, t.repo)
 	if err != nil {
 		return "", err
 	}
@@ -66,12 +63,12 @@ func (t *WriteFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 	data := []byte(args.Content)
 
 	if args.Mode == "append" {
-		err = t.fs.AppendToFile(internal, data)
+		err = rfs.AppendToFile(args.Path, data)
 	} else {
-		err = t.fs.WriteToFile(internal, data)
+		err = rfs.WriteFile(args.Path, data)
 	}
 	if err != nil {
-		return "", wrapFSError(err, args.Path)
+		return "", err
 	}
 
 	return fmt.Sprintf("wrote %d bytes to %s", len(data), args.Path), nil

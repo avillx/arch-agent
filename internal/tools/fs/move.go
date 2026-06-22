@@ -2,15 +2,20 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"context"
 	"fmt"
 )
 
-// move_file
-type MoveFileTool struct{ fs FS }
+type MoveFileTool struct {
+	fs   *files.FileSystem
+	repo agent.Repo
+}
 
-func NewMoveFileTool(fs FS) *MoveFileTool { return &MoveFileTool{fs} }
+func NewMoveFileTool(fs *files.FileSystem, repo agent.Repo) *MoveFileTool {
+	return &MoveFileTool{fs: fs, repo: repo}
+}
 
 func (t *MoveFileTool) Name() agent.ToolName { return "move_file" }
 func (t *MoveFileTool) Description() string {
@@ -42,35 +47,22 @@ func (t *MoveFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 		return "", err
 	}
 
-	if IsReadOnly(args.Src) {
-		return "", fmt.Errorf("this path is read only")
-	}
-
-	if !IsTextFile(args.Src) && IsTextFile(args.Dst) {
-		return "", fmt.Errorf("can't change non text file extension to text")
-	}
-
-	srcInternal, err := toInternal(args.Src)
-	if err != nil {
-		return "", err
-	}
-	dstInternal, err := toInternal(args.Dst)
+	rfs, err := newRuledFS(ctx, t.fs, t.repo)
 	if err != nil {
 		return "", err
 	}
 
-	data, err := t.fs.ReadFile(srcInternal)
+	data, err := rfs.ReadFile(args.Src)
 	if err != nil {
-		return "", wrapFSError(err, args.Src)
+		return "", err
 	}
 
-	if err := t.fs.WriteToFile(dstInternal, data); err != nil {
-		return "", wrapFSError(err, args.Dst)
+	if err := rfs.WriteFile(args.Dst, data); err != nil {
+		return "", err
 	}
 
-	if err := t.fs.Delete(srcInternal); err != nil {
-		// dst was written successfully; src still exists — inform the agent
-		return "", fmt.Errorf("file copied to %s but %s", args.Dst, wrapFSError(err, args.Src))
+	if err := rfs.Delete(args.Src); err != nil {
+		return "", fmt.Errorf("file copied to %s but failed to remove source: %s", args.Dst, err)
 	}
 
 	return fmt.Sprintf("moved %s → %s", args.Src, args.Dst), nil

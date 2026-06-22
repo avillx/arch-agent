@@ -2,19 +2,19 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"context"
-	"fmt"
-	"path/filepath"
-	"regexp"
-	"strings"
 )
 
-const skillMD = "SKILL.md"
+type ReadFileTool struct {
+	fs   *files.FileSystem
+	repo agent.Repo
+}
 
-type ReadFileTool struct{ fs FS }
-
-func NewReadFileTool(fs FS) *ReadFileTool { return &ReadFileTool{fs} }
+func NewReadFileTool(fs *files.FileSystem, repo agent.Repo) *ReadFileTool {
+	return &ReadFileTool{fs: fs, repo: repo}
+}
 
 func (t *ReadFileTool) Name() agent.ToolName { return "read_file" }
 
@@ -27,7 +27,7 @@ func (t *ReadFileTool) Schema() []agent.ToolProperty {
 			Name:        "path",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "File path, e.g. file:///notes/README.md",
+			Description: "File path, e.g. /mnt/notes/README.md",
 		},
 		{
 			Name:        "start_line",
@@ -54,54 +54,18 @@ func (t *ReadFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 		return "", err
 	}
 
-	if !IsTextFile(args.Path) {
-		return "", fmt.Errorf("you can read files only with text extensions")
-	}
-
-	internal, err := toInternal(args.Path)
+	rfs, err := newRuledFS(ctx, t.fs, t.repo)
 	if err != nil {
 		return "", err
 	}
 
-	data, err := t.fs.ReadFile(internal)
+	if args.StartLine != nil || args.EndLine != nil {
+		return rfs.ReadLines(args.Path, args.StartLine, args.EndLine)
+	}
+
+	data, err := rfs.ReadFile(args.Path)
 	if err != nil {
-		return "", wrapFSError(err, args.Path)
+		return "", err
 	}
-
-	lines := strings.Split(string(data), "\n")
-	total := len(lines)
-
-	start, end := 1, total
-	if args.StartLine != nil {
-		start = *args.StartLine
-	}
-	if args.EndLine != nil {
-		end = *args.EndLine
-	}
-
-	start = max(1, min(start, total))
-	end = max(start, min(end, total))
-
-	content := strings.Join(lines[start-1:end], "\n")
-
-	if isSkill(args.Path) {
-		content = CutFrontmatter(content)
-	}
-
-	if start > 1 || end < total {
-		return fmt.Sprintf("[lines %d–%d of %d]\n%s", start, end, total, content), nil
-	}
-	return content, nil
-}
-
-var frontmatterRE = regexp.MustCompile(
-	`(?s)\A---\r?\n.*?\r?\n---(?:\r?\n|$)`,
-)
-
-func CutFrontmatter(file string) string {
-	return frontmatterRE.ReplaceAllString(file, "")
-}
-
-func isSkill(path string) bool {
-	return filepath.Base(path) == skillMD
+	return string(data), nil
 }

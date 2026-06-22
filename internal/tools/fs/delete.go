@@ -2,17 +2,22 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"context"
 	"fmt"
 )
 
-// delete_file
-type DeleteTool struct{ fs FS }
+type DeleteTool struct {
+	fs   *files.FileSystem
+	repo agent.Repo
+}
 
-func NewDeleteTool(fs FS) *DeleteTool { return &DeleteTool{fs} }
+func NewDeleteTool(fs *files.FileSystem, repo agent.Repo) *DeleteTool {
+	return &DeleteTool{fs: fs, repo: repo}
+}
 
-func (t *DeleteTool) Name() agent.ToolName { return "delete_file" }
+func (t *DeleteTool) Name() agent.ToolName { return "delete" }
 func (t *DeleteTool) Description() string {
 	return "permanently delete a file or directory; this operation cannot be undone"
 }
@@ -35,17 +40,13 @@ func (t *DeleteTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (str
 		return "", err
 	}
 
-	if IsReadOnly(args.Path) {
-		return "", fmt.Errorf("this path is read only")
-	}
-
-	internal, err := toInternal(args.Path)
+	rfs, err := newRuledFS(ctx, t.fs, t.repo)
 	if err != nil {
 		return "", err
 	}
 
-	if err := t.fs.Delete(internal); err != nil {
-		return "", wrapFSError(err, args.Path)
+	if err := rfs.Delete(args.Path); err != nil {
+		return "", err
 	}
 
 	return fmt.Sprintf("deleted %s", args.Path), nil

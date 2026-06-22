@@ -2,17 +2,23 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"context"
 	"fmt"
+	"os"
 	"path"
 	"strings"
 )
 
-// search_files
-type SearchFilesTool struct{ fs FS }
+type SearchFilesTool struct {
+	fs   *files.FileSystem
+	repo agent.Repo
+}
 
-func NewSearchFilesTool(fs FS) *SearchFilesTool { return &SearchFilesTool{fs} }
+func NewSearchFilesTool(fs *files.FileSystem, repo agent.Repo) *SearchFilesTool {
+	return &SearchFilesTool{fs: fs, repo: repo}
+}
 
 func (t *SearchFilesTool) Instruction() string {
 	return `Search strategy:
@@ -31,7 +37,7 @@ func (t *SearchFilesTool) Schema() []agent.ToolProperty {
 			Name:        "root",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "Directory to search under, e.g. file:///some_dir/",
+			Description: "Directory to search under, e.g. /mnt/some_dir/",
 		},
 		{
 			Name:        "query",
@@ -58,7 +64,7 @@ func (t *SearchFilesTool) Call(ctx context.Context, rawArgs agent.ToolArguments)
 		return "", err
 	}
 
-	rootInternal, err := toInternal(args.Root)
+	rfs, err := newRuledFS(ctx, t.fs, t.repo)
 	if err != nil {
 		return "", err
 	}
@@ -68,7 +74,7 @@ func (t *SearchFilesTool) Call(ctx context.Context, rawArgs agent.ToolArguments)
 		limit = *args.MaxResults
 	}
 
-	matches := t.collect(rootInternal, args.Query, limit)
+	matches := collect(rfs, args.Root, args.Query, limit)
 	if len(matches) == 0 {
 		return "no matches found", nil
 	}
@@ -80,29 +86,28 @@ func (t *SearchFilesTool) Call(ctx context.Context, rawArgs agent.ToolArguments)
 	return result, nil
 }
 
-// collect recurses the tree by probing ReadDir first.
-// If ReadDir fails the path is a file — probe ReadFile instead.
-// Errors on individual nodes are silently skipped to keep search resilient.
-func (t *SearchFilesTool) collect(internalPath, query string, remaining int) []string {
+func collect(fs interface {
+	ReadDir(path string) ([]os.DirEntry, error)
+	ReadFile(path string) ([]byte, error)
+}, dirPath, query string, remaining int) []string {
 	if remaining <= 0 {
 		return nil
 	}
 
-	// TODO: add error checking. via "AS"
-	entries, err := t.fs.ReadDir(internalPath)
-	if err == nil { // this close edge case for pathToFile/pathToDir
+	entries, err := fs.ReadDir(dirPath)
+	if err == nil {
 		var results []string
 		for _, e := range entries {
-			child := path.Join(internalPath, e.Name())
-			results = append(results, t.collect(child, query, remaining-len(results))...)
+			child := path.Join(dirPath, e.Name())
+			results = append(results, collect(fs, child, query, remaining-len(results))...)
 		}
 		return results
 	}
 
-	data, err := t.fs.ReadFile(internalPath)
+	data, err := fs.ReadFile(dirPath)
 	if err != nil {
 		return nil
 	}
 
-	return matchLines(toAgent(internalPath), string(data), query, remaining)
+	return matchLines(dirPath, string(data), query, remaining)
 }
