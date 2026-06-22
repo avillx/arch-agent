@@ -6,6 +6,7 @@ import (
 	"arch-agent/internal/session"
 	"context"
 	"fmt"
+	"log/slog"
 	"slices"
 )
 
@@ -142,6 +143,8 @@ func (r *AgentRuntime) processToolCalls(
 			evCh <- NewErrToolCallEvent(agt.ID(), sess.ID(), err)
 			res += err.Error()
 		}
+
+		slog.Debug("tool called", "result", res)
 
 		sess.AddMessages(
 			agent.NewToolResultMessage(
