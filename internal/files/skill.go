@@ -5,6 +5,7 @@ import (
 	"arch-agent/internal/runtime"
 	"fmt"
 	"log/slog"
+	"path"
 	"strings"
 	"sync"
 
@@ -52,7 +53,7 @@ func (f *SkillFiles) loadSkills() error {
 	}
 
 	for _, skillFolder := range entries {
-		data, err := f.fs.ReadFile(fmt.Sprintf("%s/%s/%s", skillsFolder, skillFolder, skillFile))
+		data, err := f.fs.ReadFile(path.Join(skillsFolder, skillFolder.Name(), skillFile))
 		if err != nil {
 			return err
 		}
@@ -63,8 +64,8 @@ func (f *SkillFiles) loadSkills() error {
 			continue
 		}
 
-		if !validateSkillName(skillFolder.Name(), skill.ID()) {
-			slog.Error("skillfolder must named as skill", "skill folder", skillFolder, "skill name", skill.ID())
+		if !isSkillNameValid(skillFolder.Name(), skill.ID()) {
+			slog.Error("skill folder must named as skill", "skill folder", skillFolder, "skill name", skill.ID())
 			continue
 		}
 
@@ -104,6 +105,6 @@ func parseSkillFile(data []byte) (agent.Skill, error) {
 	return agent.NewSkill(dto.ID, dto.Description, dto.Tools, prompt), nil
 }
 
-func validateSkillName(skillFolder string, skillID agent.SkillID) bool {
-	return skillFolder != string(skillID)
+func isSkillNameValid(skillFolder string, skillID agent.SkillID) bool {
+	return skillFolder == string(skillID)
 }
