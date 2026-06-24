@@ -4,7 +4,6 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/chat"
 	"arch-agent/internal/prompt"
-	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"context"
 	"log/slog"
@@ -26,27 +25,6 @@ func NewExecutor(
 	}
 }
 
-// func (s *taskExecutor) Validate(t Task) error {
-// 	// get existed agents
-// 	agentsCfgs, err := s.agentSvc.List()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	// validate agents
-// 	agentMap := map[agent.ID]struct{}{}
-// 	for _, cfg := range agentsCfgs {
-// 		agentMap[cfg.ID()] = struct{}{}
-// 	}
-// 	for _, agent := range t.Recipients {
-// 		if _, ok := agentMap[agent]; !ok {
-// 			return fmt.Errorf("agent %s is not exist", agent)
-// 		}
-// 	}
-
-// 	return nil
-// }
-
 func (s *executor) execute(ctx context.Context, t Task) {
 	for _, r := range t.Recipients {
 		slog.Info("processing task", "agent", r, "task", t.Name)
@@ -66,11 +44,11 @@ func (s *executor) processRecipientTask(ctx context.Context, agentID agent.ID, t
 
 	return s.chatSvc.Chat(
 		ctx,
-		agentID,
-		sessID,
-		agent.NewUserMessage(prompt.GetAutonomusRequest(request)),
-		runtime.EventReader{},
-		nil,
-		true,
+		chat.Request{
+			AgentID:     agentID,
+			SessionID:   sessID,
+			UserMessage: agent.NewUserMessage(prompt.GetAutonomusRequest(request)),
+			Logging:     true,
+		},
 	)
 }

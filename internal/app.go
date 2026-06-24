@@ -119,7 +119,9 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 	rt := runtime.NewAgentRuntime(observer, contextAssembler)
 
 	toolSvc := tools.NewService()
-	chatSvc := chat.NewService(agentRepo, sessSvc, modelRepo, toolSvc, rt)
+
+	chatExecutor := chat.NewExecutor(agentRepo, sessSvc, modelRepo, toolSvc, rt)
+	chatSvc := chat.NewService(chatExecutor)
 
 	taskSvc, err := BuildTaskSvc(
 		ctx,

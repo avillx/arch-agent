@@ -2,11 +2,13 @@ package telegram
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/chat"
 	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -111,15 +113,17 @@ func (b *Bot) handleMessage(ctx context.Context, message *tgbotapi.Message) erro
 	// Process message through chat service
 	err := b.chatSvc.Chat(
 		ctx,
-		b.agentID,
-		b.sessionID,
-		b.toMessage(message),
-		eventReader,
-		b.tools,
-		true,
+		chat.Request{
+			AgentID:       b.agentID,
+			SessionID:     b.sessionID,
+			UserMessage:   b.toMessage(message),
+			Reader:        eventReader,
+			ProvidedTools: b.tools,
+			Logging:       true,
+		},
 	)
 
-	if err != nil {
+	if err != nil && !errors.Is(err, context.Canceled) {
 		if _, sendErr := b.SendMessage(message.From.ID, "❗️ An error occurred while processing your message.", 0); sendErr != nil {
 			return fmt.Errorf("chat error: %w, send error: %v", err, sendErr)
 		}

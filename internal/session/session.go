@@ -3,6 +3,7 @@ package session
 import (
 	"arch-agent/internal/agent"
 	"fmt"
+	"reflect"
 	"slices"
 	"time"
 )
@@ -134,10 +135,46 @@ func (s *session) Subsessions() map[agent.ID]ID {
 }
 
 func (s *session) Messages() []agent.Message {
-	messages := []agent.Message{}
-	return append(messages, s.messages...)
+	return s.messages
 }
-func (s *session) AddMessages(msgs ...agent.Message) { s.messages = append(s.messages, msgs...) }
+func (s *session) AddMessages(newMessages ...agent.Message) {
+
+	if len(newMessages) == 0 {
+		return
+	}
+
+	if len(s.messages) > 0 {
+
+		firstNewMessage := newMessages[0]
+
+		messagesLastIdx := len(s.messages) - 1
+		lastMessage := s.messages[messagesLastIdx]
+
+		// Unite messages for keep order
+		if reflect.TypeOf(firstNewMessage) == reflect.TypeOf(lastMessage) {
+			switch typed := firstNewMessage.(type) {
+			case *agent.UserMessage:
+				unitedContent := slices.Concat(lastMessage.Content(), firstNewMessage.Content())
+				s.messages[messagesLastIdx] = agent.NewUserMessage(unitedContent)
+				newMessages = newMessages[1:]
+
+			case *agent.AgentMessage:
+
+				content := slices.Concat(firstNewMessage.Content(), lastMessage.Content())
+				firstMsgCalls := typed.ToolCalls()
+
+				// this way is guaranteed safe cast
+				lastMsgCalls := lastMessage.(*agent.AgentMessage).ToolCalls()
+
+				s.messages[messagesLastIdx] = agent.NewAgentMessage(content, slices.Concat(firstMsgCalls, lastMsgCalls))
+
+				newMessages = newMessages[1:]
+			}
+		}
+	}
+
+	s.messages = append(s.messages, newMessages...)
+}
 
 func (s *session) ApplyCompletion(completion *agent.Completion) {
 	s.inputTokens = completion.InputTokens

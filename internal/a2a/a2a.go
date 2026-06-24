@@ -56,7 +56,15 @@ func (s *Service) Call(
 		},
 	}
 
-	err = s.chatSvc.Chat(ctx, recivierAgentID, subSessionID, agent.NewUserMessage(request), evReader, nil, false)
+	err = s.chatSvc.Chat(
+		ctx,
+		chat.Request{
+			AgentID:     recivierAgentID,
+			SessionID:   subSessionID,
+			UserMessage: agent.NewUserMessage(request),
+			Reader:      evReader,
+		},
+	)
 
 	return lastAgentMessageContent, err
 }
