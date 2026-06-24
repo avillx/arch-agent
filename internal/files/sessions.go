@@ -93,21 +93,19 @@ func (r *SessionFiles) dtoToSession(sessionID session.ID, dto SessionDTO) (sessi
 		dto.InputTokens,
 		dto.OutputTokens,
 		dto.Summary,
-		dto.SubSessions,
 		dto.CreatedAt,
 		dto.Extras,
 	), nil
 }
 
 type SessionDTO struct {
-	InputTokens  int64                   `json:"input_tokens"`
-	OutputTokens int64                   `json:"output_tokens"`
-	CreatedAt    time.Time               `json:"created_at"`
-	UpdatedAt    time.Time               `json:"updated_at"`
-	Summary      string                  `json:"summary"`
-	Messages     []MessageDTO            `json:"messages"`
-	SubSessions  map[agent.ID]session.ID `json:"sub_sessions"`
-	Extras       map[string]any          `json:"extras"`
+	InputTokens  int64          `json:"input_tokens"`
+	OutputTokens int64          `json:"output_tokens"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	Summary      string         `json:"summary"`
+	Messages     []MessageDTO   `json:"messages"`
+	Extras       map[string]any `json:"extras"`
 }
 
 func marshalSession(s session.Session) ([]byte, error) {
@@ -118,7 +116,6 @@ func marshalSession(s session.Session) ([]byte, error) {
 		UpdatedAt:    s.UpdatedAt(),
 		Summary:      s.Summary(),
 		Messages:     MessagesToDTO(s.Messages()),
-		SubSessions:  s.Subsessions(),
 		Extras:       s.Extras(),
 	}, "", "	")
 }

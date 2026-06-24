@@ -25,9 +25,6 @@ type Session interface {
 	ApplyCompletion(*agent.Completion)
 	AddMessages(...agent.Message)
 
-	Subsessions() map[agent.ID]ID
-	AddSubsession(agent.ID, ID)
-
 	InputTokens() int64
 	OutputTokens() int64
 
@@ -50,7 +47,6 @@ type session struct {
 	outputTokens int64
 	summary      string
 	messages     []agent.Message
-	subsessions  map[agent.ID]ID
 	createdAt    time.Time
 	updatedAt    time.Time
 
@@ -63,7 +59,6 @@ func NewSession(id ID) *session {
 		inputTokens:  0,
 		outputTokens: 0,
 		messages:     []agent.Message{},
-		subsessions:  map[agent.ID]ID{},
 		createdAt:    time.Now(),
 		extras:       map[string]any{},
 	}
@@ -75,25 +70,20 @@ func NewRestoredSession(
 	inputTokens int64,
 	outputTokens int64,
 	summary string,
-	subsessions map[agent.ID]ID,
 	createdAt time.Time,
 	extras map[string]any,
 ) *session {
-	if subsessions == nil {
-		subsessions = map[agent.ID]ID{}
-	}
 
 	if extras == nil {
 		extras = map[string]any{}
 	}
 
 	return &session{
-		id:          id,
-		messages:    messages,
-		subsessions: subsessions,
-		summary:     summary,
-		createdAt:   createdAt,
-		updatedAt:   time.Now(),
+		id:        id,
+		messages:  messages,
+		summary:   summary,
+		createdAt: createdAt,
+		updatedAt: time.Now(),
 
 		inputTokens:  inputTokens,
 		outputTokens: outputTokens,
@@ -124,14 +114,6 @@ func (s *session) GetLastUserMessage() *agent.UserMessage {
 		}
 	}
 	return nil
-}
-
-func (s *session) AddSubsession(agentID agent.ID, subsessionID ID) {
-	s.subsessions[agentID] = subsessionID
-}
-
-func (s *session) Subsessions() map[agent.ID]ID {
-	return s.subsessions
 }
 
 func (s *session) Messages() []agent.Message {

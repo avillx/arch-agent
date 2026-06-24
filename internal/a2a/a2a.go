@@ -35,18 +35,9 @@ func (s *Service) Call(
 	request string,
 ) (string, error) {
 
-	sess, err := s.sessionSvc.Get(callerAgentID, sessionID)
+	subSessID, err := s.sessionSvc.Create(recivierAgentID)
 	if err != nil {
 		return "", err
-	}
-
-	subSessionID, ok := sess.Subsessions()[recivierAgentID]
-	if !ok {
-		subSessionID, err = s.sessionSvc.Create(recivierAgentID)
-		if err != nil {
-			return "", err
-		}
-		sess.AddSubsession(recivierAgentID, subSessionID)
 	}
 
 	lastAgentMessageContent := ""
@@ -60,7 +51,7 @@ func (s *Service) Call(
 		ctx,
 		chat.Request{
 			AgentID:     recivierAgentID,
-			SessionID:   subSessionID,
+			SessionID:   subSessID,
 			UserMessage: agent.NewUserMessage(request),
 			Reader:      evReader,
 		},
