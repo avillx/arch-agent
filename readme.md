@@ -66,6 +66,5 @@ All memory stores in `/agent/data/...`
 - [ ] error system refactor
 - [ ] add tests
 - [ ] add validations
-- [ ] e2e tests
-- [ ] 
+- [ ] e2e tests 
 - [ ] from zero launch (preloaded agent, cli, skills)
