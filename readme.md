@@ -27,22 +27,45 @@ Workdir is `/agent`
 All memory stores in `/agent/data/...`
 
 ### TODO
+
+**alpha v0.1**
 - [X] All services names to Service to svc 
 - [X] Polish telegram module
 - [X] Should compact refactor (systemPrompt and summarization dialog accounting and tools)
 - [X] preload last 50 lines of logs when option
-- [ ] Skill adding tools
-- [ ] Refactor openAI adapter (settings map parsing)
-- [ ] Observer skill selected tool - result excluded
-- [ ] func (a *agent) HasMemory() bool
-- [ ] AutoDream
-- [ ] Error system refactor
-- [ ] check depricated (before restruct) variable names
-- [ ] eliminate edge case vulnurabilities for every package
-- [ ] agent fs as sandbox iface over fs
-- [ ] better web search gateway 
-- [ ] MCP Service and tools
+- [X] Refactor openAI adapter (settings map parsing)
+- [X] func (a *agent) HasMemory() bool
+- [X] AutoDream
+- [X] check depricated (before restruct) variable names
+- [X] agent fs as sandbox iface over fs
 - [X] Multimodal input
+- [X] processing interruption (edge case first user message concat with last sess user message)
+- [ ] remove subsessions
+- [ ] MCP Service and tools
+- [ ] Services proto, services managing funcs
 - [ ] API endpints
+
+**alpha v0.5**
+- [ ] shell access
+- [ ] envvars managment
+- [ ] web search gateway as CLI
+- [ ] exclude telegram integration
+
+**alpha v0.7**
+- [ ] Skill adding tools
+- [ ] Observer skill selected tool - result excluded
+- [ ] harness hooks (on complete, on done, on tool use, on sub agent call)
+
+**alpha v0.9**
 - [ ] view over file_read (files, images and docs)
 - [ ] bm25 fileSearch
+- [ ] sqlite database
+
+**v1**
+- [ ] eliminate edge case vulnurabilities for every package
+- [ ] error system refactor
+- [ ] add tests
+- [ ] add validations
+- [ ] e2e tests
+- [ ] 
+- [ ] from zero launch (preloaded agent, cli, skills)
