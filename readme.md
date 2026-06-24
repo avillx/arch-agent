@@ -40,7 +40,7 @@ All memory stores in `/agent/data/...`
 - [X] agent fs as sandbox iface over fs
 - [X] Multimodal input
 - [X] processing interruption (edge case first user message concat with last sess user message)
-- [ ] remove subsessions
+- [X] remove subsessions
 - [ ] MCP Service and tools
 - [ ] Services proto, services managing funcs
 - [ ] API endpints
