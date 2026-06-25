@@ -82,6 +82,9 @@ func (s *MCPServer) Connect(ctx context.Context) error {
 
 	// session
 	sess, err := produceSession(ctx, s.URL)
+	if err != nil {
+		return err
+	}
 	if s.session != nil {
 		s.session.Close()
 	}
@@ -94,7 +97,7 @@ func (s *MCPServer) Connect(ctx context.Context) error {
 	}
 	s.tools = agtTools
 
-	go s.safefMontior()
+	go s.safeMontior()
 
 	s.Connected = true
 
@@ -117,7 +120,7 @@ func (s *MCPServer) Disconnect() {
 	}
 }
 
-func (s *MCPServer) safefMontior() {
+func (s *MCPServer) safeMontior() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -134,12 +137,10 @@ func (s *MCPServer) monitor(ctx context.Context) error {
 	defer ticker.Stop()
 
 	for {
-		<-ticker.C
-
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		default:
+		case <-ticker.C:
 			if err := s.session.Ping(ctx, &mcpsdk.PingParams{}); err != nil {
 				s.Disconnect()
 				return err

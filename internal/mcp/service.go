@@ -149,9 +149,9 @@ func (s *Service) putServer(srv *MCPServer) error {
 		return fmt.Errorf("server %s already exists", srv.ID)
 	}
 
-	s.mu.RLock()
+	s.mu.Lock()
 	s.servers[srv.ID] = srv
-	s.mu.RUnlock()
+	s.mu.Unlock()
 
 	return s.flush()
 }
