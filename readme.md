@@ -9,6 +9,7 @@ Key points:
 - Agents have access for filesystem only for manage memory, not for dev or complete tasks.
 - Agents can works autonomusly by cron scheduling.
 - If agent has memory or works autonomusly it logging consolidated activity.
+- MCP integration. supports only Stramable endpoints without auth
 
 --- 
 
@@ -41,7 +42,7 @@ All memory stores in `/agent/data/...`
 - [X] Multimodal input
 - [X] processing interruption (edge case first user message concat with last sess user message)
 - [X] remove subsessions
-- [ ] MCP Service and tools
+- [X] MCP Service and tools
 - [ ] Services proto, services managing funcs
 - [ ] API endpints
 

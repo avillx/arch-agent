@@ -6,6 +6,7 @@ import (
 	"arch-agent/internal/chat"
 	"arch-agent/internal/cron"
 	"arch-agent/internal/files"
+	"arch-agent/internal/mcp"
 	"arch-agent/internal/model"
 	"arch-agent/internal/openai"
 	"arch-agent/internal/runtime"
@@ -23,6 +24,7 @@ import (
 	"arch-agent/internal/uuid"
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 )
 
@@ -39,6 +41,7 @@ type App struct {
 	TelegramOrchestra *telegram.BotOrchestrator
 	TaskSvc           *task.Service
 	Memory            *memory.Memory
+	MCPSvc            *mcp.Service
 }
 
 func (a *App) Run(ctx context.Context) {
@@ -120,6 +123,12 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 
 	toolSvc := tools.NewService()
 
+	mcpRepo := files.NewMCPFiles(fs)
+	mcpSvc, err := mcp.NewService(ctx, toolSvc, mcpRepo)
+	if err != nil {
+		return nil, fmt.Errorf("build mcp service: %w", err)
+	}
+
 	chatExecutor := chat.NewExecutor(agentRepo, sessSvc, modelRepo, toolSvc, rt)
 	chatSvc := chat.NewService(chatExecutor)
 
@@ -195,6 +204,7 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		sessSvc,
 		chatSvc,
 		memoryConsolidator,
+		mcpSvc,
 	)
 
 	return &App{
@@ -202,5 +212,6 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		TelegramOrchestra: botOrchestra,
 		TaskSvc:           taskSvc,
 		Memory:            memoryConsolidator,
+		MCPSvc:            mcpSvc,
 	}, nil
 }

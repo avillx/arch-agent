@@ -3,6 +3,7 @@ package telegram
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/chat"
+	"arch-agent/internal/mcp"
 	"arch-agent/internal/session"
 	"context"
 	"fmt"
@@ -57,12 +58,14 @@ func (o *BotOrchestrator) Wire(
 	sessionSvc *session.Service,
 	chatSvc *chat.Service,
 	dreamer Dreamer,
+	mcpSvc *mcp.Service,
 ) {
 	for _, b := range o.bots {
 		b.Wire(
 			sessionSvc,
 			chatSvc,
 			dreamer,
+			mcpSvc,
 		)
 	}
 }

@@ -61,20 +61,20 @@ func (s *Service) Connect(server ToolServer) error {
 	name := server.Name()
 
 	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if _, exists := s.servers[name]; exists {
-		s.mu.Unlock()
 		return fmt.Errorf("server %s already connected", name)
 	}
 	if err := s.register(name, server.Tools()); err != nil {
-		s.mu.Unlock()
 		return err
 	}
 	s.servers[name] = server
-	s.mu.Unlock()
 
 	server.OnToolsChanged(func() error {
 		s.mu.Lock()
 		defer s.mu.Unlock()
+
 		if _, ok := s.servers[name]; !ok {
 			return nil
 		}
@@ -89,6 +89,7 @@ func (s *Service) Connect(server ToolServer) error {
 	server.OnDisconnect(func() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
+
 		s.unregister(name)
 		delete(s.servers, name)
 	})

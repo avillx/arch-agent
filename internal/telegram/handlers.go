@@ -3,6 +3,7 @@ package telegram
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/chat"
+	"arch-agent/internal/mcp"
 	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"context"
@@ -249,8 +250,16 @@ func (b *Bot) handleCommand(ctx context.Context, update tgbotapi.Update) error {
 		return err
 	case "dream":
 		b.d.DreamImmidate(ctx, b.agentID)
-		_, err := b.SendMessage(update.Message.From.ID, "Hello! I'm your assistant bot.", 0)
+		_, err := b.SendMessage(update.Message.From.ID, "Dreaming stated", 0)
 		return err
+	case "mcp":
+		res, err := b.processMCPCommand(ctx, update)
+		if err != nil {
+			res += err.Error()
+			err = fmt.Errorf("user mcp interactions occured %W", err)
+		}
+		_, sendErr := b.SendMessage(update.Message.From.ID, res, 0)
+		return errors.Join(err, sendErr)
 	default:
 		_, err := b.SendMessage(update.Message.From.ID, fmt.Sprintf("unknown command: %s", command), 0)
 		return err
@@ -344,4 +353,69 @@ func unmarshalArgs(data agent.ToolArguments, v interface{}) error {
 		return fmt.Errorf("failed to unmarshal arguments: %w", err)
 	}
 	return nil
+}
+
+func (b *Bot) processMCPCommand(ctx context.Context, u tgbotapi.Update) (string, error) {
+	command := strings.Fields(u.Message.Text)
+	if !(len(command) > 0) {
+		return "", fmt.Errorf("bad usage, text must contain command has: `%s`", u.Message.Text)
+	}
+
+	// exclude '/mcp' route, keep only command
+	command = command[1:]
+
+	if len(command) == 0 {
+		list := b.mcpSvc.List()
+		if len(list) > 0 {
+			return mcpListRepr(list), nil
+		}
+		return "has no mcp servers", nil
+	}
+
+	switch command[0] {
+	case "add":
+		newMcpID, err := b.mcpSvc.Add(ctx, command[1])
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("mcp %s added", newMcpID), nil
+
+	case "remove":
+		if err := b.mcpSvc.Remove(mcp.MCPServerID(command[1])); err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("mcp %s removed", command[1]), nil
+	case "connect":
+
+		if err := b.mcpSvc.Connect(ctx, mcp.MCPServerID(command[1])); err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("mcp %s connected", command[1]), nil
+	case "disconnect":
+
+		if err := b.mcpSvc.Disconnect(mcp.MCPServerID(command[1])); err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("mcp %s disconnected", command[1]), nil
+	}
+
+	return "", fmt.Errorf("unknown command args")
+}
+
+func mcpListRepr(servers []*mcp.MCPServer) string {
+	var sb strings.Builder
+
+	for _, s := range servers {
+
+		var status string
+		switch s.Connected {
+		case true:
+			status = "connected 🆗"
+		default:
+			status = "disconnected ⚰️"
+		}
+
+		fmt.Fprintf(&sb, "Server: %s \nURL: %s\nStatus: %s\n\n", s.ID, s.URL, status)
+	}
+	return sb.String()
 }

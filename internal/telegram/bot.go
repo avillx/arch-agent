@@ -3,6 +3,7 @@ package telegram
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/chat"
+	"arch-agent/internal/mcp"
 	"arch-agent/internal/session"
 	tgtools "arch-agent/internal/telegram/telegram"
 	"context"
@@ -45,7 +46,9 @@ type Bot struct {
 	blockedUsers []int64
 	sessionSvc   *session.Service
 	chatSvc      *chat.Service
-	agentID      agent.ID
+	mcpSvc       *mcp.Service
+
+	agentID agent.ID
 
 	// session management
 	sessionMu    sync.Mutex
@@ -100,10 +103,11 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 }
 
 // Wire connects the bot to services
-func (b *Bot) Wire(sessionSvc *session.Service, chatSvc *chat.Service, d Dreamer) {
+func (b *Bot) Wire(sessionSvc *session.Service, chatSvc *chat.Service, d Dreamer, mcpSvc *mcp.Service) {
 	b.sessionSvc = sessionSvc
 	b.chatSvc = chatSvc
 	b.d = d
+	b.mcpSvc = mcpSvc
 }
 
 // Run starts the bot's update loop
