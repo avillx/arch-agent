@@ -28,6 +28,12 @@ import (
 	"slices"
 )
 
+// TODO:
+// rename package to Wire
+// Delete App as datastruct and replace for return server
+// this package should assemble all services
+// api.NewServer responsobility is assemble a server not services
+
 type AppConfig struct {
 	DataPath         string
 	SearchHostScheme string
@@ -42,11 +48,6 @@ type App struct {
 	TaskSvc           *task.Service
 	Memory            *memory.Memory
 	MCPSvc            *mcp.Service
-}
-
-func (a *App) Run(ctx context.Context) {
-	go a.Memory.Run(ctx)
-	a.TelegramOrchestra.Run(ctx)
 }
 
 func BuildModelsRepo(fs *files.FileSystem) (agent.ModelRepository, error) {
@@ -86,6 +87,7 @@ func BuildTaskSvc(
 	return task.NewService(
 		ctx,
 		taskRepo,
+		func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) },
 		executor,
 	)
 }
@@ -168,7 +170,7 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 	taskControlTools := []agent.Tool{
 		tasktools.NewToggleTaskTool(taskSvc),
 		tasktools.NewGetTasksTool(taskSvc),
-		tasktools.NewAddTaskTool(taskSvc, func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) }),
+		tasktools.NewAddTaskTool(taskSvc),
 	}
 
 	webTools := []agent.Tool{

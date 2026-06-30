@@ -1,6 +1,7 @@
 package task
 
 import (
+	"arch-agent/internal/agent"
 	"context"
 	"log/slog"
 )
@@ -19,24 +20,25 @@ type TaskRepo interface {
 
 // service
 type Service struct {
-	runtime  *TaskRuntime
-	executor *executor
-	repo     TaskRepo
+	runtime     *TaskRuntime
+	executor    *executor
+	cronFacrory func(string) (Cron, error)
+	repo        TaskRepo
 }
 
 func NewService(
 	ctx context.Context,
 	repo TaskRepo,
+	cronFacrory func(string) (Cron, error),
 	executor *executor,
 ) (*Service, error) {
 
 	s := &Service{
-		repo:     repo,
-		runtime:  NewTaskRuntime(),
-		executor: executor,
+		repo:        repo,
+		runtime:     NewTaskRuntime(),
+		executor:    executor,
+		cronFacrory: cronFacrory,
 	}
-
-	s.processDoneTasks(ctx)
 
 	recs, err := repo.All()
 	if err != nil {
@@ -62,19 +64,37 @@ func (s *Service) All() (map[string]*TaskRecord, error) {
 	return s.repo.All()
 }
 
-func (s *Service) New(t Task) (string, error) {
+func (s *Service) New(
+	name string,
+	description string,
+	recipients []agent.ID,
+	reglament string,
+	request string,
+	oneshot bool,
+) error {
 
 	// validate
 	// if err := s.executor.Validate(t); err != nil {
 	// 	return "", err
 	// }
-
-	// save to repo
-	if err := s.repo.Save(t.Name, &TaskRecord{Active: false, Task: t}); err != nil {
-		return "", err
+	cron, err := s.cronFacrory(reglament)
+	if err != nil {
+		return err
 	}
 
-	return t.Name, nil
+	record := &TaskRecord{
+		Active: false,
+		Task: NewTask(
+			name,
+			description,
+			recipients,
+			request,
+			cron,
+			oneshot,
+		),
+	}
+
+	return s.repo.Save(name, record)
 }
 
 func (s *Service) Start(id string) error {
@@ -101,24 +121,22 @@ func (s *Service) Delete(id string) error {
 }
 
 // blocking
-func (s *Service) processDoneTasks(ctx context.Context) {
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case doneTaskID := <-s.runtime.DoneChannel():
-				rec, err := s.repo.Get(doneTaskID)
-				if err != nil {
-					slog.Error("process done tasks", "task", doneTaskID, "error", err)
-				}
+func (s *Service) Run(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case doneTaskID := <-s.runtime.DoneChannel():
+			rec, err := s.repo.Get(doneTaskID)
+			if err != nil {
+				slog.Error("process done tasks", "task", doneTaskID, "error", err)
+			}
 
-				rec.Active = false
+			rec.Active = false
 
-				if err := s.repo.Save(doneTaskID, rec); err != nil {
-					slog.Error("process done tasks", "task", doneTaskID, "error", err)
-				}
+			if err := s.repo.Save(doneTaskID, rec); err != nil {
+				slog.Error("process done tasks", "task", doneTaskID, "error", err)
 			}
 		}
-	}()
+	}
 }

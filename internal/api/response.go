@@ -1,0 +1,122 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+)
+
+type apiError interface {
+	error
+	Status() int
+	Body() any
+}
+
+type validationError struct {
+	body any
+}
+
+func (e *validationError) Error() string { return "validation failed" }
+func (e *validationError) Status() int   { return http.StatusBadRequest }
+func (e *validationError) Body() any     { return e.body }
+
+type errStatus struct {
+	status int
+	msg    string
+	err    error
+}
+
+func (e *errStatus) Error() string { return e.msg }
+func (e *errStatus) Unwrap() error { return e.err }
+
+func internal(cause error) *errStatus {
+	return &errStatus{
+		status: http.StatusInternalServerError,
+		msg:    "internal error",
+		err:    cause,
+	}
+}
+
+func badRequest(msg string) *errStatus {
+	return &errStatus{
+		status: http.StatusBadRequest,
+		msg:    msg,
+	}
+}
+
+func invalidRequest(problems map[string]string) *validationError {
+	return &validationError{
+		body: problems,
+	}
+}
+
+func notFound(msg string) *errStatus {
+	return &errStatus{
+		status: http.StatusNotFound,
+		msg:    msg,
+	}
+}
+
+func wrap(h func(w http.ResponseWriter, r *http.Request) error) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		err := h(w, r)
+		if err == nil {
+			return
+		}
+
+		var es *errStatus
+		if !errors.As(err, &es) {
+			es = internal(err)
+		}
+
+		if es.err != nil {
+			slog.Error("unhandled", "error", err)
+		}
+
+		if err := respond(w, es.status, map[string]string{"error": es.msg}); err != nil {
+			slog.Error("response error", "error", err)
+		}
+	}
+}
+
+func decode[T any](r *http.Request) (T, error) {
+	var v T
+	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
+		return v, fmt.Errorf("decode json: %w", err)
+	}
+	return v, nil
+}
+
+type Validator interface {
+	Validate(context.Context) map[string]string
+}
+
+func decodeValid[T Validator](r *http.Request) (T, error) {
+	var v T
+	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
+		return v, fmt.Errorf("decode json: %w", err)
+	}
+	if problems := v.Validate(r.Context()); len(problems) > 0 {
+		return v, invalidRequest(problems)
+	}
+
+	return v, nil
+}
+
+func respond[T any](w http.ResponseWriter, status int, v T) error {
+	w.WriteHeader(status)
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		return err
+	}
+	return nil
+}
+
+func message(content string) map[string]string {
+	return map[string]string{
+		"message": content,
+	}
+}

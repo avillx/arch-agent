@@ -5,19 +5,16 @@ import (
 	"arch-agent/internal/task"
 	"arch-agent/internal/tools"
 	"context"
-	"strings"
 )
 
 // add task
 type AddTaskTool struct {
-	taskSvc     *task.Service
-	cronFactory func(string) (task.Cron, error)
+	taskSvc *task.Service
 }
 
-func NewAddTaskTool(s *task.Service, cronFactory func(string) (task.Cron, error)) *AddTaskTool {
+func NewAddTaskTool(s *task.Service) *AddTaskTool {
 	return &AddTaskTool{
-		taskSvc:     s,
-		cronFactory: cronFactory,
+		taskSvc: s,
 	}
 }
 
@@ -46,7 +43,8 @@ func (t *AddTaskTool) Schema() []agent.ToolProperty {
 			Name:        "recipients",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "Space-separated agent IDs in lowercase (e.g. agent1 agent2); verify agents exist",
+			IsArray:     true,
+			Description: "agent IDs in lowercase; verify agents exist",
 		},
 		{
 			Name:        "schedule",
@@ -71,42 +69,29 @@ func (t *AddTaskTool) Schema() []agent.ToolProperty {
 
 func (t *AddTaskTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
 	args, err := tools.UnwrapArgs[struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-		Recipients  string `json:"recipients"`
-		Reglament   string `json:"schedule"`
-		Request     string `json:"request"`
-		Oneshot     bool   `json:"oneshot"`
+		Name        string     `json:"name"`
+		Description string     `json:"description"`
+		Recipients  []agent.ID `json:"recipients"`
+		Reglament   string     `json:"schedule"`
+		Request     string     `json:"request"`
+		Oneshot     bool       `json:"oneshot"`
 	}](rawArgs)
 	if err != nil {
 		return "", err
 	}
 
-	agents := []agent.ID{}
-	for _, a := range strings.Fields(args.Recipients) {
-		agents = append(agents, agent.ID(a))
-	}
-
-	reglament, err := t.cronFactory(args.Reglament)
-	if err != nil {
-		return "", err
-	}
-
-	task := task.NewTask(
+	if err := t.taskSvc.New(
 		args.Name,
 		args.Description,
-		agents,
+		args.Recipients,
+		args.Reglament,
 		args.Request,
-		reglament,
 		args.Oneshot,
-	)
-
-	taskID, err := t.taskSvc.New(task)
-	if err != nil {
+	); err != nil {
 		return "task is not created", err
 	}
 
-	if err := t.taskSvc.Start(taskID); err != nil {
+	if err := t.taskSvc.Start(args.Name); err != nil {
 		return "task was not runned", err
 	}
 

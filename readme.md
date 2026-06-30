@@ -43,6 +43,7 @@ All memory stores in `/agent/data/...`
 - [X] processing interruption (edge case first user message concat with last sess user message)
 - [X] remove subsessions
 - [X] MCP Service and tools
+- [X] LOG_PRETTY, LOG_LEVEL should be flags-arg, not env 
 - [ ] Services proto, services managing funcs
 - [ ] API endpints
 

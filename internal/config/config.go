@@ -2,9 +2,7 @@ package config
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
-	"strconv"
 
 	"github.com/BurntSushi/toml"
 )
@@ -41,34 +39,10 @@ func (c *Telegram) InjectKeys() error {
 	return nil
 }
 
-type Logging struct {
-	Pretty bool
-	Level  slog.Level
-}
-
-func LoadLogging() Logging {
-	l := Logging{
-		Pretty: false,
-		Level:  slog.LevelInfo,
-	}
-
-	if logPretty, ok := os.LookupEnv("LOG_PRETTY"); ok {
-		logPrettyBool, _ := strconv.ParseBool(logPretty)
-		l.Pretty = logPrettyBool
-	}
-
-	if LogLevel, ok := os.LookupEnv("LOG_LEVEL"); ok {
-		l.Level = toLogLevel(LogLevel)
-	}
-
-	return l
-}
-
 type Config struct {
 	Telegram         *Telegram `toml:"telegram"`
 	SearchHost       string    `toml:"search_host"`
 	SearchHostScheme string    `toml:"search_host_scheme"`
-	Logging          Logging
 }
 
 func Load(configPath string) (Config, error) {
@@ -81,24 +55,5 @@ func Load(configPath string) (Config, error) {
 		return Config{}, err
 	}
 
-	config.Logging = LoadLogging()
-
 	return config, nil
-}
-
-func toLogLevel(level string) slog.Level {
-	switch level {
-	case "debug":
-		return slog.LevelDebug
-	case "info":
-		return slog.LevelInfo
-	case "warn":
-		return slog.LevelWarn
-	case "error":
-		return slog.LevelError
-
-	default:
-		slog.Error("logging", "log level", level, "levels", "debug/info/warn/error")
-		return slog.LevelError
-	}
 }
