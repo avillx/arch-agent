@@ -5,7 +5,8 @@ import (
 	"arch-agent/internal/task"
 	"arch-agent/internal/types"
 	"encoding/json"
-	"log/slog"
+	"errors"
+	"fmt"
 	"os"
 	"sync"
 )
@@ -13,38 +14,22 @@ import (
 const TaskFile = "tasks.json"
 
 type TaskFiles struct {
-	mu          sync.RWMutex
-	tasks       map[string]*task.TaskRecord
-	fs          *FileSystem
-	cronFactory func(string) (task.Cron, error)
+	mu    sync.RWMutex
+	tasks map[string]*task.TaskRecord
+	fs    *FileSystem
 }
 
-func NewTaskFiles(fs *FileSystem, cronFactory func(string) (task.Cron, error)) (*TaskFiles, error) {
-	tf := &TaskFiles{
-		fs:          fs,
-		tasks:       map[string]*task.TaskRecord{},
-		cronFactory: cronFactory,
-	}
-	return tf, tf.load()
-}
+func NewTaskFiles(fs *FileSystem) (*TaskFiles, error) {
 
-func (tf *TaskFiles) load() error {
-	data, err := tf.fs.ReadFile(TaskFile)
-	if os.IsNotExist(err) {
-		return nil
-	}
+	tasks, err := loadTasks(fs)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if len(data) == 0 {
-		return nil
-	}
-	taskMap, err := unmarshalTasks(data, tf.cronFactory)
-	if err != nil {
-		return err
-	}
-	tf.tasks = taskMap
-	return nil
+
+	return &TaskFiles{
+		fs:    fs,
+		tasks: tasks,
+	}, nil
 }
 
 func (tf *TaskFiles) flush() error {
@@ -71,10 +56,10 @@ func (tf *TaskFiles) Get(id string) (*task.TaskRecord, error) {
 	return t, nil
 }
 
-func (tf *TaskFiles) Save(id string, t *task.TaskRecord) error {
+func (tf *TaskFiles) Save(t *task.TaskRecord) error {
 	tf.mu.Lock()
 	defer tf.mu.Unlock()
-	tf.tasks[id] = t
+	tf.tasks[t.Name()] = t
 	return tf.flush()
 }
 
@@ -83,11 +68,6 @@ func (tf *TaskFiles) Delete(id string) error {
 	defer tf.mu.Unlock()
 	delete(tf.tasks, id)
 	return tf.flush()
-}
-
-type reglamentDTO struct {
-	Type string          `json:"type"`
-	Data json.RawMessage `json:"data"`
 }
 
 type taskDTO struct {
@@ -100,7 +80,7 @@ type taskDTO struct {
 	Reglament   string     `json:"reglament"`
 }
 
-func unmarshalTasks(data []byte, cronFactory func(string) (task.Cron, error)) (map[string]*task.TaskRecord, error) {
+func unmarshalTasks(data []byte) (map[string]*task.TaskRecord, error) {
 
 	var dtos []taskDTO
 	if err := json.Unmarshal(data, &dtos); err != nil {
@@ -108,28 +88,30 @@ func unmarshalTasks(data []byte, cronFactory func(string) (task.Cron, error)) (m
 	}
 
 	records := make(map[string]*task.TaskRecord, len(dtos))
+
+	var errs []error
 	for _, dto := range dtos {
 
-		cron, err := cronFactory(dto.Reglament)
+		cfg, err := task.NewValidTaskConfig(
+			dto.Name,
+			dto.Description,
+			dto.Recipients,
+			dto.Request,
+			dto.Reglament,
+			dto.OneShot,
+		)
+
 		if err != nil {
-			slog.Error("unmarshal task, reglament parse", "task", dto.Name, "reglament", dto.Reglament, "error", err)
-			continue
+			errs = append(errs, fmt.Errorf("can't load task %s: %W", dto.Name, err))
 		}
 
 		records[dto.Name] = &task.TaskRecord{
-			Active: dto.Active,
-			Task: task.NewTask(
-				dto.Name,
-				dto.Description,
-				dto.Recipients,
-				dto.Request,
-				cron,
-				dto.OneShot,
-			),
+			Active:     dto.Active,
+			TaskConfig: cfg,
 		}
 	}
 
-	return records, nil
+	return records, errors.Join(errs...)
 }
 
 func marshalTasks(tasks map[string]*task.TaskRecord) ([]byte, error) {
@@ -138,15 +120,34 @@ func marshalTasks(tasks map[string]*task.TaskRecord) ([]byte, error) {
 	for _, t := range tasks {
 		dto := taskDTO{
 			Active:      t.Active,
-			Name:        t.Name,
-			Description: t.Description,
-			Recipients:  t.Recipients,
-			Request:     t.Request,
-			OneShot:     t.OneShot,
-			Reglament:   t.Reglament.Expression(),
+			Name:        t.Name(),
+			Description: t.Description(),
+			Recipients:  t.Recipients(),
+			Request:     t.Request(),
+			OneShot:     t.Oneshot(),
+			Reglament:   t.Reglament(),
 		}
 		dtos = append(dtos, dto)
 	}
 
 	return json.MarshalIndent(dtos, "", "	")
+}
+
+func loadTasks(fs *FileSystem) (map[string]*task.TaskRecord, error) {
+	data, err := fs.ReadFile(TaskFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string]*task.TaskRecord{}, nil
+		}
+		return nil, err
+	}
+	if len(data) == 0 {
+		return map[string]*task.TaskRecord{}, nil
+	}
+	taskMap, err := unmarshalTasks(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return taskMap, nil
 }

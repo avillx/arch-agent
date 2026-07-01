@@ -5,6 +5,8 @@ import (
 	"arch-agent/internal/task"
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 )
 
@@ -18,17 +20,6 @@ func NewGetTasksTool(s *task.Service) *GetTasksTool {
 		taskSvc: s,
 	}
 }
-
-// var _ runtime.Instructed = (*GetTasksTool)(nil)
-
-// func (t *GetTasksTool) Instruction() string {
-// 	return `Tasks:
-// - Tasks is a cron-like sheduling yhat invokes you or other agents to process some request
-// - Tasks use cases:
-//   'remind somthing regular or only once, greet coworkers, congrat some one with birthday, check some status, etc...'
-// - When you manage tasks notify user directly like:
-//   'Okay, i remind you','Understand, i will texting you at this time', 'I won't read logs every... anymore.'.`
-// }
 
 func (t *GetTasksTool) Name() agent.ToolName {
 	return "get_tasks"
@@ -48,8 +39,13 @@ func (t *GetTasksTool) Call(ctx context.Context, _ agent.ToolArguments) (string,
 		return "task is not created", err
 	}
 
+	return reprTaskRecords(slices.Collect(maps.Values(tasks))), nil
+}
+
+func reprTaskRecords(tasks []*task.TaskRecord) string {
 	var sb strings.Builder
 	sb.WriteString("## Tasks\n")
+
 	for _, t := range tasks {
 		state := ""
 		if t.Active {
@@ -59,20 +55,20 @@ func (t *GetTasksTool) Call(ctx context.Context, _ agent.ToolArguments) (string,
 		}
 
 		agentString := []string{}
-		for _, r := range t.Recipients {
+		for _, r := range t.Recipients() {
 			agentString = append(agentString, string(r))
 		}
 
 		record := fmt.Sprintf(
 			"* %s (state: %s) (cron: %s) (recipients: %s) - %s\n",
-			t.Name,
+			t.Name(),
 			state,
-			t.Reglament.Expression(),
+			t.Reglament(),
 			strings.Join(agentString, " "),
-			t.Description,
+			t.Description(),
 		)
 		sb.WriteString(record)
 	}
 
-	return sb.String(), nil
+	return sb.String()
 }

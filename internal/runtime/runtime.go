@@ -4,7 +4,9 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/prompt"
 	"arch-agent/internal/session"
+	"arch-agent/internal/types"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -141,7 +143,30 @@ func (r *AgentRuntime) processToolCalls(
 		res, err := tool.Call(ctx, call.Arguments)
 		if err != nil {
 			evCh <- NewErrToolCallEvent(agt.ID(), sess.ID(), err)
-			res += err.Error()
+
+			var agentMistakeErr *types.AgentMistakeError
+			if errors.As(err, &agentMistakeErr) {
+				slog.Warn(
+					"agent tool call",
+					"cause", err,
+					"agentID", agt.ID(),
+					"sessID", sess.ID(),
+					"tool", call.ToolName,
+					"args", call.Arguments,
+					"explanation", agentMistakeErr.Message(),
+				)
+				res += fmt.Sprintf("errors occured:\n%s", agentMistakeErr.Message())
+			} else {
+				res += "\ninternal error"
+				slog.Error(
+					"unexpected error on agent tool call",
+					"agentID", agt.ID(),
+					"sessID", sess.ID(),
+					"tool", call.ToolName,
+					"args", call.Arguments,
+					"error", err,
+				)
+			}
 		}
 
 		slog.Debug("tool called", "result", res)

@@ -74,7 +74,7 @@ func BuildTaskSvc(
 	chatSvc *chat.Service,
 ) (*task.Service, error) {
 
-	taskRepo, err := files.NewTaskFiles(fs, func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) })
+	taskRepo, err := files.NewTaskFiles(fs)
 	if err != nil {
 		return nil, err
 	}

@@ -25,11 +25,11 @@ func NewExecutor(
 	}
 }
 
-func (s *executor) execute(ctx context.Context, t Task) {
-	for _, r := range t.Recipients {
-		slog.Info("processing task", "agent", r, "task", t.Name)
-		if err := s.processRecipientTask(ctx, agent.ID(r), t.Name, t.Request); err != nil {
-			slog.Error("task processing", "agent", r, "task", t.Name, "error", err)
+func (s *executor) execute(ctx context.Context, t *TaskConfig) {
+	for _, r := range t.recipients {
+		slog.Info("processing task", "agent", r, "task", t.name)
+		if err := s.processRecipientTask(ctx, agent.ID(r), t.name, t.request); err != nil {
+			slog.Error("task processing", "agent", r, "task", t.name, "error", err)
 		}
 	}
 }

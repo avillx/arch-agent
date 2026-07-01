@@ -1,25 +1,21 @@
 package task
 
 import (
-	"arch-agent/internal/types"
 	"context"
+	"errors"
 	"sync"
 	"time"
 )
 
+var ErrAlreadyRun = errors.New("task already run")
+var ErrTaskIsNotRunning = errors.New("task is not running")
+
 type RunningTask struct {
-	Task
-	onExecute func(context.Context, Task)
+	*TaskConfig
+	onExecute func(context.Context, *TaskConfig)
 	done      chan struct{}
 	stopOnce  sync.Once
-}
-
-func NewRunningTask(t Task, onExecute func(context.Context, Task)) *RunningTask {
-	return &RunningTask{
-		Task:      t,
-		onExecute: onExecute,
-		done:      make(chan struct{}),
-	}
+	cron      Cron
 }
 
 // blocking
@@ -30,9 +26,9 @@ func (t *RunningTask) Start(ctx context.Context) {
 			return
 		case <-t.done:
 			return
-		case <-time.After(t.Task.Reglament.NextTime()):
-			t.onExecute(ctx, t.Task)
-			if t.Task.OneShot {
+		case <-time.After(t.cron.NextTime()):
+			t.onExecute(ctx, t.TaskConfig)
+			if t.TaskConfig.oneshot {
 				return
 			}
 		}
@@ -57,15 +53,20 @@ func NewTaskRuntime() *TaskRuntime {
 	}
 }
 
-func (r *TaskRuntime) Spawn(t Task, exec func(context.Context, Task)) {
+func (r *TaskRuntime) Spawn(t *TaskConfig, cron Cron, exec func(context.Context, *TaskConfig)) {
 	r.mu.Lock()
 
-	if runningTask, ok := r.runningTasks[t.Name]; ok {
+	if runningTask, ok := r.runningTasks[t.name]; ok {
 		runningTask.Stop()
 	}
 
-	newTask := NewRunningTask(t, exec)
-	r.runningTasks[t.Name] = newTask
+	runningTask := &RunningTask{
+		TaskConfig: t,
+		onExecute:  exec,
+		done:       make(chan struct{}),
+		cron:       cron,
+	}
+	r.runningTasks[t.name] = runningTask
 	r.mu.Unlock()
 
 	go func() {
@@ -73,17 +74,18 @@ func (r *TaskRuntime) Spawn(t Task, exec func(context.Context, Task)) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		newTask.Start(ctx)
+		runningTask.Start(ctx)
 
 		r.mu.Lock()
-		if runningTask, ok := r.runningTasks[t.Name]; ok {
+		if runningTask, ok := r.runningTasks[t.name]; ok {
 			runningTask.Stop()
-			delete(r.runningTasks, t.Name)
+			delete(r.runningTasks, t.name)
 		}
 		r.mu.Unlock()
 
-		r.done <- t.Name
+		r.done <- t.name
 	}()
+
 }
 
 func (r *TaskRuntime) Kill(name string) error {
@@ -95,7 +97,7 @@ func (r *TaskRuntime) Kill(name string) error {
 		return nil
 	}
 
-	return types.ErrIsNotExist
+	return ErrTaskIsNotRunning
 }
 
 func (r *TaskRuntime) DoneChannel() chan string {

@@ -1,35 +1,35 @@
 package task
 
 import (
-	"arch-agent/internal/agent"
+	"arch-agent/internal/types"
 	"context"
+	"errors"
 	"log/slog"
 )
 
-type TaskRecord struct {
-	Active bool
-	Task
-}
+var ErrIsNotExist = types.ErrIsNotExist
+var ErrAlreadyExist = types.ErrAlreadyExist
+var ErrCron = errors.New("cron is not support this expression")
 
 type TaskRepo interface {
 	All() (map[string]*TaskRecord, error)
 	Get(id string) (*TaskRecord, error)
-	Save(id string, t *TaskRecord) error
 	Delete(id string) error
+	Save(t *TaskRecord) error
 }
 
 // service
 type Service struct {
 	runtime     *TaskRuntime
 	executor    *executor
-	cronFacrory func(string) (Cron, error)
+	cronFactory func(string) (Cron, error)
 	repo        TaskRepo
 }
 
 func NewService(
 	ctx context.Context,
 	repo TaskRepo,
-	cronFacrory func(string) (Cron, error),
+	cronFactory func(string) (Cron, error),
 	executor *executor,
 ) (*Service, error) {
 
@@ -37,7 +37,7 @@ func NewService(
 		repo:        repo,
 		runtime:     NewTaskRuntime(),
 		executor:    executor,
-		cronFacrory: cronFacrory,
+		cronFactory: cronFactory,
 	}
 
 	recs, err := repo.All()
@@ -64,58 +64,65 @@ func (s *Service) All() (map[string]*TaskRecord, error) {
 	return s.repo.All()
 }
 
-func (s *Service) New(
-	name string,
-	description string,
-	recipients []agent.ID,
-	reglament string,
-	request string,
-	oneshot bool,
+func (s *Service) AddTask(
+	cfg *TaskConfig,
 ) error {
 
-	// validate
-	// if err := s.executor.Validate(t); err != nil {
-	// 	return "", err
-	// }
-	cron, err := s.cronFacrory(reglament)
+	rec, err := s.repo.Get(cfg.name)
 	if err != nil {
+		if !errors.Is(err, ErrIsNotExist) {
+			return err
+		}
+	}
+	if rec != nil {
+		return ErrAlreadyExist
+	}
+
+	// validate cron on implementation
+	// reglament already checks in Validation but if implemntation
+	// is not completely support format it's check this before task has been added
+	if _, err := s.cronFactory(cfg.reglament); err != nil {
 		return err
 	}
 
-	record := &TaskRecord{
-		Active: false,
-		Task: NewTask(
-			name,
-			description,
-			recipients,
-			request,
-			cron,
-			oneshot,
-		),
-	}
-
-	return s.repo.Save(name, record)
+	return s.repo.Save(
+		&TaskRecord{
+			Active:     false,
+			TaskConfig: cfg,
+		},
+	)
 }
 
 func (s *Service) Start(id string) error {
-
 	rec, err := s.repo.Get(id)
 	if err != nil {
 		return err
 	}
 
-	s.runtime.Spawn(rec.Task, s.executor.execute)
+	cron, err := s.cronFactory(rec.reglament)
+	if err != nil {
+		return err
+	}
+
+	s.runtime.Spawn(rec.TaskConfig, cron, s.executor.execute)
 	rec.Active = true
 
-	return s.repo.Save(id, rec)
+	return s.repo.Save(rec)
 }
 
 func (s *Service) Stop(id string) error {
+
+	if _, err := s.repo.Get(id); err != nil {
+		return err
+	}
+
 	return s.runtime.Kill(id)
 }
 
 func (s *Service) Delete(id string) error {
-	s.runtime.Kill(id)
+	if err := s.runtime.Kill(id); err != nil {
+		return err
+	}
 
 	return s.repo.Delete(id)
 }
@@ -134,7 +141,7 @@ func (s *Service) Run(ctx context.Context) {
 
 			rec.Active = false
 
-			if err := s.repo.Save(doneTaskID, rec); err != nil {
+			if err := s.repo.Save(rec); err != nil {
 				slog.Error("process done tasks", "task", doneTaskID, "error", err)
 			}
 		}

@@ -4,42 +4,9 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/task"
 	"arch-agent/internal/types"
-	"context"
 	"errors"
 	"net/http"
-	"regexp"
 )
-
-var cronRegex = regexp.MustCompile(`^(((?:[1-5]?[0-9])|(?:\*))(?:\/\d+)?(?:,(?:(?:[1-5]?[0-9])|(?:\*))(?:\/\d+)?)*)\s+(((?:[0-1]?[0-9]|2[0-3])|(?:\*))(?:\/\d+)?(?:,(?:(?:[0-1]?[0-9]|2[0-3])|(?:\*))(?:\/\d+)?)*)\s+(((?:[0-2]?[0-9]|3[0-1])|(?:\*))(?:\/\d+)?(?:,(?:(?:[0-2]?[0-9]|3[0-1])|(?:\*))(?:\/\d+)?)*)\s+(((?:[0-9]|1[0-2])|(?:\*))(?:\/\d+)?(?:,(?:(?:[0-9]|1[0-2])|(?:\*))(?:\/\d+)?)*)\s+(((?:[0-6])|(?:\*))(?:\/\d+)?(?:,(?:(?:[0-6])|(?:\*))(?:\/\d+)?)*)$`)
-
-type TaskConfigDTO struct {
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	Recipients  []agent.ID `json:"recipients"`
-	Reglament   string     `json:"schedule"`
-	Request     string     `json:"request"`
-	Oneshot     bool       `json:"oneshot"`
-}
-
-func (d *TaskConfigDTO) Validate(_ context.Context) map[string]string {
-	problems := make(map[string]string)
-	if d.Name == "" {
-		problems["name"] = "must be not empty"
-	}
-	if d.Description == "" {
-		problems["description"] = "must be not empty"
-	}
-	if !(len(d.Recipients) > 0) {
-		problems["recipients"] = "must contain at least one recipient"
-	}
-	if !cronRegex.MatchString(d.Reglament) {
-		problems["reglament"] = "bad format"
-	}
-	if d.Request == "" {
-		problems["request"] = "must be not empty"
-	}
-	return problems
-}
 
 // handler
 type TaskHandler struct {
@@ -60,19 +27,37 @@ func (s *TaskHandler) List(w http.ResponseWriter, _ *http.Request) error {
 // POST /task/{name}
 func (s *TaskHandler) Create(w http.ResponseWriter, r *http.Request) error {
 
-	dto, err := decodeValid[*TaskConfigDTO](r)
+	type TaskConfigDTO struct {
+		Name        string     `json:"name"`
+		Description string     `json:"description"`
+		Recipients  []agent.ID `json:"recipients"`
+		Reglament   string     `json:"schedule"`
+		Request     string     `json:"request"`
+		Oneshot     bool       `json:"oneshot"`
+	}
+
+	dto, err := decode[TaskConfigDTO](r)
 	if err != nil {
 		return err
 	}
 
-	if err := s.taskSvc.New(
+	newTask, err := task.NewValidTaskConfig(
 		dto.Name,
 		dto.Description,
 		dto.Recipients,
 		dto.Reglament,
 		dto.Request,
 		dto.Oneshot,
-	); err != nil {
+	)
+	if err != nil {
+		var validationErr *types.ValidationError
+		if errors.As(err, &validationErr) {
+			return invalidRequest(validationErr.Problems())
+		}
+		return internal(err)
+	}
+
+	if err := s.taskSvc.AddTask(newTask); err != nil {
 		return mapTaskServiceErr(err)
 	}
 
@@ -109,9 +94,15 @@ func (s *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) error {
 
 func mapTaskServiceErr(err error) error {
 	switch {
-	// case errors.Is(err, task.ErrAlreadyExist):
-	// 	return conflict("task already exists")
-	case errors.Is(err, types.ErrIsNotExist):
+	case errors.Is(err, task.ErrAlreadyRun):
+		return badRequest(err.Error())
+	case errors.Is(err, task.ErrTaskIsNotRunning):
+		return badRequest(err.Error())
+	case errors.Is(err, task.ErrCron):
+		return badRequest(err.Error())
+	case errors.Is(err, task.ErrAlreadyExist):
+		return badRequest("task already exists")
+	case errors.Is(err, task.ErrIsNotExist):
 		return notFound("task does not exist")
 	default:
 		return internal(err)

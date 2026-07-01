@@ -1,7 +1,7 @@
 package api
 
 import (
-	"context"
+	"arch-agent/internal/types"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,8 +20,8 @@ type validationError struct {
 }
 
 func (e *validationError) Error() string { return "validation failed" }
-func (e *validationError) Status() int   { return http.StatusBadRequest }
 func (e *validationError) Body() any     { return e.body }
+func (e *validationError) Status() int   { return http.StatusBadRequest }
 
 type errStatus struct {
 	status int
@@ -90,17 +90,19 @@ func decode[T any](r *http.Request) (T, error) {
 	return v, nil
 }
 
-type Validator interface {
-	Validate(context.Context) map[string]string
-}
-
-func decodeValid[T Validator](r *http.Request) (T, error) {
+func decodeValid[T types.Validator](r *http.Request) (T, error) {
 	var v T
 	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
 		return v, fmt.Errorf("decode json: %w", err)
 	}
-	if problems := v.Validate(r.Context()); len(problems) > 0 {
-		return v, invalidRequest(problems)
+	if err := v.Validate(r.Context()); err != nil {
+
+		var validationError *types.ValidationError
+		if errors.As(err, &validationError) {
+			return v, invalidRequest(validationError.Problems())
+		}
+
+		return v, err
 	}
 
 	return v, nil
