@@ -47,7 +47,7 @@ type TaskHandler struct {
 }
 
 // GET /task/all
-func (s *TaskHandler) list(w http.ResponseWriter, _ *http.Request) error {
+func (s *TaskHandler) List(w http.ResponseWriter, _ *http.Request) error {
 
 	tasks, err := s.taskSvc.All()
 	if err != nil {
@@ -58,7 +58,7 @@ func (s *TaskHandler) list(w http.ResponseWriter, _ *http.Request) error {
 }
 
 // POST /task/{name}
-func (s *TaskHandler) new(w http.ResponseWriter, r *http.Request) error {
+func (s *TaskHandler) Create(w http.ResponseWriter, r *http.Request) error {
 
 	dto, err := decodeValid[*TaskConfigDTO](r)
 	if err != nil {
@@ -80,7 +80,7 @@ func (s *TaskHandler) new(w http.ResponseWriter, r *http.Request) error {
 }
 
 // PATCH /task/{name}/start
-func (s *TaskHandler) start(w http.ResponseWriter, r *http.Request) error {
+func (s *TaskHandler) Start(w http.ResponseWriter, r *http.Request) error {
 	taskName := r.PathValue("name")
 	if err := s.taskSvc.Start(taskName); err != nil {
 		return mapTaskServiceErr(err)
@@ -90,7 +90,7 @@ func (s *TaskHandler) start(w http.ResponseWriter, r *http.Request) error {
 }
 
 // PATCH /task/{name}/stop
-func (s *TaskHandler) stop(w http.ResponseWriter, r *http.Request) error {
+func (s *TaskHandler) Stop(w http.ResponseWriter, r *http.Request) error {
 	taskName := r.PathValue("name")
 	if err := s.taskSvc.Stop(taskName); err != nil {
 		return mapTaskServiceErr(err)
@@ -99,7 +99,7 @@ func (s *TaskHandler) stop(w http.ResponseWriter, r *http.Request) error {
 }
 
 // DELETE /task/{name}
-func (s *TaskHandler) delete(w http.ResponseWriter, r *http.Request) error {
+func (s *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) error {
 	taskName := r.PathValue("name")
 	if err := s.taskSvc.Delete(taskName); err != nil {
 		return mapTaskServiceErr(err)
