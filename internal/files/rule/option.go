@@ -318,6 +318,34 @@ func AgentAccessRules(agt agent.Agent) []Option {
 	return opts
 }
 
+///
+
+func AgentMemoryAccessRules(agentID agent.ID) []Option {
+	prefix := fmt.Sprintf("/agents/%s", agentID)
+	const _10kb = 1024 * 10
+
+	// Order is important!
+	opts := []Option{
+		// base opts.
+		WithReadOnlyTextFiles(),
+		WithTrimPrefix("/mnt"),
+		WithNonEmptyRoot(),
+		WithCleanPathOnly(),
+		WithPrefix(prefix),
+
+		WithAccessOnPath(path.Join(prefix, "/sessions"), false, false, false, false),
+		WithAccessOnPath(path.Join(prefix, "/agent.md"), false, false, false, false),
+		WithAccessOnPath(path.Join(prefix, "/memory"), true, true, true, true),
+		WithAccessOnPath(path.Join(prefix, "/activity"), true, false, false, false),
+
+		// size limit
+		WithReadSizeLimit(_10kb),
+		WithWriteSizeLimit(_10kb),
+	}
+
+	return opts
+}
+
 func skillIDToPaths(skillIDs []agent.SkillID) []string {
 	skillNames := make([]string, len(skillIDs))
 	for i, s := range skillIDs {
