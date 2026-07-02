@@ -53,7 +53,13 @@ func (fs *FileSystem) AppendToFile(path string, data []byte) error {
 	unlock := fs.locks.Lock(path)
 	defer unlock()
 
-	f, err := os.OpenFile(fs.resolveAbsolutePath(path), os.O_CREATE|os.O_APPEND|os.O_WRONLY, FileMode)
+	fullPath := fs.resolveAbsolutePath(path)
+
+	if err := os.MkdirAll(filepath.Dir(fullPath), FileMode); err != nil {
+		return err
+	}
+
+	f, err := os.OpenFile(fullPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, FileMode)
 	if err != nil {
 		return err
 	}
