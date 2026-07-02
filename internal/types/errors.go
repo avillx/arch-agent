@@ -23,6 +23,12 @@ func NewAgentMistakeError(msg string) error {
 	}
 }
 
+func NewAgentMistakeErrorf(format string, arg ...any) error {
+	return &AgentMistakeError{
+		msg: fmt.Sprintf(format, arg),
+	}
+}
+
 func (e *AgentMistakeError) Error() string   { return "Agent make mistakes" }
 func (e *AgentMistakeError) Message() string { return e.msg }
 
