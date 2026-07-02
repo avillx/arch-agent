@@ -17,7 +17,7 @@ func UnwrapArgs[T any](raw agent.ToolArguments) (T, error) {
 	var args T
 
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return args, err
+		return args, types.NewAgentMistakeError("invalid json aguments")
 	}
 	return args, nil
 }
