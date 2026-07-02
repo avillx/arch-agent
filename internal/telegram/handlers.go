@@ -105,8 +105,10 @@ func (b *Bot) handleMessage(ctx context.Context, message *tgbotapi.Message) erro
 			fullResponse := toolRepr + "\n" + completion.Content
 
 			// Send response
-			if _, err := b.SendMessage(message.From.ID, fullResponse, 0); err != nil {
-				slog.Warn("failed to send completion", "error", err)
+			if fullResponse != "" {
+				if _, err := b.SendMessage(message.From.ID, fullResponse, 0); err != nil {
+					slog.Warn("failed to send completion", "error", err)
+				}
 			}
 		},
 	}
