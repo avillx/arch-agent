@@ -44,7 +44,8 @@ All memory stores in `/agent/data/...`
 - [X] remove subsessions
 - [X] MCP Service and tools
 - [X] LOG_PRETTY, LOG_LEVEL should be flags-arg, not env 
-- [ ] Services proto, services managing funcs
+- [ ] Services proto, services managing funcs 
+  chat svc * session svc * agent repo * models svc * mcp svc * activity handling * tools svc * memory consolidator
 - [ ] API endpints
 
 **alpha v0.5**
