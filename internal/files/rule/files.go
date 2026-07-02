@@ -8,6 +8,12 @@ import (
 	"strings"
 )
 
+type RuleError struct{ err error }
+
+func NewRuleErr(err error) error   { return &RuleError{err: err} }
+func (e *RuleError) Error() string { return "rule broken" }
+func (e *RuleError) Unwrap() error { return e.err }
+
 type Rules[T any] struct {
 	rules []func(T) (T, error)
 }
@@ -26,7 +32,7 @@ func (f *Rules[T]) Apply(value T) (T, error) {
 	for _, v := range f.rules {
 		newValue, err := v(value)
 		if err != nil {
-			return value, err
+			return value, NewRuleErr(err)
 		}
 		value = newValue
 	}
