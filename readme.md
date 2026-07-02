@@ -52,6 +52,9 @@ All memory stores in `/agent/data/...`
 - [ ] envvars managment
 - [ ] web search gateway as CLI
 - [ ] exclude telegram integration
+- [ ] runtime fallback models pool
+- [ ] runtime toolcall loop detection
+- [ ] a2a sub agent call stack limit
 
 **alpha v0.7**
 - [ ] Skill adding tools

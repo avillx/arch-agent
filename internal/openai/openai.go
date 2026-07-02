@@ -2,6 +2,7 @@ package openai
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/runtime"
 	"errors"
 
 	"reflect"
@@ -239,17 +240,26 @@ func OpenAICompletionToReasonResult(completion *openai.ChatCompletion) (*agent.C
 		toolCalls = append(toolCalls, openAIToToolCalls(message.ToolCalls)...)
 	}
 
+	finishReason := openai.CompletionChoiceFinishReason(completion.Choices[0].FinishReason)
 	result := &agent.Completion{
 		ToolCalls:        toolCalls,
 		Content:          message.Content,
-		Done:             IsDoneOpenAI(completion.Choices[0].FinishReason),
+		Done:             IsDoneOpenAI(finishReason),
 		InputTokens:      completion.Usage.PromptTokens,
 		CompletionTokens: completion.Usage.CompletionTokens,
+	}
+
+	if IsContextLimit(finishReason) {
+		return result, runtime.ErrContextOverflow
 	}
 
 	return result, nil
 }
 
-func IsDoneOpenAI(finishReason string) bool {
-	return finishReason == "stop"
+func IsDoneOpenAI(finishReason openai.CompletionChoiceFinishReason) bool {
+	return finishReason == openai.CompletionChoiceFinishReasonStop
+}
+
+func IsContextLimit(finishReason openai.CompletionChoiceFinishReason) bool {
+	return finishReason == openai.CompletionChoiceFinishReasonLength
 }

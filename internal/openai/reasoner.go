@@ -3,7 +3,6 @@ package openai
 import (
 	"arch-agent/internal/agent"
 	"context"
-	"log/slog"
 	"slices"
 	"sync"
 
@@ -83,11 +82,7 @@ func (r *OpenAIReasoner) Complete(
 		return nil, err
 	}
 
-	castedRes, err := OpenAICompletionToReasonResult(res)
-
-	slog.Debug("reasoning", "result", castedRes)
-
-	return castedRes, err
+	return OpenAICompletionToReasonResult(res)
 }
 
 func (r *OpenAIReasoner) buildCompletionParams(

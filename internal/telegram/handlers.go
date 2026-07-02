@@ -256,7 +256,7 @@ func (b *Bot) handleCommand(ctx context.Context, update tgbotapi.Update) error {
 		res, err := b.processMCPCommand(ctx, update)
 		if err != nil {
 			res += err.Error()
-			err = fmt.Errorf("user mcp interactions occured %W", err)
+			err = fmt.Errorf("user mcp interactions occured %w", err)
 		}
 		_, sendErr := b.SendMessage(update.Message.From.ID, res, 0)
 		return errors.Join(err, sendErr)

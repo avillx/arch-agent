@@ -102,7 +102,7 @@ func unmarshalTasks(data []byte) (map[string]*task.TaskRecord, error) {
 		)
 
 		if err != nil {
-			errs = append(errs, fmt.Errorf("can't load task %s: %W", dto.Name, err))
+			errs = append(errs, fmt.Errorf("can't load task %s: %w", dto.Name, err))
 		}
 
 		records[dto.Name] = &task.TaskRecord{

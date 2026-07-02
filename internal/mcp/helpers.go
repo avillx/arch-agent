@@ -25,7 +25,7 @@ func tryConnect(ctx context.Context, srv *MCPServer, maxAttempts int) error {
 		if err := srv.Connect(ctx); err == nil {
 			return nil
 		} else {
-			errc = errors.Join(errc, fmt.Errorf("connection attempt %W", err))
+			errc = errors.Join(errc, fmt.Errorf("connection attempt %w", err))
 		}
 
 		if isClientError(errc) {
