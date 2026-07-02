@@ -56,6 +56,9 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 	}
 
 	if err != nil {
+		if _, sendErr := b.SendMessage(chat.ID, "internal error occured", 0); sendErr != nil {
+			err = errors.Join(err, sendErr)
+		}
 		slog.Error("failed to handle update", "error", err, "update_id", update.UpdateID)
 	}
 }
@@ -251,8 +254,16 @@ func (b *Bot) handleCommand(ctx context.Context, update tgbotapi.Update) error {
 		_, err := b.SendMessage(update.Message.From.ID, "Hello! I'm your assistant bot.", 0)
 		return err
 	case "dream":
-		b.d.DreamImmidate(ctx, b.agentID)
-		_, err := b.SendMessage(update.Message.From.ID, "Dreaming stated", 0)
+
+		if _, err := b.SendMessage(update.Message.From.ID, "Dreaming stated", 0); err != nil {
+			return err
+		}
+
+		if err := b.d.DreamImmidate(ctx, b.agentID); err != nil {
+			return err
+		}
+
+		_, err := b.SendMessage(update.Message.From.ID, "Dreaming finished", 0)
 		return err
 	case "mcp":
 		res, err := b.processMCPCommand(ctx, update)
