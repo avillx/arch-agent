@@ -2,19 +2,17 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"context"
 	"fmt"
 )
 
 type DeleteTool struct {
-	fs   *files.FileSystem
-	repo agent.Repo
+	fsFactory RuledAccessFactory
 }
 
-func NewDeleteTool(fs *files.FileSystem, repo agent.Repo) *DeleteTool {
-	return &DeleteTool{fs: fs, repo: repo}
+func NewDeleteTool(fsFactory RuledAccessFactory) *DeleteTool {
+	return &DeleteTool{fsFactory: fsFactory}
 }
 
 func (t *DeleteTool) Name() agent.ToolName { return "delete" }
@@ -40,13 +38,13 @@ func (t *DeleteTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (str
 		return "", err
 	}
 
-	rfs, err := newRuledFS(ctx, t.fs, t.repo)
+	rfs, err := t.fsFactory(ctx)
 	if err != nil {
 		return "", err
 	}
 
 	if err := rfs.Delete(args.Path); err != nil {
-		return "", err
+		return "", ruleBreakToAgentMistake(err)
 	}
 
 	return fmt.Sprintf("deleted %s", args.Path), nil

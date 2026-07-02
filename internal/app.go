@@ -92,6 +92,42 @@ func BuildTaskSvc(
 	)
 }
 
+func BuildMemoryConsolidator(
+	fs *files.FileSystem,
+	rt *runtime.AgentRuntime,
+	modelRepo agent.ModelRepository,
+	agentRepo agent.Repo,
+	additionalTools []agent.Tool,
+) (*memory.Memory, error) {
+
+	fsTools := []agent.Tool{
+		fstools.NewListDirTool(fstools.NewMemoryAccessRuledFS(fs)),
+		fstools.NewReadFileTool(fstools.NewMemoryAccessRuledFS(fs)),
+		fstools.NewWriteFileTool(fstools.NewMemoryAccessRuledFS(fs)),
+		fstools.NewEditFileTool(fstools.NewMemoryAccessRuledFS(fs)),
+		fstools.NewMoveFileTool(fstools.NewMemoryAccessRuledFS(fs)),
+		fstools.NewDeleteTool(fstools.NewMemoryAccessRuledFS(fs)),
+		fstools.NewSearchFilesTool(fstools.NewMemoryAccessRuledFS(fs)),
+	}
+
+	consolidatorModel, err := modelRepo.Get("consolidator")
+	if err != nil {
+		return nil, fmt.Errorf("'consolidator' model: %w", err)
+	}
+
+	memory, err := memory.NewMemory(
+		agentRepo,
+		rt,
+		append(fsTools, additionalTools...),
+		consolidatorModel,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("memory consolidator: %w", err)
+	}
+
+	return memory, err
+}
+
 func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 
 	fs, err := files.NewFS(cfg.DataPath)
@@ -150,15 +186,15 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 
 	todoStorage := todo.NewInMemoryStore()
 
-	// Tools
+	// agent Tools
 	fsTools := []agent.Tool{
-		fstools.NewListDirTool(fs, agentRepo),
-		fstools.NewReadFileTool(fs, agentRepo),
-		fstools.NewWriteFileTool(fs, agentRepo),
-		fstools.NewEditFileTool(fs, agentRepo),
-		fstools.NewMoveFileTool(fs, agentRepo),
-		fstools.NewDeleteTool(fs, agentRepo),
-		fstools.NewSearchFilesTool(fs, agentRepo),
+		fstools.NewListDirTool(fstools.NewAgentAccessRuledFS(fs, agentRepo)),
+		fstools.NewReadFileTool(fstools.NewAgentAccessRuledFS(fs, agentRepo)),
+		fstools.NewWriteFileTool(fstools.NewAgentAccessRuledFS(fs, agentRepo)),
+		fstools.NewEditFileTool(fstools.NewAgentAccessRuledFS(fs, agentRepo)),
+		fstools.NewMoveFileTool(fstools.NewAgentAccessRuledFS(fs, agentRepo)),
+		fstools.NewDeleteTool(fstools.NewAgentAccessRuledFS(fs, agentRepo)),
+		fstools.NewSearchFilesTool(fstools.NewAgentAccessRuledFS(fs, agentRepo)),
 	}
 
 	todoTools := []agent.Tool{
@@ -184,20 +220,13 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		append(slices.Concat(fsTools, todoTools, taskControlTools, webTools), callAgentTool)...,
 	)
 
-	// memory consolidation
-	memoryConsolidator := memory.NewMemory(
-		agentRepo,
-		rt,
-		append(fsTools, todoTools...),
-	)
-	consolidatorModel, err := modelRepo.Get("consolidator")
+	// Telegram Bots
+	botOrchestra, err := telegram.NewBotOrchestrator(cfg.BotConfigs...)
 	if err != nil {
 		return nil, err
 	}
-	memoryConsolidator.SetModel(consolidatorModel)
 
-	// Telegram Bots
-	botOrchestra, err := telegram.NewBotOrchestrator(cfg.BotConfigs...)
+	memoryConsolidator, err := BuildMemoryConsolidator(fs, rt, modelRepo, agentRepo, todoTools)
 	if err != nil {
 		return nil, err
 	}

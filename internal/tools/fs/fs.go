@@ -4,22 +4,39 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/files"
 	rf "arch-agent/internal/files/rule"
+	ruledfiles "arch-agent/internal/files/rule"
 	"arch-agent/internal/runtime"
+	"arch-agent/internal/types"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 )
 
-func newRuledFS(ctx context.Context, fs *files.FileSystem, repo agent.Repo) (*rf.RuledFileSystem, error) {
-	agentID, ok := runtime.AgentIDFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("no agent in context")
+type RuledAccessFactory func(ctx context.Context) (*ruledfiles.RuledFileSystem, error)
+
+func NewAgentAccessRuledFS(fs *files.FileSystem, repo agent.Repo) RuledAccessFactory {
+	return func(ctx context.Context) (*ruledfiles.RuledFileSystem, error) {
+		agentID, ok := runtime.AgentIDFromContext(ctx)
+		if !ok {
+			return nil, fmt.Errorf("no agent in context")
+		}
+		agt, err := repo.Get(agentID)
+		if err != nil {
+			return nil, err
+		}
+		return rf.NewRuledFileSystem(fs, rf.AgentAccessRules(agt)...)
 	}
-	agt, err := repo.Get(agentID)
-	if err != nil {
-		return nil, err
+}
+
+func NewMemoryAccessRuledFS(fs *files.FileSystem) RuledAccessFactory {
+	return func(ctx context.Context) (*ruledfiles.RuledFileSystem, error) {
+		agentID, ok := runtime.AgentIDFromContext(ctx)
+		if !ok {
+			return nil, fmt.Errorf("no agent in context")
+		}
+		return rf.NewRuledFileSystem(fs, rf.AgentMemoryAccessRules(agentID)...)
 	}
-	return rf.NewRuledFileSystem(fs, rf.AgentAccessRules(agt)...)
 }
 
 func matchLines(agentPath, content, query string, limit int) []string {
@@ -34,4 +51,12 @@ func matchLines(agentPath, content, query string, limit int) []string {
 		}
 	}
 	return matches
+}
+
+func ruleBreakToAgentMistake(err error) error {
+	var ruleError *rf.RuleError
+	if errors.As(err, &ruleError) {
+		return types.NewAgentMistakeError(err.Error())
+	}
+	return err
 }

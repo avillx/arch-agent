@@ -2,18 +2,16 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"context"
 )
 
 type ReadFileTool struct {
-	fs   *files.FileSystem
-	repo agent.Repo
+	fsFactory RuledAccessFactory
 }
 
-func NewReadFileTool(fs *files.FileSystem, repo agent.Repo) *ReadFileTool {
-	return &ReadFileTool{fs: fs, repo: repo}
+func NewReadFileTool(fsFactory RuledAccessFactory) *ReadFileTool {
+	return &ReadFileTool{fsFactory: fsFactory}
 }
 
 func (t *ReadFileTool) Name() agent.ToolName { return "read_file" }
@@ -54,18 +52,19 @@ func (t *ReadFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 		return "", err
 	}
 
-	rfs, err := newRuledFS(ctx, t.fs, t.repo)
+	rfs, err := t.fsFactory(ctx)
 	if err != nil {
 		return "", err
 	}
 
 	if args.StartLine != nil || args.EndLine != nil {
-		return rfs.ReadLines(args.Path, args.StartLine, args.EndLine)
+		res, err := rfs.ReadLines(args.Path, args.StartLine, args.EndLine)
+		return res, ruleBreakToAgentMistake(err)
 	}
 
 	data, err := rfs.ReadFile(args.Path)
 	if err != nil {
-		return "", err
+		return "", ruleBreakToAgentMistake(err)
 	}
 	return string(data), nil
 }

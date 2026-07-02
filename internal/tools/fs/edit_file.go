@@ -2,7 +2,6 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"context"
 	"fmt"
@@ -10,12 +9,16 @@ import (
 )
 
 type EditFileTool struct {
-	fs   *files.FileSystem
-	repo agent.Repo
+	fsFactory RuledAccessFactory
+	repo      agent.Repo
 }
 
-func NewEditFileTool(fs *files.FileSystem, repo agent.Repo) *EditFileTool {
-	return &EditFileTool{fs: fs, repo: repo}
+func NewEditFileTool(
+	fsFactory RuledAccessFactory,
+) *EditFileTool {
+	return &EditFileTool{
+		fsFactory: fsFactory,
+	}
 }
 
 func (t *EditFileTool) Name() agent.ToolName { return "edit_file" }
@@ -56,7 +59,7 @@ func (t *EditFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 		return "", err
 	}
 
-	rfs, err := newRuledFS(ctx, t.fs, t.repo)
+	rfs, err := t.fsFactory(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -78,7 +81,7 @@ func (t *EditFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 
 	updated := strings.Replace(content, args.OldStr, args.NewStr, 1)
 	if err := rfs.WriteFile(args.Path, []byte(updated)); err != nil {
-		return "", err
+		return "", ruleBreakToAgentMistake(err)
 	}
 
 	return fmt.Sprintf("edited %s", args.Path), nil

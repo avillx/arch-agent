@@ -2,7 +2,6 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"context"
 	"fmt"
@@ -12,12 +11,11 @@ import (
 )
 
 type SearchFilesTool struct {
-	fs   *files.FileSystem
-	repo agent.Repo
+	fsFactory RuledAccessFactory
 }
 
-func NewSearchFilesTool(fs *files.FileSystem, repo agent.Repo) *SearchFilesTool {
-	return &SearchFilesTool{fs: fs, repo: repo}
+func NewSearchFilesTool(fsFactory RuledAccessFactory) *SearchFilesTool {
+	return &SearchFilesTool{fsFactory: fsFactory}
 }
 
 func (t *SearchFilesTool) Instruction() string {
@@ -64,7 +62,7 @@ func (t *SearchFilesTool) Call(ctx context.Context, rawArgs agent.ToolArguments)
 		return "", err
 	}
 
-	rfs, err := newRuledFS(ctx, t.fs, t.repo)
+	rfs, err := t.fsFactory(ctx)
 	if err != nil {
 		return "", err
 	}

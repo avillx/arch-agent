@@ -7,6 +7,7 @@ import (
 	"arch-agent/internal/session"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 )
@@ -18,12 +19,35 @@ type Memory struct {
 	model     agent.Model
 }
 
-func NewMemory(agentRepo agent.Repo, runtime *runtime.AgentRuntime, tools []agent.Tool) *Memory {
+func NewMemory(
+	agentRepo agent.Repo,
+	runtime *runtime.AgentRuntime,
+	tools []agent.Tool,
+	model agent.Model,
+) (*Memory, error) {
+
+	if !(len(tools) > 0) {
+		return nil, fmt.Errorf("no tools for managing memory")
+	}
+
+	if model == nil {
+		return nil, fmt.Errorf("has no model")
+	}
+
+	if runtime == nil {
+		return nil, fmt.Errorf("has no agent runtime")
+	}
+
+	if agentRepo == nil {
+		return nil, fmt.Errorf("has no agentRepo")
+	}
+
 	return &Memory{
+		model:     model,
 		agentRepo: agentRepo,
 		runtime:   runtime,
 		tools:     tools,
-	}
+	}, nil
 }
 
 func (m *Memory) DreamImmidate(ctx context.Context, agentID agent.ID) error {

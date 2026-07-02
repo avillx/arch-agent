@@ -2,19 +2,17 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"context"
 	"fmt"
 )
 
 type WriteFileTool struct {
-	fs   *files.FileSystem
-	repo agent.Repo
+	fsFactory RuledAccessFactory
 }
 
-func NewWriteFileTool(fs *files.FileSystem, repo agent.Repo) *WriteFileTool {
-	return &WriteFileTool{fs: fs, repo: repo}
+func NewWriteFileTool(fsFactory RuledAccessFactory) *WriteFileTool {
+	return &WriteFileTool{fsFactory: fsFactory}
 }
 
 func (t *WriteFileTool) Name() agent.ToolName { return "write_file" }
@@ -55,7 +53,7 @@ func (t *WriteFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 		return "", err
 	}
 
-	rfs, err := newRuledFS(ctx, t.fs, t.repo)
+	rfs, err := t.fsFactory(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -68,7 +66,7 @@ func (t *WriteFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 		err = rfs.WriteFile(args.Path, data)
 	}
 	if err != nil {
-		return "", err
+		return "", ruleBreakToAgentMistake(err)
 	}
 
 	return fmt.Sprintf("wrote %d bytes to %s", len(data), args.Path), nil

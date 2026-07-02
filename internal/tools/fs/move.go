@@ -2,19 +2,17 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"context"
 	"fmt"
 )
 
 type MoveFileTool struct {
-	fs   *files.FileSystem
-	repo agent.Repo
+	fsFactory RuledAccessFactory
 }
 
-func NewMoveFileTool(fs *files.FileSystem, repo agent.Repo) *MoveFileTool {
-	return &MoveFileTool{fs: fs, repo: repo}
+func NewMoveFileTool(fsFactory RuledAccessFactory) *MoveFileTool {
+	return &MoveFileTool{fsFactory: fsFactory}
 }
 
 func (t *MoveFileTool) Name() agent.ToolName { return "move_file" }
@@ -47,22 +45,22 @@ func (t *MoveFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 		return "", err
 	}
 
-	rfs, err := newRuledFS(ctx, t.fs, t.repo)
+	rfs, err := t.fsFactory(ctx)
 	if err != nil {
 		return "", err
 	}
 
 	data, err := rfs.ReadFile(args.Src)
 	if err != nil {
-		return "", err
+		return "", ruleBreakToAgentMistake(err)
 	}
 
 	if err := rfs.WriteFile(args.Dst, data); err != nil {
-		return "", err
+		return "", ruleBreakToAgentMistake(err)
 	}
 
 	if err := rfs.Delete(args.Src); err != nil {
-		return "", fmt.Errorf("file copied to %s but failed to remove source: %s", args.Dst, err)
+		return fmt.Sprintf("file copied to %s but failed to remove source", args.Dst), ruleBreakToAgentMistake(err)
 	}
 
 	return fmt.Sprintf("moved %s → %s", args.Src, args.Dst), nil

@@ -12,12 +12,15 @@ import (
 )
 
 type ListDirTool struct {
-	fs   *files.FileSystem
-	repo agent.Repo
+	fsFactory RuledAccessFactory
 }
 
-func NewListDirTool(fs *files.FileSystem, repo agent.Repo) *ListDirTool {
-	return &ListDirTool{fs: fs, repo: repo}
+func NewListDirTool(
+	fsFactory RuledAccessFactory,
+) *ListDirTool {
+	return &ListDirTool{
+		fsFactory: fsFactory,
+	}
 }
 
 func (t *ListDirTool) Name() agent.ToolName { return "list_dir" }
@@ -44,14 +47,14 @@ func (t *ListDirTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (st
 		return "", err
 	}
 
-	rfs, err := newRuledFS(ctx, t.fs, t.repo)
+	rfs, err := t.fsFactory(ctx)
 	if err != nil {
 		return "", err
 	}
 
 	entries, err := rfs.ReadDir(args.Path)
 	if err != nil {
-		return "", err
+		return "", ruleBreakToAgentMistake(err)
 	}
 
 	if len(entries) == 0 {
