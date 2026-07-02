@@ -96,8 +96,8 @@ func unmarshalTasks(data []byte) (map[string]*task.TaskRecord, error) {
 			dto.Name,
 			dto.Description,
 			dto.Recipients,
-			dto.Request,
 			dto.Reglament,
+			dto.Request,
 			dto.OneShot,
 		)
 
