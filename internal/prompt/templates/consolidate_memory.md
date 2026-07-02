@@ -70,23 +70,22 @@ hypothesis examples:
 > and read ~10–15 lines around matches.
 
 ## Asking
-If unsure, create `todo-ask-about-X.md` with a one-line index hook:
-`!!! immediately ask user about X when it genuinely fits`
-
-The file must instruct to delete itself after being acted on.
+If unsure, modifire `user_name.md` with a one-line index hook:
+`ask user about X when it genuinely fits`
 
 ### Examples
+[user john](/mnt/memory/john.md) - John's profile. Read whenever mentioned or interacting with him.
 ```markdown
-You suspect the user has long-term frustration.
-Reason: user frequently uses phrases like "again this", "as always", "nothing works".
-Ask the user about it directly.
-Immediately delete this file and remove its entry from INDEX.md after asking.
+You suspect the john has long-term frustration.
+Reason: john frequently uses phrases like "again this", "as always", "nothing works".
+Ask the john about it directly. 
 ```
+
+[user ivan](/mnt/memory/ivan.md) - Ivan's profile. Read whenever mentioned or interacting with him.
 ```markdown
-You suspect the user is interested in programming.
-Reason: user mentioned code, tools or technical topics 3+ times across different sessions.
-Ask the user about it directly.
-Immediately delete this file and remove its entry from INDEX.md after asking.
+You suspect the ivan is interested in programming.
+Reason: ivan mentioned code, tools or technical topics 3+ times across different sessions.
+Ask the ivan about it directly.
 ```
 
 ---
@@ -104,11 +103,11 @@ Immediately delete this file and remove its entry from INDEX.md after asking.
 
 ## Good index structure:
 ```markdown
-[user john](/mnt/memory/john.md) - John profile. read when mentioned
-[user ivan](/mnt/memory/ivan.md) - Ivan profile. read when mentioned
+[user john](/mnt/memory/john.md) - John's profile. Read whenever mentioned or interacting with him.
+[user ivan](/mnt/memory/ivan.md) - Ivan's profile. Read whenever mentioned or interacting with him.
 [project x](/mnt/memory/project_x.md) - Ivan's pet project. read when mentioned
 [git control](/mnt/memory/git.md) - My responsibility for git repos. read before act
-[TODO](/mnt/memory/todo_ask_about_code.md) - !! immediately ask John about programming interests
+[user](/mnt/memory/todo_ask_about_code.md) - !! immediately ask John about programming interests
 ```
 
 ---
@@ -120,6 +119,7 @@ Immediately delete this file and remove its entry from INDEX.md after asking.
    - Read memory files relevant to the provided context
 
 2. **Process hypotheses**
+   - Try to eliminate comfirmed hypotesis if present in user files
    - Detect hypotheses from new activity
    - Try to confirm or reject each found hypothesis
 
