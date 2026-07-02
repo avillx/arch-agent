@@ -3,6 +3,7 @@ package fetch
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/tools"
+	"arch-agent/internal/types"
 	"bytes"
 	"context"
 	"errors"
@@ -17,7 +18,10 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-const DefaultTimeout = 12 * time.Second
+const (
+	DefaultTimeout     = 12 * time.Second
+	PageCharsHardLimit = 32_000
+)
 
 // getAgents
 type FetchTool struct{}
@@ -42,7 +46,7 @@ func (t *FetchTool) Schema() []agent.ToolProperty {
 		},
 		{
 			Name:        "format",
-			Required:    true,
+			Required:    false,
 			Type:        agent.TypeString,
 			Description: "Output format: 'rawHTML' preserves page structure, 'markdown' extracts readable content",
 			Enum:        []string{"rawHTML", "markdown"},
@@ -54,7 +58,7 @@ func (t *FetchTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (stri
 
 	args, err := tools.UnwrapArgs[struct {
 		URL    string `json:"url"`
-		Format string `json:"format"`
+		Format string `json:"format,omitempty"`
 	}](rawArgs)
 	if err != nil {
 		return "", err
@@ -79,12 +83,12 @@ func (t *FetchTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (stri
 
 	var formatter func([]byte) (string, error)
 	switch args.Format {
-	case "markdown":
-		formatter = htmlToMarkdown
-	default:
+	case "rawHTML":
 		formatter = func(raw []byte) (string, error) {
 			return string(raw), nil
 		}
+	default:
+		formatter = htmlToMarkdown
 	}
 
 	return fetchURL(ctx, client, args.URL, formatter)
@@ -95,18 +99,19 @@ func fetchURL(ctx context.Context, client *http.Client, urlStr string, formatter
 
 	// make request
 	if err := validateURL(urlStr); err != nil {
-		return "", err
+		return "", types.NewAgentMistakeErrorf("url validation failed: %v", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, urlStr, http.NoBody)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %v", err)
+
+		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("request failed: %v", err)
+		return fmt.Sprintf("can't fetch page: status - %d", resp.StatusCode), nil
 	}
 	defer resp.Body.Close()
 
@@ -115,20 +120,22 @@ func fetchURL(ctx context.Context, client *http.Client, urlStr string, formatter
 	contentType := resp.Header.Get("Content-Type")
 
 	if !IsTextContentType(contentType) {
-		return "", fmt.Errorf("unsupported content-type: %s", contentType)
-	}
-
-	maxSize := int64(1 << 18) // ~250kb
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxSize))
-	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %v", err)
+		return "", types.NewAgentMistakeErrorf("page has unsupported content-type: %s", contentType)
 	}
 
 	// Assemble Message
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("Status: %s\n", status))
-	sb.WriteString(fmt.Sprintf("Content-Type: %s\n", contentType))
+	fmt.Fprintf(&sb, "Status: %s\n", status)
+	fmt.Fprintf(&sb, "Content-Type: %s\n", contentType)
+
+	// read body
+	maxSize := int64(1 << 18) // ~250kb
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxSize))
+	if err != nil {
+		sb.WriteString("can't read page")
+		return sb.String(), fmt.Errorf("failed to read response body: %w", err)
+	}
 
 	content, err := formatter(body)
 	if err != nil {
@@ -136,9 +143,9 @@ func fetchURL(ctx context.Context, client *http.Client, urlStr string, formatter
 	}
 
 	// hard guardRail
-	content = truncate(content, 32_000)
+	content = truncate(content, PageCharsHardLimit)
 
-	sb.WriteString(fmt.Sprintf("Body: %s", content))
+	fmt.Fprintf(&sb, "Body: %s", content)
 
 	return sb.String(), nil
 }
@@ -147,17 +154,17 @@ func validateURL(urlStr string) error {
 
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
-		return errors.Join(fmt.Errorf("invalid URL: %v", urlStr), err)
+		return fmt.Errorf("invalid URL: %w", err)
 	}
 
 	// Check for valid URL structure
 	if parsedURL.Scheme == "" || parsedURL.Host == "" {
-		return fmt.Errorf("invalid URL: missing scheme or host %v", urlStr)
+		return fmt.Errorf("invalid URL: missing scheme or host")
 	}
 
 	// Only allow HTTP and HTTPS
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-		return fmt.Errorf("only HTTP and HTTPS URLs are supported. %v", urlStr)
+		return fmt.Errorf("only HTTP and HTTPS URLs are supported")
 	}
 
 	return nil
