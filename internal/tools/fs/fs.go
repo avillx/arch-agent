@@ -56,7 +56,7 @@ func matchLines(agentPath, content, query string, limit int) []string {
 func ruleBreakToAgentMistake(err error) error {
 	var ruleError *rf.RuleError
 	if errors.As(err, &ruleError) {
-		return types.NewAgentMistakeError(err.Error())
+		return types.NewAgentMistakeErrorf("%v: %v", ruleError, ruleError.Unwrap())
 	}
 	return err
 }
