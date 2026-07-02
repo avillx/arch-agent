@@ -25,7 +25,7 @@ func NewAgentMistakeError(msg string) error {
 
 func NewAgentMistakeErrorf(format string, arg ...any) error {
 	return &AgentMistakeError{
-		msg: fmt.Sprintf(format, arg),
+		msg: fmt.Sprintf(format, arg...),
 	}
 }
 
