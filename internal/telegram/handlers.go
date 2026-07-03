@@ -104,13 +104,17 @@ func (b *Bot) handleMessage(ctx context.Context, message *tgbotapi.Message) erro
 				slog.Warn("failed to format tool calls", "error", err)
 			}
 
-			// Combine tool representation and completion text
-			fullResponse := toolRepr + "\n" + completion.Content
+			// send response
+			msgs := strings.Split(completion.Content, "\n\n")
+			for i, m := range msgs {
+				if i == 0 {
+					m += toolRepr
+				}
 
-			// Send response
-			if fullResponse != "" {
-				if _, err := b.SendMessage(message.From.ID, fullResponse, 0); err != nil {
-					slog.Warn("failed to send completion", "error", err)
+				if m != "" {
+					if _, err := b.SendMessage(message.From.ID, m, 0); err != nil {
+						slog.Warn("failed to send completion", "error", err)
+					}
 				}
 			}
 		},
