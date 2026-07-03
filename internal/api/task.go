@@ -83,6 +83,22 @@ func (s *TaskHandler) Stop(w http.ResponseWriter, r *http.Request) error {
 	return respond(w, http.StatusOK, message("task stopped"))
 }
 
+// PATCH /task/{name}
+func (s *TaskHandler) Patch(w http.ResponseWriter, r *http.Request) error {
+	taskName := r.PathValue("name")
+
+	patch, err := decode[task.TaskPatch](r)
+	if err != nil {
+		return badRequest(err.Error())
+	}
+
+	if err := s.taskSvc.Patch(taskName, patch); err != nil {
+		return mapTaskServiceErr(err)
+	}
+
+	return respond(w, http.StatusOK, message("task started"))
+}
+
 // DELETE /task/{name}
 func (s *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) error {
 	taskName := r.PathValue("name")

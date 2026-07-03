@@ -44,25 +44,20 @@ func (t *ToggleTaskTool) Call(ctx context.Context, rawArgs agent.ToolArguments) 
 		return "", err
 	}
 
-	tasks, err := t.taskSvc.All()
+	task, err := t.taskSvc.Get(args.Name)
 	if err != nil {
-		return "", err
-	}
-
-	task, ok := tasks[args.Name]
-	if !ok {
-		return "", fmt.Errorf("task %s does not exist", args.Name)
+		return "", mapSvcErrors(err)
 	}
 
 	switch task.Active {
 	case true:
 		if err := t.taskSvc.Stop(args.Name); err != nil {
-			return "", err
+			return "", mapSvcErrors(err)
 		}
 		return fmt.Sprintf("task %s deactivated", args.Name), nil
 	default:
 		if err := t.taskSvc.Start(args.Name); err != nil {
-			return "", err
+			return "", mapSvcErrors(err)
 		}
 		return fmt.Sprintf("task %s activated", args.Name), nil
 	}

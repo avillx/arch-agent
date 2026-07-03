@@ -4,10 +4,7 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/task"
 	"arch-agent/internal/tools"
-	"arch-agent/internal/types"
 	"context"
-	"errors"
-	"fmt"
 )
 
 // add task
@@ -30,12 +27,6 @@ func (t *AddTaskTool) Description() string {
 }
 func (t *AddTaskTool) Schema() []agent.ToolProperty {
 	return []agent.ToolProperty{
-		{
-			Name:        "name",
-			Required:    true,
-			Type:        agent.TypeString,
-			Description: "Short unique task name (e.g. daily_report)",
-		},
 		{
 			Name:        "description",
 			Required:    true,
@@ -92,21 +83,15 @@ func (t *AddTaskTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (st
 		args.Oneshot,
 	)
 	if err != nil {
-		var validationErr *types.ValidationError
-		if errors.As(err, &validationErr) {
-			return "", types.NewAgentMistakeError(validationErr.Message())
-		}
+		return "task is not created", unwrapValidationError(err)
 	}
 
 	if err := t.taskSvc.AddTask(newTask); err != nil {
-		if errors.Is(err, task.ErrAlreadyExist) {
-			return "", types.NewAgentMistakeError(fmt.Sprintf("task %s already exist.", args.Name))
-		}
-		return "task is not created", err
+		return "task is not created", mapSvcErrors(err)
 	}
 
 	if err := t.taskSvc.Start(args.Name); err != nil {
-		return "task was not runned", err
+		return "task was not runned", mapSvcErrors(err)
 	}
 
 	return "task created succecceful", nil

@@ -36,39 +36,48 @@ func (t *GetTasksTool) Call(ctx context.Context, _ agent.ToolArguments) (string,
 
 	tasks, err := t.taskSvc.All()
 	if err != nil {
-		return "task is not created", err
+		return "", mapSvcErrors(err)
 	}
 
-	return reprTaskRecords(slices.Collect(maps.Values(tasks))), nil
+	if len(tasks) > 0 {
+		return reprTaskRecords(slices.Collect(maps.Values(tasks))), nil
+	}
+
+	return "has no tasks", nil
 }
 
 func reprTaskRecords(tasks []*task.TaskRecord) string {
 	var sb strings.Builder
-	sb.WriteString("## Tasks\n")
+	sb.WriteString("# Tasks\n")
 
 	for _, t := range tasks {
-		state := ""
-		if t.Active {
-			state = "active"
-		} else {
-			state = "inactive"
-		}
-
-		agentString := []string{}
-		for _, r := range t.Recipients() {
-			agentString = append(agentString, string(r))
-		}
-
-		record := fmt.Sprintf(
-			"* %s (state: %s) (cron: %s) (recipients: %s) - %s\n",
-			t.Name(),
-			state,
-			t.Reglament(),
-			strings.Join(agentString, " "),
-			t.Description(),
-		)
-		sb.WriteString(record)
+		fmt.Fprintf(&sb, "%s\n\n", reprTask(t))
 	}
 
 	return sb.String()
+}
+
+func reprTask(rec *task.TaskRecord) string {
+
+	agentString := []string{}
+	for _, r := range rec.Recipients() {
+		agentString = append(agentString, string(r))
+	}
+
+	state := ""
+	if rec.Active {
+		state = "active"
+	} else {
+		state = "inactive"
+	}
+
+	return fmt.Sprintf(
+		"### %s\n(state: %s) (cron: %s) (recipients: %s) - %s\nrequest:\n%s",
+		rec.Name(),
+		state,
+		rec.Reglament(),
+		strings.Join(agentString, " "),
+		rec.Description(),
+		rec.Request(),
+	)
 }

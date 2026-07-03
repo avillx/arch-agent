@@ -1,6 +1,7 @@
 package task
 
 import (
+	"arch-agent/internal/agent"
 	"arch-agent/internal/types"
 	"context"
 	"errors"
@@ -117,6 +118,60 @@ func (s *Service) Stop(id string) error {
 	}
 
 	return s.runtime.Kill(id)
+}
+
+func (s *Service) Get(id string) (*TaskRecord, error) {
+	return s.repo.Get(id)
+}
+
+type TaskPatch struct {
+	Name        *string     `json:"name,omitempty"`
+	Description *string     `json:"description,omitempty"`
+	Recipients  *[]agent.ID `json:"recipients,omitempty"`
+	Reglament   *string     `json:"schedule,omitempty"`
+	Request     *string     `json:"request,omitempty"`
+	Oneshot     *bool       `json:"oneshot,omitempty"`
+}
+
+func (s *Service) Patch(id string, patch TaskPatch) error {
+	record, err := s.repo.Get(id)
+	if err != nil {
+		return err
+	}
+
+	if err := applyPatch(record.TaskConfig, patch); err != nil {
+		return err
+	}
+
+	return s.repo.Save(record)
+}
+
+func applyPatch(cfg *TaskConfig, patch TaskPatch) error {
+	if patch.Name != nil {
+		cfg.name = *patch.Name
+	}
+
+	if patch.Description != nil {
+		cfg.description = *patch.Description
+	}
+
+	if patch.Recipients != nil {
+		cfg.recipients = *patch.Recipients
+	}
+
+	if patch.Reglament != nil {
+		cfg.reglament = *patch.Reglament
+	}
+
+	if patch.Request != nil {
+		cfg.request = *patch.Request
+	}
+
+	if patch.Oneshot != nil {
+		cfg.oneshot = *patch.Oneshot
+	}
+
+	return validateTaskConfig(cfg)
 }
 
 func (s *Service) Delete(id string) error {

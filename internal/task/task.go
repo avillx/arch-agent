@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+type ValidationError types.ValidationError
+
 type Cron interface {
 	NextTime() time.Duration
 	Expression() string
@@ -43,32 +45,42 @@ func NewValidTaskConfig(
 	oneshot bool,
 ) (*TaskConfig, error) {
 
-	problems := make(map[string]string)
-	if name == "" {
-		problems["name"] = "must be not empty"
-	}
-	if description == "" {
-		problems["description"] = "must be not empty"
-	}
-	if !(len(recipients) > 0) {
-		problems["recipients"] = "must contain at least one recipient"
-	}
-	if !cronRegex.MatchString(reglament) {
-		problems["reglament"] = "invalid format"
-	}
-	if request == "" {
-		problems["request"] = "must be not empty"
-	}
-	if len(problems) > 0 {
-		return nil, types.NewValidationError(problems)
-	}
-
-	return &TaskConfig{
+	cfg := &TaskConfig{
 		name:        name,
 		description: description,
 		recipients:  recipients,
 		reglament:   reglament,
 		request:     request,
 		oneshot:     oneshot,
-	}, nil
+	}
+
+	if err := validateTaskConfig(cfg); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+func validateTaskConfig(cfg *TaskConfig) error {
+	problems := make(map[string]string)
+	if cfg.name == "" {
+		problems["name"] = "must be not empty"
+	}
+	if cfg.description == "" {
+		problems["description"] = "must be not empty"
+	}
+	if !(len(cfg.recipients) > 0) {
+		problems["recipients"] = "must contain at least one recipient"
+	}
+	if !cronRegex.MatchString(cfg.reglament) {
+		problems["reglament"] = "invalid format"
+	}
+	if cfg.request == "" {
+		problems["request"] = "must be not empty"
+	}
+	if len(problems) > 0 {
+		return types.NewValidationError(problems)
+	}
+
+	return nil
 }

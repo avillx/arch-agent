@@ -206,9 +206,10 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 	}
 
 	taskControlTools := []agent.Tool{
-		tasktools.NewToggleTaskTool(taskSvc),
-		tasktools.NewGetTasksTool(taskSvc),
 		tasktools.NewAddTaskTool(taskSvc),
+		tasktools.NewGetTasksTool(taskSvc),
+		tasktools.NewToggleTaskTool(taskSvc),
+		tasktools.NewEditTaskTool(taskSvc),
 	}
 
 	webTools := []agent.Tool{
