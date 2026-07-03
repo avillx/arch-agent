@@ -28,6 +28,12 @@ func (t *AddTaskTool) Description() string {
 func (t *AddTaskTool) Schema() []agent.ToolProperty {
 	return []agent.ToolProperty{
 		{
+			Name:        "name",
+			Required:    true,
+			Type:        agent.TypeString,
+			Description: "Short unique task name (e.g. daily_report)",
+		},
+		{
 			Name:        "description",
 			Required:    true,
 			Type:        agent.TypeString,

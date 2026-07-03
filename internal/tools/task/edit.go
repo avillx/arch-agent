@@ -40,7 +40,7 @@ func (t *EditTaskTool) Schema() []agent.ToolProperty {
 			Name:        "name",
 			Required:    false,
 			Type:        agent.TypeString,
-			Description: "A new Short unique task name (e.g. daily_report)",
+			Description: "A new short unique task name (e.g. daily_report)",
 		},
 		{
 			Name:        "description",
