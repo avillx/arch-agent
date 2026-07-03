@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -72,11 +73,12 @@ func reprTask(rec *task.TaskRecord) string {
 	}
 
 	return fmt.Sprintf(
-		"### %s\n(state: %s) (cron: %s) (recipients: %s) - %s\nrequest:\n%s",
+		"### %s\n(state: %s) (cron: %s) (recipients: %s) (oneshot: %s) - %s\nrequest:\n%s",
 		rec.Name(),
 		state,
 		rec.Reglament(),
 		strings.Join(agentString, " "),
+		strconv.FormatBool(rec.Oneshot()),
 		rec.Description(),
 		rec.Request(),
 	)
