@@ -5,7 +5,7 @@ import (
 	"arch-agent/internal/types"
 	"context"
 	"errors"
-	"log/slog"
+	"fmt"
 )
 
 var ErrIsNotExist = types.ErrIsNotExist
@@ -24,18 +24,21 @@ type Service struct {
 	runtime     *TaskRuntime
 	executor    *executor
 	cronFactory func(string) (Cron, error)
+	agentRepo   agent.Repo
 	repo        TaskRepo
 }
 
 func NewService(
 	ctx context.Context,
 	repo TaskRepo,
+	agentRepo agent.Repo,
 	cronFactory func(string) (Cron, error),
 	executor *executor,
 ) (*Service, error) {
 
 	s := &Service{
 		repo:        repo,
+		agentRepo:   agentRepo,
 		runtime:     NewTaskRuntime(),
 		executor:    executor,
 		cronFactory: cronFactory,
@@ -65,24 +68,21 @@ func (s *Service) All() (map[string]*TaskRecord, error) {
 	return s.repo.All()
 }
 
+var ErrNoRecipients = errors.New("task must contain at least one recipient")
+
 func (s *Service) AddTask(
 	cfg *TaskConfig,
 ) error {
 
-	rec, err := s.repo.Get(cfg.name)
-	if err != nil {
-		if !errors.Is(err, ErrIsNotExist) {
-			return err
-		}
-	}
-	if rec != nil {
-		return ErrAlreadyExist
+	if err := s.validateOnTaskUniqness(cfg.name); err != nil {
+		return err
 	}
 
-	// validate cron on implementation
-	// reglament already checks in Validation but if implemntation
-	// is not completely support format it's check this before task has been added
-	if _, err := s.cronFactory(cfg.reglament); err != nil {
+	if err := s.validateRecipients(cfg.recipients); err != nil {
+		return err
+	}
+
+	if err := s.validateOnCronExpression(cfg.reglament); err != nil {
 		return err
 	}
 
@@ -105,14 +105,33 @@ func (s *Service) Start(id string) error {
 		return err
 	}
 
-	s.runtime.Spawn(rec.TaskConfig, cron, s.executor.execute)
 	rec.Active = true
 
-	return s.repo.Save(rec)
+	onStop := func() error {
+		rec.Active = false
+		return s.repo.Save(rec)
+	}
+
+	runningTask, err := newRunningTask(rec.TaskConfig, cron, s.executor.execute, onStop)
+	if err != nil {
+		return err
+	}
+
+	if err := s.runtime.Start(runningTask); err != nil {
+		return err
+	}
+
+	if err := s.repo.Save(rec); err != nil {
+		runningTask.stop()
+		return err
+	}
+
+	return nil
 }
 
 func (s *Service) Stop(id string) error {
 
+	// check existence
 	if _, err := s.repo.Get(id); err != nil {
 		return err
 	}
@@ -124,6 +143,44 @@ func (s *Service) Get(id string) (*TaskRecord, error) {
 	return s.repo.Get(id)
 }
 
+func (s *Service) Delete(id string) error {
+
+	// check existence
+	if _, err := s.repo.Get(id); err != nil {
+		return err
+	}
+
+	if err := s.runtime.Kill(id); err != nil {
+		if !errors.Is(err, ErrTaskIsNotRunning) {
+			return err
+		}
+	}
+
+	return s.repo.Delete(id)
+}
+
+// blocking
+// func (s *Service) Run(ctx context.Context) {
+// 	for {
+// 		select {
+// 		case <-ctx.Done():
+// 			return
+// 		case doneTaskID := <-s.runtime.DoneChannel():
+// 			rec, err := s.repo.Get(doneTaskID)
+// 			if err != nil {
+// 				slog.Error("process done tasks", "task", doneTaskID, "error", err)
+// 				return
+// 			}
+
+// 			rec.Active = false // panic here rec is nil after deletion
+
+// 			if err := s.repo.Save(rec); err != nil {
+// 				slog.Error("process done tasks", "task", doneTaskID, "error", err)
+// 			}
+// 		}
+// 	}
+// }
+
 type TaskPatch struct {
 	Name        *string     `json:"name,omitempty"`
 	Description *string     `json:"description,omitempty"`
@@ -134,16 +191,74 @@ type TaskPatch struct {
 }
 
 func (s *Service) Patch(id string, patch TaskPatch) error {
+
 	record, err := s.repo.Get(id)
 	if err != nil {
 		return err
+	}
+
+	if patch.Name != nil {
+		if err := s.validateOnTaskUniqness(*patch.Name); err != nil {
+			return err
+		}
+	}
+
+	if patch.Recipients != nil {
+		if err := s.validateRecipients(*patch.Recipients); err != nil {
+			return err
+		}
+	}
+
+	if patch.Reglament != nil {
+		if err := s.validateOnCronExpression(*patch.Reglament); err != nil {
+			return err
+		}
 	}
 
 	if err := applyPatch(record.TaskConfig, patch); err != nil {
 		return err
 	}
 
-	return s.repo.Save(record)
+	if err := s.repo.Save(record); err != nil {
+		return err
+	}
+
+	if patch.Name != nil && id != *patch.Name {
+		return s.Delete(id)
+	}
+
+	return nil
+}
+
+func (s *Service) validateRecipients(recipients []agent.ID) error {
+	if !(len(recipients) > 0) {
+		return ErrNoRecipients
+	}
+
+	for _, r := range recipients {
+		if _, err := s.agentRepo.Get(r); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) validateOnTaskUniqness(id string) error {
+	exist, err := s.repo.Get(id)
+	if err != nil && !errors.Is(err, ErrIsNotExist) {
+		return err
+	}
+	if exist != nil {
+		return fmt.Errorf("task %s: %w", id, ErrAlreadyExist)
+	}
+	return nil
+}
+
+func (s *Service) validateOnCronExpression(exp string) error {
+	if _, err := s.cronFactory(exp); err != nil {
+		return ErrCron
+	}
+	return nil
 }
 
 func applyPatch(cfg *TaskConfig, patch TaskPatch) error {
@@ -172,33 +287,4 @@ func applyPatch(cfg *TaskConfig, patch TaskPatch) error {
 	}
 
 	return validateTaskConfig(cfg)
-}
-
-func (s *Service) Delete(id string) error {
-	if err := s.runtime.Kill(id); err != nil {
-		return err
-	}
-
-	return s.repo.Delete(id)
-}
-
-// blocking
-func (s *Service) Run(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case doneTaskID := <-s.runtime.DoneChannel():
-			rec, err := s.repo.Get(doneTaskID)
-			if err != nil {
-				slog.Error("process done tasks", "task", doneTaskID, "error", err)
-			}
-
-			rec.Active = false
-
-			if err := s.repo.Save(rec); err != nil {
-				slog.Error("process done tasks", "task", doneTaskID, "error", err)
-			}
-		}
-	}
 }

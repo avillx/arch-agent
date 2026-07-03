@@ -2,6 +2,7 @@ package files
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/types"
 	"bytes"
 	"errors"
 	"fmt"
@@ -67,6 +68,9 @@ func (s *AgentFiles) Get(id agent.ID) (agent.Agent, error) {
 
 	dto, err := s.readConfig(id)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("agent %s: %w", id, types.ErrIsNotExist)
+		}
 		return nil, err
 	}
 

@@ -51,7 +51,7 @@ func (tf *TaskFiles) Get(id string) (*task.TaskRecord, error) {
 	defer tf.mu.RUnlock()
 	t, ok := tf.tasks[id]
 	if !ok {
-		return nil, types.ErrIsNotExist
+		return nil, fmt.Errorf("task %s: %w", id, types.ErrIsNotExist)
 	}
 	return t, nil
 }

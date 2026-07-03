@@ -66,7 +66,7 @@ func (t *WriteFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 		err = rfs.WriteFile(args.Path, data)
 	}
 	if err != nil {
-		return "", ruleBreakToAgentMistake(err)
+		return "", mapErrsToAgentMistake(err)
 	}
 
 	return fmt.Sprintf("wrote %d bytes to %s", len(data), args.Path), nil

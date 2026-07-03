@@ -65,7 +65,6 @@ func run(ctx context.Context,
 		return err
 	}
 	go app.Memory.Run(ctx)
-	go app.TaskSvc.Run(ctx)
 	app.TelegramOrchestra.Run(ctx)
 
 	// server

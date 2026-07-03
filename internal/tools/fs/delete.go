@@ -44,7 +44,7 @@ func (t *DeleteTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (str
 	}
 
 	if err := rfs.Delete(args.Path); err != nil {
-		return "", ruleBreakToAgentMistake(err)
+		return "", mapErrsToAgentMistake(err)
 	}
 
 	return fmt.Sprintf("deleted %s", args.Path), nil

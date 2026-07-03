@@ -50,7 +50,7 @@ func (e *ValidationError) Message() string {
 
 	var sb strings.Builder
 	for k, v := range e.Problems() {
-		fmt.Fprintf(&sb, "problem with %s - %s", k, v)
+		fmt.Fprintf(&sb, "problem with %s - %s\n", k, v)
 	}
 
 	return sb.String()

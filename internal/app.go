@@ -72,6 +72,7 @@ func BuildTaskSvc(
 	fs *files.FileSystem,
 	sessionSvc *session.Service,
 	chatSvc *chat.Service,
+	agentRepo agent.Repo,
 ) (*task.Service, error) {
 
 	taskRepo, err := files.NewTaskFiles(fs)
@@ -87,6 +88,7 @@ func BuildTaskSvc(
 	return task.NewService(
 		ctx,
 		taskRepo,
+		agentRepo,
 		func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) },
 		executor,
 	)
@@ -176,6 +178,7 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		fs,
 		sessSvc,
 		chatSvc,
+		agentRepo,
 	)
 	if err != nil {
 		return nil, err
@@ -210,6 +213,7 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		tasktools.NewGetTasksTool(taskSvc),
 		tasktools.NewToggleTaskTool(taskSvc),
 		tasktools.NewEditTaskTool(taskSvc),
+		tasktools.NewDeleteTasksTool(taskSvc),
 	}
 
 	webTools := []agent.Tool{

@@ -3,6 +3,7 @@ package fstools
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/tools"
+	"arch-agent/internal/types"
 	"context"
 	"fmt"
 	"strings"
@@ -66,7 +67,7 @@ func (t *EditFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 
 	data, err := rfs.ReadFile(args.Path)
 	if err != nil {
-		return "", err
+		return "", mapErrsToAgentMistake(err)
 	}
 
 	content := string(data)
@@ -74,14 +75,14 @@ func (t *EditFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 
 	switch {
 	case count == 0:
-		return "", fmt.Errorf("%s: old_str not found", args.Path)
+		return "", types.NewAgentMistakeErrorf("%s: old_str not found", args.Path)
 	case count > 1:
-		return "", fmt.Errorf("%s: old_str found %d times, must be unique", args.Path, count)
+		return "", types.NewAgentMistakeErrorf("%s: old_str found %d times, must be unique", args.Path, count)
 	}
 
 	updated := strings.Replace(content, args.OldStr, args.NewStr, 1)
 	if err := rfs.WriteFile(args.Path, []byte(updated)); err != nil {
-		return "", ruleBreakToAgentMistake(err)
+		return "", mapErrsToAgentMistake(err)
 	}
 
 	return fmt.Sprintf("edited %s", args.Path), nil

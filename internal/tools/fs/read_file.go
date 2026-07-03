@@ -59,12 +59,12 @@ func (t *ReadFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 
 	if args.StartLine != nil || args.EndLine != nil {
 		res, err := rfs.ReadLines(args.Path, args.StartLine, args.EndLine)
-		return res, ruleBreakToAgentMistake(err)
+		return res, mapErrsToAgentMistake(err)
 	}
 
 	data, err := rfs.ReadFile(args.Path)
 	if err != nil {
-		return "", ruleBreakToAgentMistake(err)
+		return "", mapErrsToAgentMistake(err)
 	}
 	return string(data), nil
 }

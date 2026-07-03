@@ -52,15 +52,15 @@ func (t *MoveFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 
 	data, err := rfs.ReadFile(args.Src)
 	if err != nil {
-		return "", ruleBreakToAgentMistake(err)
+		return "", mapErrsToAgentMistake(err)
 	}
 
 	if err := rfs.WriteFile(args.Dst, data); err != nil {
-		return "", ruleBreakToAgentMistake(err)
+		return "", mapErrsToAgentMistake(err)
 	}
 
 	if err := rfs.Delete(args.Src); err != nil {
-		return fmt.Sprintf("file copied to %s but failed to remove source", args.Dst), ruleBreakToAgentMistake(err)
+		return fmt.Sprintf("file copied to %s but failed to remove source", args.Dst), mapErrsToAgentMistake(err)
 	}
 
 	return fmt.Sprintf("moved %s → %s", args.Src, args.Dst), nil

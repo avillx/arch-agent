@@ -9,23 +9,21 @@ import (
 func unwrapValidationError(err error) error {
 	var ve *types.ValidationError
 	if errors.As(err, &ve) {
-		return types.NewAgentMistakeErrorf("invalid task\n%s", ve.Message())
+		return types.NewAgentMistakeErrorf("invalid task \n%s", ve.Message())
 	}
 	return err
 }
 
 func mapSvcErrors(err error) error {
 	switch {
-	case errors.Is(err, task.ErrAlreadyExist):
-		return types.NewAgentMistakeError("task already exist")
-	case errors.Is(err, task.ErrIsNotExist):
-		return types.NewAgentMistakeError("task is not exist")
-	case errors.Is(err, task.ErrTaskIsNotRunning):
-		return types.NewAgentMistakeError("task already is not running")
-	case errors.Is(err, task.ErrAlreadyRun):
-		return types.NewAgentMistakeError("task already run")
-	case errors.Is(err, task.ErrCron):
-		return types.NewAgentMistakeError("bad cron format")
+	case
+		errors.Is(err, task.ErrAlreadyExist) ||
+			errors.Is(err, task.ErrIsNotExist) ||
+			errors.Is(err, task.ErrTaskIsNotRunning) ||
+			errors.Is(err, task.ErrAlreadyRun) ||
+			errors.Is(err, task.ErrCron) ||
+			errors.Is(err, task.ErrNoRecipients):
+		return types.NewAgentMistakeError(err.Error())
 	default:
 		return err
 	}

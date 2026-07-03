@@ -183,7 +183,7 @@ func (r *AgentRuntime) processToolCalls(
 			if errors.As(err, &agentMistakeErr) {
 				// if error is by agent mistake, no needed to return it.
 				// agent should recive error message and correct call
-				msg = fmt.Sprintf("%s errors occured:\n%s", msg, agentMistakeErr.Message())
+				msg = fmt.Sprintf("%s \nerrors occured: \n%s", msg, agentMistakeErr.Message())
 				slog.Warn(
 					"bad tool call",
 					"agent", agt.ID(),

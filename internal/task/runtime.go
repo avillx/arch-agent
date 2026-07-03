@@ -3,6 +3,8 @@ package task
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -16,18 +18,45 @@ type RunningTask struct {
 	done      chan struct{}
 	stopOnce  sync.Once
 	cron      Cron
+	onStop    func() error
+}
+
+func newRunningTask(
+	cfg *TaskConfig,
+	cron Cron,
+	onExecute func(context.Context, *TaskConfig),
+	onStop func() error,
+) (*RunningTask, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("task config must be non nil")
+	}
+	if cron == nil {
+		return nil, fmt.Errorf("task %s: cron must be non nil", cfg.name)
+	}
+	if onExecute == nil {
+		return nil, fmt.Errorf("task %s: onExecute must be non nil", cfg.name)
+	}
+	if onStop == nil {
+		return nil, fmt.Errorf("task %s: onStop must be non nil", cfg.name)
+	}
+
+	return &RunningTask{
+		TaskConfig: cfg,
+		onExecute:  onExecute,
+		done:       make(chan struct{}),
+		cron:       cron,
+		onStop:     onStop,
+	}, nil
 }
 
 // blocking
-func (t *RunningTask) Start(ctx context.Context) {
+func (t *RunningTask) start() {
 	for {
 		select {
-		case <-ctx.Done():
-			return
 		case <-t.done:
 			return
 		case <-time.After(t.cron.NextTime()):
-			t.onExecute(ctx, t.TaskConfig)
+			t.onExecute(context.Background(), t.TaskConfig)
 			if t.TaskConfig.oneshot {
 				return
 			}
@@ -35,8 +64,13 @@ func (t *RunningTask) Start(ctx context.Context) {
 	}
 }
 
-func (t *RunningTask) Stop() {
-	t.stopOnce.Do(func() { close(t.done) })
+func (t *RunningTask) stop() {
+	t.stopOnce.Do(func() {
+		close(t.done)
+		if err := t.onStop(); err != nil {
+			slog.Error("running task: stopped with errors", "task", t.Name(), "error", err)
+		}
+	})
 }
 
 // runtime
@@ -53,53 +87,41 @@ func NewTaskRuntime() *TaskRuntime {
 	}
 }
 
-func (r *TaskRuntime) Spawn(t *TaskConfig, cron Cron, exec func(context.Context, *TaskConfig)) {
+func (r *TaskRuntime) Start(rt *RunningTask) error {
 	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	if runningTask, ok := r.runningTasks[t.name]; ok {
-		runningTask.Stop()
+	if _, ok := r.runningTasks[rt.name]; ok {
+		return ErrAlreadyRun
 	}
-
-	runningTask := &RunningTask{
-		TaskConfig: t,
-		onExecute:  exec,
-		done:       make(chan struct{}),
-		cron:       cron,
-	}
-	r.runningTasks[t.name] = runningTask
-	r.mu.Unlock()
+	r.runningTasks[rt.name] = rt
 
 	go func() {
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		runningTask.Start(ctx)
+		// block until task stopped
+		rt.start()
 
 		r.mu.Lock()
-		if runningTask, ok := r.runningTasks[t.name]; ok {
-			runningTask.Stop()
-			delete(r.runningTasks, t.name)
-		}
-		r.mu.Unlock()
+		defer r.mu.Unlock()
 
-		r.done <- t.name
+		if runningTask, ok := r.runningTasks[rt.name]; ok {
+			runningTask.stop()
+			delete(r.runningTasks, rt.name)
+		}
+
 	}()
 
+	return nil
 }
 
 func (r *TaskRuntime) Kill(name string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if runningTask, ok := r.runningTasks[name]; ok {
-		runningTask.Stop()
-		return nil
+	rt, ok := r.runningTasks[name]
+	if !ok {
+		return ErrTaskIsNotRunning
 	}
-
-	return ErrTaskIsNotRunning
-}
-
-func (r *TaskRuntime) DoneChannel() chan string {
-	return r.done
+	rt.stop()
+	return nil
 }

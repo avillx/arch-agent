@@ -3,6 +3,7 @@ package ruledfiles
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/files"
+	"arch-agent/internal/types"
 	"fmt"
 	"log/slog"
 	"os"
@@ -34,7 +35,7 @@ func WithAccessOnPath(guardedPath string, read, write, append, delete bool) Opti
 	// forbid operation with path and subpathes
 	hiddenValidator := func(p string) (string, error) {
 		if ContainPath(p, guardedPath) {
-			return "", os.ErrNotExist
+			return "", types.ErrIsNotExist
 		}
 		return p, nil
 	}
@@ -109,7 +110,7 @@ func WithCleanPathOnly() Option {
 	return func(rfs *RuledFileSystem) {
 		cleaner := func(p string) (string, error) {
 			cleaned := path.Clean(p)
-			if cleaned != p {
+			if cleaned != p && cleaned+"/" != p {
 				return "", fmt.Errorf("only clean paths allowed. avoid '/..' and '.' (current directory)")
 			}
 			return p, nil

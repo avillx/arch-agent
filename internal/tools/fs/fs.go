@@ -53,10 +53,14 @@ func matchLines(agentPath, content, query string, limit int) []string {
 	return matches
 }
 
-func ruleBreakToAgentMistake(err error) error {
+func mapErrsToAgentMistake(err error) error {
+	if errors.Is(err, types.ErrIsNotExist) {
+		return types.NewAgentMistakeError("path is not found, ensure path existence")
+	}
+
 	var ruleError *rf.RuleError
 	if errors.As(err, &ruleError) {
-		return types.NewAgentMistakeErrorf("%v: %v", ruleError, ruleError.Unwrap())
+		return types.NewAgentMistakeErrorf("%v", ruleError.Unwrap())
 	}
 	return err
 }

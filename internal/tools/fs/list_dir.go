@@ -54,7 +54,7 @@ func (t *ListDirTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (st
 
 	entries, err := rfs.ReadDir(args.Path)
 	if err != nil {
-		return "", ruleBreakToAgentMistake(err)
+		return "", mapErrsToAgentMistake(err)
 	}
 
 	if len(entries) == 0 {
