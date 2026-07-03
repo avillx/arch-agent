@@ -100,14 +100,15 @@ func BuildMemoryConsolidator(
 	additionalTools []agent.Tool,
 ) (*memory.Memory, error) {
 
+	ruledFSFactory := fstools.NewMemoryAccessRuledFS(fs)
 	fsTools := []agent.Tool{
-		fstools.NewListDirTool(fstools.NewMemoryAccessRuledFS(fs)),
-		fstools.NewReadFileTool(fstools.NewMemoryAccessRuledFS(fs)),
-		fstools.NewWriteFileTool(fstools.NewMemoryAccessRuledFS(fs)),
-		fstools.NewEditFileTool(fstools.NewMemoryAccessRuledFS(fs)),
-		fstools.NewMoveFileTool(fstools.NewMemoryAccessRuledFS(fs)),
-		fstools.NewDeleteTool(fstools.NewMemoryAccessRuledFS(fs)),
-		fstools.NewSearchFilesTool(fstools.NewMemoryAccessRuledFS(fs)),
+		fstools.NewListDirTool(ruledFSFactory),
+		fstools.NewReadFileTool(ruledFSFactory),
+		fstools.NewWriteFileTool(ruledFSFactory),
+		fstools.NewEditFileTool(ruledFSFactory),
+		fstools.NewMoveFileTool(ruledFSFactory),
+		fstools.NewDeleteTool(ruledFSFactory),
+		fstools.NewSearchFilesTool(ruledFSFactory),
 	}
 
 	consolidatorModel, err := modelRepo.Get("consolidator")
@@ -187,14 +188,15 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 	todoStorage := todo.NewInMemoryStore()
 
 	// agent Tools
+	ruledFSFactory := fstools.NewAgentAccessRuledFS(fs, agentRepo)
 	fsTools := []agent.Tool{
-		fstools.NewListDirTool(fstools.NewAgentAccessRuledFS(fs, agentRepo)),
-		fstools.NewReadFileTool(fstools.NewAgentAccessRuledFS(fs, agentRepo)),
-		fstools.NewWriteFileTool(fstools.NewAgentAccessRuledFS(fs, agentRepo)),
-		fstools.NewEditFileTool(fstools.NewAgentAccessRuledFS(fs, agentRepo)),
-		fstools.NewMoveFileTool(fstools.NewAgentAccessRuledFS(fs, agentRepo)),
-		fstools.NewDeleteTool(fstools.NewAgentAccessRuledFS(fs, agentRepo)),
-		fstools.NewSearchFilesTool(fstools.NewAgentAccessRuledFS(fs, agentRepo)),
+		fstools.NewListDirTool(ruledFSFactory),
+		fstools.NewReadFileTool(ruledFSFactory),
+		fstools.NewWriteFileTool(ruledFSFactory),
+		fstools.NewEditFileTool(ruledFSFactory),
+		fstools.NewMoveFileTool(ruledFSFactory),
+		fstools.NewDeleteTool(ruledFSFactory),
+		fstools.NewSearchFilesTool(ruledFSFactory),
 	}
 
 	todoTools := []agent.Tool{
