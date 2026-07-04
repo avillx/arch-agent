@@ -19,8 +19,6 @@ func mapSvcErrors(err error) error {
 	case
 		errors.Is(err, task.ErrAlreadyExist) ||
 			errors.Is(err, task.ErrIsNotExist) ||
-			errors.Is(err, task.ErrTaskIsNotRunning) ||
-			errors.Is(err, task.ErrAlreadyRun) ||
 			errors.Is(err, task.ErrCron) ||
 			errors.Is(err, task.ErrNoRecipients):
 		return types.NewAgentMistakeError(err.Error())

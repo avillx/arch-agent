@@ -1,7 +1,6 @@
 package api
 
 import (
-	"arch-agent/internal/agent"
 	"arch-agent/internal/task"
 	"arch-agent/internal/types"
 	"errors"
@@ -16,7 +15,7 @@ type TaskHandler struct {
 // GET /task/all
 func (s *TaskHandler) List(w http.ResponseWriter, _ *http.Request) error {
 
-	tasks, err := s.taskSvc.All()
+	tasks, err := s.taskSvc.List()
 	if err != nil {
 		return internal(err)
 	}
@@ -26,61 +25,21 @@ func (s *TaskHandler) List(w http.ResponseWriter, _ *http.Request) error {
 
 // POST /task/{name}
 func (s *TaskHandler) Create(w http.ResponseWriter, r *http.Request) error {
-
-	type TaskConfigDTO struct {
-		Name        string     `json:"name"`
-		Description string     `json:"description"`
-		Recipients  []agent.ID `json:"recipients"`
-		Reglament   string     `json:"schedule"`
-		Request     string     `json:"request"`
-		Oneshot     bool       `json:"oneshot"`
-	}
-
-	dto, err := decode[TaskConfigDTO](r)
+	cfg, err := decode[task.TaskConfig](r)
 	if err != nil {
 		return err
 	}
 
-	newTask, err := task.NewValidTaskConfig(
-		dto.Name,
-		dto.Description,
-		dto.Recipients,
-		dto.Reglament,
-		dto.Request,
-		dto.Oneshot,
-	)
-	if err != nil {
+	if err := s.taskSvc.Add(cfg); err != nil {
 		var validationErr *types.ValidationError
 		if errors.As(err, &validationErr) {
 			return invalidRequest(validationErr.Problems())
 		}
-		return internal(err)
-	}
 
-	if err := s.taskSvc.AddTask(newTask); err != nil {
 		return mapTaskServiceErr(err)
 	}
 
 	return respond(w, http.StatusOK, message("task created"))
-}
-
-// PATCH /task/{name}/start
-func (s *TaskHandler) Start(w http.ResponseWriter, r *http.Request) error {
-	taskName := r.PathValue("name")
-	if err := s.taskSvc.Start(taskName); err != nil {
-		return mapTaskServiceErr(err)
-	}
-	return respond(w, http.StatusOK, message("task started"))
-
-}
-
-// PATCH /task/{name}/stop
-func (s *TaskHandler) Stop(w http.ResponseWriter, r *http.Request) error {
-	taskName := r.PathValue("name")
-	if err := s.taskSvc.Stop(taskName); err != nil {
-		return mapTaskServiceErr(err)
-	}
-	return respond(w, http.StatusOK, message("task stopped"))
 }
 
 // PATCH /task/{name}
@@ -110,11 +69,9 @@ func (s *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) error {
 
 func mapTaskServiceErr(err error) error {
 	switch {
-	case errors.Is(err, task.ErrAlreadyRun):
-		return badRequest(err.Error())
-	case errors.Is(err, task.ErrTaskIsNotRunning):
-		return badRequest(err.Error())
 	case errors.Is(err, task.ErrCron):
+		return badRequest(err.Error())
+	case errors.Is(err, task.ErrNoRecipients):
 		return badRequest(err.Error())
 	case errors.Is(err, task.ErrAlreadyExist):
 		return badRequest("task already exists")

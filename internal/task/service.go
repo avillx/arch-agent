@@ -2,232 +2,128 @@ package task
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/types"
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"maps"
+	"slices"
+	"sync"
+	"time"
 )
 
-var ErrIsNotExist = types.ErrIsNotExist
-var ErrAlreadyExist = types.ErrAlreadyExist
-var ErrCron = errors.New("cron is not support this expression")
-
-type TaskRepo interface {
-	All() (map[string]*TaskRecord, error)
-	Get(id string) (*TaskRecord, error)
-	Delete(id string) error
-	Save(t *TaskRecord) error
+type taskRuntime struct {
+	cancel  context.CancelFunc
+	stopped chan struct{}
 }
 
-// service
 type Service struct {
-	runtime     *TaskRuntime
+	mu          sync.Mutex
+	repo        TaskRepo
+	runtimes    map[string]*taskRuntime
 	executor    *executor
 	cronFactory func(string) (Cron, error)
 	agentRepo   agent.Repo
-	repo        TaskRepo
 }
 
 func NewService(
-	ctx context.Context,
 	repo TaskRepo,
-	agentRepo agent.Repo,
-	cronFactory func(string) (Cron, error),
 	executor *executor,
+	cronFactory func(string) (Cron, error),
+	agentRepo agent.Repo,
 ) (*Service, error) {
 
-	s := &Service{
+	svc := &Service{
 		repo:        repo,
-		agentRepo:   agentRepo,
-		runtime:     NewTaskRuntime(),
-		executor:    executor,
+		runtimes:    map[string]*taskRuntime{},
 		cronFactory: cronFactory,
+		executor:    executor,
+		agentRepo:   agentRepo,
 	}
 
-	recs, err := repo.All()
+	tasks, err := repo.All()
 	if err != nil {
 		return nil, err
 	}
-
-	for id, rec := range recs {
-		if !rec.Active {
+	for _, t := range tasks {
+		if !t.Active {
 			continue
 		}
-		// TODO validate task on service creation
-		// !Caution it may have edge case issues if agent is not exist
-		// validation return error and program not started
-		if err := s.Start(id); err != nil {
-			return nil, err
+		if err := svc.start(t); err != nil {
+			slog.Error("task service startup", "task", t.Name, "error", err)
 		}
 	}
 
-	return s, nil
+	return svc, nil
 }
 
-func (s *Service) All() (map[string]*TaskRecord, error) {
-	return s.repo.All()
+func (s *Service) stopRuntime(name string) {
+	rt, ok := s.runtimes[name]
+	if !ok {
+		return
+	}
+	rt.cancel()
+	<-rt.stopped
+	delete(s.runtimes, name)
 }
 
-var ErrNoRecipients = errors.New("task must contain at least one recipient")
+func (s *Service) reconcileTask(cfg TaskConfig) error {
+	s.stopRuntime(cfg.Name)
 
-func (s *Service) AddTask(
-	cfg *TaskConfig,
-) error {
-
-	if err := s.validateOnTaskUniqness(cfg.name); err != nil {
+	if err := s.repo.Save(cfg); err != nil {
 		return err
 	}
 
-	if err := s.validateRecipients(cfg.recipients); err != nil {
-		return err
-	}
-
-	if err := s.validateOnCronExpression(cfg.reglament); err != nil {
-		return err
-	}
-
-	return s.repo.Save(
-		&TaskRecord{
-			Active:     false,
-			TaskConfig: cfg,
-		},
-	)
-}
-
-func (s *Service) Start(id string) error {
-	rec, err := s.repo.Get(id)
-	if err != nil {
-		return err
-	}
-
-	cron, err := s.cronFactory(rec.reglament)
-	if err != nil {
-		return err
-	}
-
-	rec.Active = true
-
-	onStop := func() error {
-		rec.Active = false
-		return s.repo.Save(rec)
-	}
-
-	runningTask, err := newRunningTask(rec.TaskConfig, cron, s.executor.execute, onStop)
-	if err != nil {
-		return err
-	}
-
-	if err := s.runtime.Start(runningTask); err != nil {
-		return err
-	}
-
-	if err := s.repo.Save(rec); err != nil {
-		runningTask.stop()
-		return err
+	if cfg.Active {
+		return s.start(cfg)
 	}
 
 	return nil
 }
 
-func (s *Service) Stop(id string) error {
+func (s *Service) start(cfg TaskConfig) error {
 
-	// check existence
-	if _, err := s.repo.Get(id); err != nil {
-		return err
-	}
-
-	return s.runtime.Kill(id)
-}
-
-func (s *Service) Get(id string) (*TaskRecord, error) {
-	return s.repo.Get(id)
-}
-
-func (s *Service) Delete(id string) error {
-
-	// check existence
-	if _, err := s.repo.Get(id); err != nil {
-		return err
-	}
-
-	if err := s.runtime.Kill(id); err != nil {
-		if !errors.Is(err, ErrTaskIsNotRunning) {
-			return err
-		}
-	}
-
-	return s.repo.Delete(id)
-}
-
-// blocking
-// func (s *Service) Run(ctx context.Context) {
-// 	for {
-// 		select {
-// 		case <-ctx.Done():
-// 			return
-// 		case doneTaskID := <-s.runtime.DoneChannel():
-// 			rec, err := s.repo.Get(doneTaskID)
-// 			if err != nil {
-// 				slog.Error("process done tasks", "task", doneTaskID, "error", err)
-// 				return
-// 			}
-
-// 			rec.Active = false // panic here rec is nil after deletion
-
-// 			if err := s.repo.Save(rec); err != nil {
-// 				slog.Error("process done tasks", "task", doneTaskID, "error", err)
-// 			}
-// 		}
-// 	}
-// }
-
-type TaskPatch struct {
-	Name        *string     `json:"name,omitempty"`
-	Description *string     `json:"description,omitempty"`
-	Recipients  *[]agent.ID `json:"recipients,omitempty"`
-	Reglament   *string     `json:"schedule,omitempty"`
-	Request     *string     `json:"request,omitempty"`
-	Oneshot     *bool       `json:"oneshot,omitempty"`
-}
-
-func (s *Service) Patch(id string, patch TaskPatch) error {
-
-	record, err := s.repo.Get(id)
+	cron, err := s.cronFactory(cfg.Reglament)
 	if err != nil {
-		return err
+		return ErrCron
 	}
 
-	if patch.Name != nil {
-		if err := s.validateOnTaskUniqness(*patch.Name); err != nil {
-			return err
+	ctx, cancel := context.WithCancel(context.Background())
+	stopped := make(chan struct{})
+	rt := &taskRuntime{cancel: cancel, stopped: stopped}
+	s.runtimes[cfg.Name] = rt
+
+	go func() {
+		runLoop(ctx, cron, cfg, s.executor.execute)
+		close(stopped)
+
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		if s.runtimes[cfg.Name] != rt {
+			return
 		}
-	}
-
-	if patch.Recipients != nil {
-		if err := s.validateRecipients(*patch.Recipients); err != nil {
-			return err
+		delete(s.runtimes, cfg.Name)
+		cfg.Active = false
+		if err := s.repo.Save(cfg); err != nil {
+			slog.Error("persist disabled task", "task", cfg.Name, "error", err)
 		}
-	}
-
-	if patch.Reglament != nil {
-		if err := s.validateOnCronExpression(*patch.Reglament); err != nil {
-			return err
-		}
-	}
-
-	if err := applyPatch(record.TaskConfig, patch); err != nil {
-		return err
-	}
-
-	if err := s.repo.Save(record); err != nil {
-		return err
-	}
-
-	if patch.Name != nil && id != *patch.Name {
-		return s.Delete(id)
-	}
-
+	}()
 	return nil
+}
+
+func runLoop(ctx context.Context, cron Cron, cfg TaskConfig, onExecute func(context.Context, TaskConfig)) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(cron.NextTime()):
+			onExecute(ctx, cfg)
+			if cfg.Oneshot {
+				return
+			}
+		}
+	}
 }
 
 func (s *Service) validateRecipients(recipients []agent.ID) error {
@@ -243,48 +139,93 @@ func (s *Service) validateRecipients(recipients []agent.ID) error {
 	return nil
 }
 
-func (s *Service) validateOnTaskUniqness(id string) error {
-	exist, err := s.repo.Get(id)
-	if err != nil && !errors.Is(err, ErrIsNotExist) {
+func (s *Service) validateIdentity(id string) error {
+	_, err := s.repo.Get(id)
+	if err != nil {
+		if errors.Is(err, ErrIsNotExist) {
+			return nil
+		}
 		return err
 	}
-	if exist != nil {
-		return fmt.Errorf("task %s: %w", id, ErrAlreadyExist)
-	}
-	return nil
+	return fmt.Errorf("task %s: %w", id, ErrAlreadyExist)
 }
 
-func (s *Service) validateOnCronExpression(exp string) error {
-	if _, err := s.cronFactory(exp); err != nil {
-		return ErrCron
+func (s *Service) List() ([]TaskConfig, error) {
+
+	tasks, err := s.repo.All()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+
+	return slices.Collect(maps.Values(tasks)), nil
 }
 
-func applyPatch(cfg *TaskConfig, patch TaskPatch) error {
-	if patch.Name != nil {
-		cfg.name = *patch.Name
+func (s *Service) Add(cfg TaskConfig) error {
+
+	if err := validateTaskConfig(cfg); err != nil {
+		return err
 	}
 
-	if patch.Description != nil {
-		cfg.description = *patch.Description
+	if err := s.validateRecipients(cfg.Recipients); err != nil {
+		return err
 	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := s.validateIdentity(cfg.Name); err != nil {
+		return err
+	}
+
+	return s.reconcileTask(cfg)
+}
+
+func (s *Service) Patch(name string, patch TaskPatch) error {
 
 	if patch.Recipients != nil {
-		cfg.recipients = *patch.Recipients
+		if err := s.validateRecipients(*patch.Recipients); err != nil {
+			return err
+		}
 	}
 
-	if patch.Reglament != nil {
-		cfg.reglament = *patch.Reglament
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	cfg, err := s.repo.Get(name)
+	if err != nil {
+		return err
 	}
 
-	if patch.Request != nil {
-		cfg.request = *patch.Request
+	next := applyPatch(cfg, patch)
+
+	if err := validateTaskConfig(next); err != nil {
+		return err
 	}
 
-	if patch.Oneshot != nil {
-		cfg.oneshot = *patch.Oneshot
+	var errs []error
+	if patch.Name != nil && *patch.Name != cfg.Name {
+		if err := s.validateIdentity(*patch.Name); err != nil {
+			return err
+		}
+
+		s.stopRuntime(cfg.Name)
+		if err := s.repo.Delete(cfg.Name); err != nil {
+			errs = append(errs, err)
+		}
 	}
 
-	return validateTaskConfig(cfg)
+	if err := s.reconcileTask(next); err != nil {
+		errs = append(errs, err)
+	}
+
+	return errors.Join(errs...)
+}
+
+func (s *Service) Delete(name string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.stopRuntime(name)
+
+	return s.repo.Delete(name)
 }

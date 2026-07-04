@@ -73,6 +73,12 @@ func (t *EditTaskTool) Schema() []agent.ToolProperty {
 			Type:        agent.TypeBoolean,
 			Description: "A new after execute order. if true deactivate task after first execution",
 		},
+		{
+			Name:        "active",
+			Required:    false,
+			Type:        agent.TypeBoolean,
+			Description: "A new state - true is enabled, false is disabled",
+		},
 	}
 }
 
@@ -89,11 +95,5 @@ func (t *EditTaskTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 		err = mapSvcErrors(err)
 		return "task is not edited", unwrapValidationError(err)
 	}
-
-	updatedTask, err := t.taskSvc.Get(args.Existed)
-	if err != nil {
-		return "task is not edited", mapSvcErrors(err)
-	}
-
-	return "task edited succecceful:\n" + reprTask(updatedTask), nil
+	return "task edited succecceful", nil
 }

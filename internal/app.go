@@ -86,11 +86,10 @@ func BuildTaskSvc(
 	)
 
 	return task.NewService(
-		ctx,
 		taskRepo,
-		agentRepo,
-		func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) },
 		executor,
+		func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) },
+		agentRepo,
 	)
 }
 
@@ -211,7 +210,6 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 	taskControlTools := []agent.Tool{
 		tasktools.NewAddTaskTool(taskSvc),
 		tasktools.NewGetTasksTool(taskSvc),
-		tasktools.NewToggleTaskTool(taskSvc),
 		tasktools.NewEditTaskTool(taskSvc),
 		tasktools.NewDeleteTasksTool(taskSvc),
 	}

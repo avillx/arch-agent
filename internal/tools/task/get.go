@@ -5,8 +5,6 @@ import (
 	"arch-agent/internal/task"
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 	"strconv"
 	"strings"
 )
@@ -35,19 +33,19 @@ func (t *GetTasksTool) Schema() []agent.ToolProperty {
 
 func (t *GetTasksTool) Call(ctx context.Context, _ agent.ToolArguments) (string, error) {
 
-	tasks, err := t.taskSvc.All()
+	tasks, err := t.taskSvc.List()
 	if err != nil {
 		return "", mapSvcErrors(err)
 	}
 
 	if len(tasks) > 0 {
-		return reprTaskRecords(slices.Collect(maps.Values(tasks))), nil
+		return reprTaskRecords(tasks), nil
 	}
 
 	return "has no tasks", nil
 }
 
-func reprTaskRecords(tasks []*task.TaskRecord) string {
+func reprTaskRecords(tasks []task.TaskConfig) string {
 	var sb strings.Builder
 	sb.WriteString("# Tasks\n")
 
@@ -58,28 +56,21 @@ func reprTaskRecords(tasks []*task.TaskRecord) string {
 	return sb.String()
 }
 
-func reprTask(rec *task.TaskRecord) string {
+func reprTask(cfg task.TaskConfig) string {
 
 	agentString := []string{}
-	for _, r := range rec.Recipients() {
+	for _, r := range cfg.Recipients {
 		agentString = append(agentString, string(r))
 	}
 
-	state := ""
-	if rec.Active {
-		state = "active"
-	} else {
-		state = "inactive"
-	}
-
 	return fmt.Sprintf(
-		"### %s\n(state: %s) (cron: %s) (recipients: %s) (oneshot: %s) - %s\nrequest:\n%s",
-		rec.Name(),
-		state,
-		rec.Reglament(),
+		"### %s\n(active: %s) (cron: %s) (recipients: %s) (oneshot: %s) - %s\nrequest:\n%s",
+		cfg.Name,
+		strconv.FormatBool(cfg.Active),
+		cfg.Reglament,
 		strings.Join(agentString, " "),
-		strconv.FormatBool(rec.Oneshot()),
-		rec.Description(),
-		rec.Request(),
+		strconv.FormatBool(cfg.Oneshot),
+		cfg.Description,
+		cfg.Request,
 	)
 }

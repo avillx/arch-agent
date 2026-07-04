@@ -1,7 +1,6 @@
 package files
 
 import (
-	"arch-agent/internal/agent"
 	"arch-agent/internal/task"
 	"arch-agent/internal/types"
 	"encoding/json"
@@ -14,140 +13,129 @@ import (
 const TaskFile = "tasks.json"
 
 type TaskFiles struct {
-	mu    sync.RWMutex
-	tasks map[string]*task.TaskRecord
-	fs    *FileSystem
+	mu sync.RWMutex
+	fs *FileSystem
 }
 
 func NewTaskFiles(fs *FileSystem) (*TaskFiles, error) {
 
-	tasks, err := loadTasks(fs)
-	if err != nil {
-		return nil, err
+	if _, err := fs.ReadFile(TaskFile); err != nil {
+		if !errors.Is(err, types.ErrIsNotExist) {
+			return nil, err
+		}
+		if err := fs.WriteToFile(TaskFile, []byte("[]")); err != nil {
+			return nil, err
+		}
 	}
 
 	return &TaskFiles{
-		fs:    fs,
-		tasks: tasks,
+		fs: fs,
 	}, nil
 }
 
-func (tf *TaskFiles) flush() error {
-	data, err := marshalTasks(tf.tasks)
+func (tf *TaskFiles) All() (map[string]task.TaskConfig, error) {
+	tf.mu.RLock()
+	defer tf.mu.RUnlock()
+
+	return loadTasks(tf.fs)
+}
+
+func (tf *TaskFiles) Get(id string) (task.TaskConfig, error) {
+
+	tf.mu.RLock()
+	defer tf.mu.RUnlock()
+
+	tasks, err := loadTasks(tf.fs)
 	if err != nil {
-		return err
+		return task.TaskConfig{}, err
 	}
-	return tf.fs.WriteToFile(TaskFile, data)
-}
 
-func (tf *TaskFiles) All() (map[string]*task.TaskRecord, error) {
-	tf.mu.RLock()
-	defer tf.mu.RUnlock()
-	return tf.tasks, nil
-}
-
-func (tf *TaskFiles) Get(id string) (*task.TaskRecord, error) {
-	tf.mu.RLock()
-	defer tf.mu.RUnlock()
-	t, ok := tf.tasks[id]
+	t, ok := tasks[id]
 	if !ok {
-		return nil, fmt.Errorf("task %s: %w", id, types.ErrIsNotExist)
+		return task.TaskConfig{}, fmt.Errorf("task %s: %w", id, types.ErrIsNotExist)
 	}
+
 	return t, nil
 }
 
-func (tf *TaskFiles) Save(t *task.TaskRecord) error {
+func (tf *TaskFiles) Save(t task.TaskConfig) error {
+
 	tf.mu.Lock()
 	defer tf.mu.Unlock()
-	tf.tasks[t.Name()] = t
-	return tf.flush()
+
+	tasks, err := loadTasks(tf.fs)
+	if err != nil {
+		return err
+	}
+	tasks[t.Name] = t
+
+	return flush(tf.fs, tasks)
 }
 
 func (tf *TaskFiles) Delete(id string) error {
+
 	tf.mu.Lock()
 	defer tf.mu.Unlock()
-	delete(tf.tasks, id)
-	return tf.flush()
+
+	tasks, err := loadTasks(tf.fs)
+	if err != nil {
+		return err
+	}
+
+	if _, ok := tasks[id]; !ok {
+		return task.ErrIsNotExist
+	}
+
+	delete(tasks, id)
+
+	return flush(tf.fs, tasks)
 }
 
-type taskDTO struct {
-	Active      bool       `json:"active"`
-	Name        string     `json:"name"`
-	Recipients  []agent.ID `json:"recipients"`
-	Description string     `json:"description"`
-	Request     string     `json:"request"`
-	OneShot     bool       `json:"one_shot"`
-	Reglament   string     `json:"reglament"`
+func flush(fs *FileSystem, tasks map[string]task.TaskConfig) error {
+	data, err := marshalTasks(tasks)
+	if err != nil {
+		return err
+	}
+	return fs.WriteToFile(TaskFile, data)
 }
 
-func unmarshalTasks(data []byte) (map[string]*task.TaskRecord, error) {
+func unmarshalTasks(data []byte) (map[string]task.TaskConfig, error) {
 
-	var dtos []taskDTO
+	var dtos []task.TaskConfig
 	if err := json.Unmarshal(data, &dtos); err != nil {
 		return nil, err
 	}
 
-	records := make(map[string]*task.TaskRecord, len(dtos))
+	tasks := make(map[string]task.TaskConfig, len(dtos))
 
-	var errs []error
 	for _, dto := range dtos {
-
-		cfg, err := task.NewValidTaskConfig(
-			dto.Name,
-			dto.Description,
-			dto.Recipients,
-			dto.Reglament,
-			dto.Request,
-			dto.OneShot,
-		)
-
-		if err != nil {
-			errs = append(errs, fmt.Errorf("can't load task %s: %w", dto.Name, err))
-		}
-
-		records[dto.Name] = &task.TaskRecord{
-			Active:     dto.Active,
-			TaskConfig: cfg,
-		}
+		tasks[dto.Name] = dto
 	}
 
-	return records, errors.Join(errs...)
+	return tasks, nil
 }
 
-func marshalTasks(tasks map[string]*task.TaskRecord) ([]byte, error) {
+func marshalTasks(tasks map[string]task.TaskConfig) ([]byte, error) {
 
-	dtos := make([]taskDTO, 0, len(tasks))
+	dtos := make([]task.TaskConfig, 0, len(tasks))
 	for _, t := range tasks {
-		dto := taskDTO{
-			Active:      t.Active,
-			Name:        t.Name(),
-			Description: t.Description(),
-			Recipients:  t.Recipients(),
-			Request:     t.Request(),
-			OneShot:     t.Oneshot(),
-			Reglament:   t.Reglament(),
-		}
-		dtos = append(dtos, dto)
+		dtos = append(dtos, t)
 	}
 
 	return json.MarshalIndent(dtos, "", "	")
 }
 
-func loadTasks(fs *FileSystem) (map[string]*task.TaskRecord, error) {
+func loadTasks(fs *FileSystem) (map[string]task.TaskConfig, error) {
 	data, err := fs.ReadFile(TaskFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return map[string]*task.TaskRecord{}, nil
+			return map[string]task.TaskConfig{}, nil
 		}
 		return nil, err
 	}
 	if len(data) == 0 {
-		return map[string]*task.TaskRecord{}, nil
-	}
-	taskMap, err := unmarshalTasks(data)
-	if err != nil {
-		return nil, err
+		return map[string]task.TaskConfig{}, nil
 	}
 
-	return taskMap, nil
+	return unmarshalTasks(data)
 }

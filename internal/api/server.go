@@ -12,8 +12,6 @@ func NewServer(taskSvc *task.Service) http.Handler {
 	taskHandler := &TaskHandler{taskSvc: taskSvc}
 	h.HandleFunc("GET /task/all", wrap(taskHandler.List))
 	h.HandleFunc("POST /task/{name}", wrap(taskHandler.Create))
-	h.HandleFunc("PATCH /task/{name}/start", wrap(taskHandler.Start))
-	h.HandleFunc("PATCH /task/{name}/stop", wrap(taskHandler.Stop))
 	h.HandleFunc("DELETE /task/{name}", wrap(taskHandler.Delete))
 
 	// api v1 route

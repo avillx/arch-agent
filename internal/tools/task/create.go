@@ -59,6 +59,12 @@ func (t *AddTaskTool) Schema() []agent.ToolProperty {
 			Description: "Detailed instructions sent to the agent on each invocation",
 		},
 		{
+			Name:        "active",
+			Required:    true,
+			Type:        agent.TypeBoolean,
+			Description: "If true - task is enabled and invokes by schedule, on false task is disabled",
+		},
+		{
 			Name:        "oneshot",
 			Required:    true,
 			Type:        agent.TypeBoolean,
@@ -68,36 +74,13 @@ func (t *AddTaskTool) Schema() []agent.ToolProperty {
 }
 
 func (t *AddTaskTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
-	args, err := tools.UnwrapArgs[struct {
-		Name        string     `json:"name"`
-		Description string     `json:"description"`
-		Recipients  []agent.ID `json:"recipients"`
-		Reglament   string     `json:"schedule"`
-		Request     string     `json:"request"`
-		Oneshot     bool       `json:"oneshot"`
-	}](rawArgs)
+	cfg, err := tools.UnwrapArgs[task.TaskConfig](rawArgs)
 	if err != nil {
 		return "", err
 	}
 
-	newTask, err := task.NewValidTaskConfig(
-		args.Name,
-		args.Description,
-		args.Recipients,
-		args.Reglament,
-		args.Request,
-		args.Oneshot,
-	)
-	if err != nil {
-		return "task is not created", unwrapValidationError(err)
-	}
-
-	if err := t.taskSvc.AddTask(newTask); err != nil {
+	if err := t.taskSvc.Add(cfg); err != nil {
 		return "task is not created", mapSvcErrors(err)
-	}
-
-	if err := t.taskSvc.Start(args.Name); err != nil {
-		return "task was not runned", mapSvcErrors(err)
 	}
 
 	return "task created succecceful", nil
