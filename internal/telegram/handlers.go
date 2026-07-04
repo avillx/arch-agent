@@ -389,6 +389,14 @@ func (b *Bot) processMCPCommand(ctx context.Context, u tgbotapi.Update) (string,
 		return "has no mcp servers", nil
 	}
 
+	const helpMessage = `availavble args:
+	"/mcp" - show list of added servers
+	"/mcp add <url>"
+	"/mcp remove <server_name>"
+	"/mcp connect <server_name>"
+	"/mcp disconnect <server_name>"
+	"/mcp help" - show this message`
+
 	switch command[0] {
 	case "add":
 		newMcpID, err := b.mcpSvc.Add(ctx, command[1])
@@ -416,7 +424,7 @@ func (b *Bot) processMCPCommand(ctx context.Context, u tgbotapi.Update) (string,
 		return fmt.Sprintf("mcp %s disconnected", command[1]), nil
 	}
 
-	return "", fmt.Errorf("unknown command args")
+	return "unknown command args", nil
 }
 
 func mcpListRepr(servers []*mcp.MCPServer) string {
