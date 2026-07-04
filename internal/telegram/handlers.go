@@ -422,9 +422,12 @@ func (b *Bot) processMCPCommand(ctx context.Context, u tgbotapi.Update) (string,
 			return "", err
 		}
 		return fmt.Sprintf("mcp %s disconnected", command[1]), nil
+	case "help":
+
+		return helpMessage, nil
 	}
 
-	return "unknown command args", nil
+	return fmt.Sprintf("unknown %s command args:\n%s", command[1], helpMessage), nil
 }
 
 func mcpListRepr(servers []*mcp.MCPServer) string {
