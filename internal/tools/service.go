@@ -11,6 +11,9 @@ import (
 type ToolServer interface {
 	Name() string
 	Tools() []agent.Tool
+}
+
+type DynamicToolServer interface {
 	OnToolsChanged(func() error)
 	OnDisconnect(func())
 }
@@ -22,17 +25,20 @@ type Service struct {
 	servers map[string]ToolServer
 }
 
-func NewService() *Service {
+func NewService(servers ...ToolServer) (*Service, error) {
 	s := &Service{
 		tools:   make(map[agent.ToolName]agent.Tool),
 		owned:   make(map[string][]agent.ToolName),
 		servers: make(map[string]ToolServer),
 	}
-	return s
-}
 
-func (s *Service) AddTools(tools ...agent.Tool) error {
-	return s.register("", tools)
+	for _, srv := range servers {
+		if err := s.Connect(srv); err != nil {
+			return nil, fmt.Errorf("can't connect to build in tool server %s", srv.Name())
+		}
+	}
+
+	return s, nil
 }
 
 func (s *Service) Tools() []agent.Tool {
@@ -91,38 +97,47 @@ func (s *Service) Connect(server ToolServer) error {
 	}
 	s.servers[name] = server
 
-	server.OnToolsChanged(func() error {
-		s.mu.Lock()
-		defer s.mu.Unlock()
+	if dynamicTS, ok := server.(DynamicToolServer); ok {
+		dynamicTS.OnToolsChanged(func() error {
+			s.mu.Lock()
+			defer s.mu.Unlock()
 
-		if _, ok := s.servers[name]; !ok {
+			if _, ok := s.servers[name]; !ok {
+				return nil
+			}
+			s.unregister(name)
+			if err := s.register(name, server.Tools()); err != nil {
+				delete(s.servers, name)
+				return err
+			}
 			return nil
-		}
-		s.unregister(name)
-		if err := s.register(name, server.Tools()); err != nil {
+		})
+
+		dynamicTS.OnDisconnect(func() {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+
+			s.unregister(name)
 			delete(s.servers, name)
-			return err
-		}
-		return nil
-	})
-
-	server.OnDisconnect(func() {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-
-		s.unregister(name)
-		delete(s.servers, name)
-	})
+		})
+	}
 
 	return nil
 }
 
 func (s *Service) Disconnect(serverName string) error {
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.servers[serverName]; !ok {
+	srv, ok := s.servers[serverName]
+	if !ok {
 		return fmt.Errorf("server %s not connected", serverName)
 	}
+
+	if _, ok := srv.(DynamicToolServer); !ok {
+		return fmt.Errorf("server `%s` can't be disconnected", srv.Name())
+	}
+
 	s.unregister(serverName)
 	delete(s.servers, serverName)
 	return nil

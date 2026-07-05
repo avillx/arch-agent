@@ -25,7 +25,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 )
 
 // TODO:
@@ -102,6 +101,7 @@ func BuildMemoryConsolidator(
 ) (*memory.Memory, error) {
 
 	ruledFSFactory := fstools.NewMemoryAccessRuledFS(fs)
+
 	fsTools := []agent.Tool{
 		fstools.NewListDirTool(ruledFSFactory),
 		fstools.NewReadFileTool(ruledFSFactory),
@@ -161,7 +161,10 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 	contextAssembler := runtime.NewContextAssembler(skillFiles, activityRepo, files.NewMemoryFiles(fs))
 	rt := runtime.NewAgentRuntime(observer, contextAssembler)
 
-	toolSvc := tools.NewService()
+	toolSvc, err := tools.NewService()
+	if err != nil {
+		return nil, err
+	}
 
 	mcpRepo := files.NewMCPFiles(fs)
 	mcpSvc, err := mcp.NewService(ctx, toolSvc, mcpRepo)
@@ -191,7 +194,8 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 
 	// agent Tools
 	ruledFSFactory := fstools.NewAgentAccessRuledFS(fs, agentRepo)
-	fsTools := []agent.Tool{
+	fsTools := tools.NewBuildInToolServer(
+		"filesystem",
 		fstools.NewListDirTool(ruledFSFactory),
 		fstools.NewReadFileTool(ruledFSFactory),
 		fstools.NewWriteFileTool(ruledFSFactory),
@@ -199,31 +203,48 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		fstools.NewMoveFileTool(ruledFSFactory),
 		fstools.NewDeleteTool(ruledFSFactory),
 		fstools.NewSearchFilesTool(ruledFSFactory),
+	)
+	if err := toolSvc.Connect(fsTools); err != nil {
+		return nil, err
 	}
 
-	todoTools := []agent.Tool{
+	todoTools := tools.NewBuildInToolServer(
+		"todo",
 		&todo.CreateTodoTool{Store: todoStorage},
 		&todo.ListTodoTool{Store: todoStorage},
 		&todo.UpdateTodoTool{Store: todoStorage},
+	)
+	if err := toolSvc.Connect(todoTools); err != nil {
+		return nil, err
 	}
 
-	taskControlTools := []agent.Tool{
+	taskControlTools := tools.NewBuildInToolServer(
+		"tasks",
 		tasktools.NewAddTaskTool(taskSvc),
 		tasktools.NewGetTasksTool(taskSvc),
 		tasktools.NewEditTaskTool(taskSvc),
 		tasktools.NewDeleteTasksTool(taskSvc),
+	)
+	if err := toolSvc.Connect(taskControlTools); err != nil {
+		return nil, err
 	}
 
-	webTools := []agent.Tool{
+	webTools := tools.NewBuildInToolServer(
+		"web",
 		fetch.NewFetchTool(),
 		search.NewWebSearchTool(searx),
+	)
+	if err := toolSvc.Connect(webTools); err != nil {
+		return nil, err
 	}
 
-	callAgentTool := tools.NewCallAgentTool(a2aSvc, agentRepo)
-
-	toolSvc.AddTools(
-		append(slices.Concat(fsTools, todoTools, taskControlTools, webTools), callAgentTool)...,
+	callAgentTools := tools.NewBuildInToolServer(
+		"agent",
+		tools.NewCallAgentTool(a2aSvc, agentRepo),
 	)
+	if err := toolSvc.Connect(callAgentTools); err != nil {
+		return nil, err
+	}
 
 	// Telegram Bots
 	botOrchestra, err := telegram.NewBotOrchestrator(cfg.BotConfigs...)
@@ -231,7 +252,7 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		return nil, err
 	}
 
-	memoryConsolidator, err := BuildMemoryConsolidator(fs, rt, modelRepo, agentRepo, todoTools)
+	memoryConsolidator, err := BuildMemoryConsolidator(fs, rt, modelRepo, agentRepo, todoTools.Tools())
 	if err != nil {
 		return nil, err
 	}
