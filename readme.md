@@ -20,7 +20,7 @@ agent discribed in a md file `/data/<agent_name>/agent.md`
 ## example:
 ```yaml
 ---
-# unique id of agent alis is agent_name other agent see this name
+# unique id of agent. id is a agent name and identity. other agents see this name
 id: calude
 description: a helpful assistant 
 model: sonnet-4.6
