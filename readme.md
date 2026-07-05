@@ -13,6 +13,39 @@ Key points:
 
 --- 
 
+# agent.md
+
+agent discribed in a md file `/data/<agent_name>/agent.md`
+> all text after frontmatter is a system prompt for this agent
+## example:
+```yaml
+---
+# unique id of agent alis is agent_name other agent see this name
+id: calude
+description: a helpful assistant 
+model: sonnet-4.6
+#if true activity has been logged and once per day consolidated as memory database
+memory: true
+# white list of allowed skills, other skill is invisible for agent
+skills:
+    - reglament
+# white list of build in tool bundles and connected mcp servers
+tool_servers:
+    - filesystem
+    - todo
+    - tasks
+    - web
+    - agent
+# white list of current tools
+tools:
+    - read_file 
+    - write_file
+---
+
+You are helpful assistant
+```
+---
+
 ### Config
 Must be runned with `--config` flag and path to config file e.g. `config.toml`
 Example in `example.config.toml`
@@ -26,6 +59,8 @@ LOG_LEVEL (debug/info/warn/error)
 ### For compose
 Workdir is `/agent`
 All memory stores in `/agent/data/...`
+
+---
 
 ### TODO
 
