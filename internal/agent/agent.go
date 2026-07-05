@@ -16,6 +16,7 @@ type Agent interface {
 	Description() string
 	SystemPrompt() string
 	Model() ModelID
+	ToolServers() []string
 	Tools() []ToolName
 	Skills() []SkillID
 	HasMemory() bool
@@ -27,6 +28,7 @@ type agent struct {
 	systemPrompt string
 	model        ModelID
 	tools        []ToolName
+	toolServers  []string
 	skills       []SkillID
 	hasMemory    bool
 }
@@ -37,6 +39,7 @@ func NewAgent(
 	systemPrompt string,
 	model ModelID,
 	tools []ToolName,
+	toolServers []string,
 	skills []SkillID,
 	hasMemory bool,
 ) *agent {
@@ -46,15 +49,17 @@ func NewAgent(
 		systemPrompt: systemPrompt,
 		model:        model,
 		tools:        tools,
+		toolServers:  toolServers,
 		skills:       skills,
 		hasMemory:    hasMemory,
 	}
 }
 
-func (a *agent) ID() ID               { return a.id }
-func (a *agent) Description() string  { return a.description }
-func (a *agent) SystemPrompt() string { return a.systemPrompt }
-func (a *agent) Model() ModelID       { return a.model }
-func (a *agent) Tools() []ToolName    { return a.tools }
-func (a *agent) Skills() []SkillID    { return a.skills }
-func (a *agent) HasMemory() bool      { return a.hasMemory }
+func (a *agent) ID() ID                { return a.id }
+func (a *agent) Description() string   { return a.description }
+func (a *agent) SystemPrompt() string  { return a.systemPrompt }
+func (a *agent) Model() ModelID        { return a.model }
+func (a *agent) Tools() []ToolName     { return a.tools }
+func (a *agent) ToolServers() []string { return a.toolServers }
+func (a *agent) Skills() []SkillID     { return a.skills }
+func (a *agent) HasMemory() bool       { return a.hasMemory }

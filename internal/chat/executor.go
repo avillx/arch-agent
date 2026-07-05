@@ -4,8 +4,10 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
+	"arch-agent/internal/types"
 	"context"
 	"errors"
+	"log/slog"
 )
 
 type Request struct {
@@ -70,13 +72,23 @@ func (s *executor) chat(
 	// tools
 	tools, err := s.toolRegistry.GetTools(agt.Tools())
 	if err != nil {
-		return err
+		if err := distillErrNotExist(agt.ID(), err); err != nil {
+			return err
+		}
+	}
+	svcTools, err := s.toolRegistry.GetToolsByServers(agt.ToolServers())
+	if err != nil {
+		if err := distillErrNotExist(agt.ID(), err); err != nil {
+			return err
+		}
+	}
+	if svcTools != nil {
+		tools = append(tools, svcTools...)
 	}
 
 	if r.ProvidedTools != nil {
 		tools = append(tools, r.ProvidedTools...)
 	}
-
 	// sink
 	evCh := make(chan runtime.Event, 16)
 	go r.Reader.Read(evCh)
@@ -92,4 +104,26 @@ func (s *executor) chat(
 	)
 
 	return errors.Join(err, s.sessionSvc.Save(agt.ID(), sess))
+}
+
+func distillErrNotExist(agentId agent.ID, err error) error {
+	errWrapper, ok := err.(interface{ Unwrap() []error })
+	if !ok {
+		if errors.Is(err, types.ErrIsNotExist) {
+			slog.Warn("chat process", "agent", agentId, "error", err)
+			return nil
+		}
+		return err
+	}
+
+	var unExpectedErrs []error
+	for _, werr := range errWrapper.Unwrap() {
+		if errors.Is(werr, types.ErrIsNotExist) {
+			slog.Warn("chat process", "agent", agentId, "error", werr)
+			continue
+		}
+
+		unExpectedErrs = append(unExpectedErrs, err)
+	}
+	return errors.Join(unExpectedErrs...)
 }

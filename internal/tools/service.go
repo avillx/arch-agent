@@ -2,6 +2,8 @@ package tools
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/types"
+	"errors"
 	"fmt"
 	"sync"
 )
@@ -43,18 +45,36 @@ func (s *Service) Tools() []agent.Tool {
 	return result
 }
 
-func (s *Service) GetTools(toolNames []agent.ToolName) ([]agent.Tool, error) {
+func (s *Service) GetToolsByServers(servers []string) ([]agent.Tool, error) {
 
-	tools := make([]agent.Tool, len(toolNames))
-	for i, name := range toolNames {
-		t, ok := s.tools[name]
-		if !ok {
-			return nil, fmt.Errorf("tool %s is not exist", name)
+	var errs []error
+	tools := []agent.Tool{}
+	for _, srv := range servers {
+		toolServer, ok := s.servers[srv]
+		if ok {
+			tools = append(tools, toolServer.Tools()...)
+			continue
 		}
-		tools[i] = t
+
+		errs = append(errs, fmt.Errorf("tool server %s: %w", srv, types.ErrIsNotExist))
 	}
 
-	return tools, nil
+	return tools, errors.Join(errs...)
+}
+
+func (s *Service) GetTools(toolNames []agent.ToolName) ([]agent.Tool, error) {
+
+	var errs []error
+	tools := make([]agent.Tool, 0, len(toolNames))
+	for _, name := range toolNames {
+		t, ok := s.tools[name]
+		if !ok {
+			errs = append(errs, fmt.Errorf("tool %s: %w", name, types.ErrIsNotExist))
+		}
+		tools = append(tools, t)
+	}
+
+	return tools, errors.Join(errs...)
 }
 
 func (s *Service) Connect(server ToolServer) error {

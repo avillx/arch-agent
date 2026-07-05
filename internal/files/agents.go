@@ -117,6 +117,7 @@ func (s *AgentFiles) fromDTO(dtos ...AgentDTO) ([]agent.Agent, error) {
 			dto.SystemPrompt,
 			dto.Model,
 			dto.Tools,
+			dto.ToolServers,
 			dto.Skills,
 			dto.HasMemory,
 		))
@@ -132,6 +133,7 @@ type AgentDTO struct {
 	Model        agent.ModelID    `yaml:"model"`
 	SystemPrompt string           `yaml:"omitempty"`
 	Tools        []agent.ToolName `yaml:"tools,omitempty"`
+	ToolServers  []string         `yaml:"tool_servers,omitempty"`
 	Skills       []agent.SkillID  `yaml:"skills,omitempty"`
 	HasMemory    bool             `yaml:"memory,omitempty"`
 }
