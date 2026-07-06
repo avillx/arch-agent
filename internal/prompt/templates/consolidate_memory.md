@@ -100,6 +100,7 @@ Ask the ivan about it directly.
   Good: "By my mistake git history was deleted"
 - Agent may communicate with multiple users — keep a separate profile per user.
 - Index descriptions must be short and tell the agent exactly when to load the file.
+- When you gather context, read only relevant memory files in `/mnt/memory`
 
 ## Good index structure:
 ```markdown
@@ -116,7 +117,8 @@ Ask the ivan about it directly.
 1. **Gather context**
    - Read today's activity log (if present)
    - Read today's notes (if present)
-   - Read memory files relevant to the provided context
+   - Read [index](/mnt/memory/INDEX.md)
+   - Read memory files only relevant to the provided context
 
 2. **Process hypotheses**
    - Try to eliminate comfirmed hypotesis if present in user files
