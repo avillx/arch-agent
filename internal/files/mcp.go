@@ -4,36 +4,44 @@ import (
 	"arch-agent/internal/mcp"
 	"encoding/json"
 	"fmt"
-	"os"
+	"sync"
 )
 
 const mcpServersFile = "mcp_servers.json"
 
+var _ mcp.ConfigRepo = (*MCPFiles)(nil)
+
 type mcpServerDTO struct {
-	ID        mcp.MCPServerID `json:"id"`
-	URL       string          `json:"url"`
-	Connected bool            `json:"connected"`
+	Connected bool `json:"connected"`
+	mcp.ServerGatewayConfig
 }
 
 type MCPFiles struct {
 	fs *FileSystem
+
+	mu sync.Mutex
 }
 
 func NewMCPFiles(fs *FileSystem) *MCPFiles {
 	return &MCPFiles{fs: fs}
 }
 
-func (f *MCPFiles) Save(servers []*mcp.MCPServer) error {
-	dtos := make([]mcpServerDTO, len(servers))
-	for i := range servers {
-		dtos[i] = mcpServerDTO{
-			ID:        servers[i].ID,
-			URL:       servers[i].URL,
-			Connected: servers[i].Connected,
-		}
+func (f *MCPFiles) Save(cfg mcp.ServerConfig) error {
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	dtoMap, err := f.loadDTO()
+	if err != nil {
+		return err
 	}
 
-	data, err := json.MarshalIndent(dtos, "", "	")
+	dtoMap[cfg.ID] = mcpServerDTO{
+		Connected:           cfg.Connected,
+		ServerGatewayConfig: cfg.ServerGatewayConfig,
+	}
+
+	data, err := json.MarshalIndent(dtoMap, "", "	")
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", mcpServersFile, err)
 	}
@@ -41,34 +49,37 @@ func (f *MCPFiles) Save(servers []*mcp.MCPServer) error {
 	return f.fs.WriteToFile(mcpServersFile, data)
 }
 
-func (f *MCPFiles) Load() ([]*mcp.MCPServer, error) {
-	data, err := f.fs.ReadFile(mcpServersFile)
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
+func (f *MCPFiles) Load() ([]mcp.ServerConfig, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	dto, err := f.loadDTO()
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", mcpServersFile, err)
+		return nil, err
 	}
 
-	if len(data) == 0 {
-		return nil, nil
+	configs := make([]mcp.ServerConfig, 0, len(dto))
+	for k, v := range dto {
+		configs = append(configs, mcp.ServerConfig{
+			ID:                  k,
+			Connected:           v.Connected,
+			ServerGatewayConfig: v.ServerGatewayConfig,
+		})
 	}
 
-	var dtos []mcpServerDTO
-	if err := json.Unmarshal(data, &dtos); err != nil {
-		return nil, fmt.Errorf("unmarshal %s: %w", mcpServersFile, err)
+	return configs, nil
+}
+
+func (f *MCPFiles) loadDTO() (map[mcp.MCPServerID]mcpServerDTO, error) {
+	data, err := f.fs.ReadFile(mcpServersFile)
+	if err != nil {
+		return nil, err
 	}
 
-	servers := make([]*mcp.MCPServer, len(dtos))
-	for i, dto := range dtos {
-
-		srv, err := mcp.NewMCPServer(mcp.WithState(dto.ID, dto.URL, dto.Connected))
-		if err != nil {
-			return nil, err
-		}
-
-		servers[i] = srv
+	var dto map[mcp.MCPServerID]mcpServerDTO
+	if err := json.Unmarshal(data, &dto); err != nil {
+		return nil, err
 	}
 
-	return servers, nil
+	return dto, nil
 }

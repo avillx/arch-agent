@@ -2,14 +2,17 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
 	"arch-agent/internal/tools"
+	"arch-agent/internal/types"
 )
 
 const (
@@ -17,36 +20,71 @@ const (
 	initTimeout    = 15 * time.Second
 )
 
-type Service struct {
-	toolSvc *tools.Service
-	repo    MCPRepo
-	servers map[MCPServerID]*MCPServer
-	mu      sync.RWMutex
+type ConfigRepo interface {
+	Load() ([]ServerConfig, error)
+	Save(ServerConfig) error
 }
 
-func NewService(ctx context.Context, toolSvc *tools.Service, repo MCPRepo) (*Service, error) {
-	stored, err := repo.Load()
-	if err != nil {
-		return nil, fmt.Errorf("mcp service: load repo: %w", err)
-	}
+type Service struct {
+	toolSvc    *tools.Service
+	configRepo ConfigRepo
+	servers    map[MCPServerID]*MCPServer
+	mu         sync.RWMutex
+}
 
+func NewService(ctx context.Context, toolSvc *tools.Service, repo ConfigRepo) (*Service, error) {
 	s := &Service{
-		toolSvc: toolSvc,
-		repo:    repo,
-		servers: make(map[MCPServerID]*MCPServer),
+		toolSvc:    toolSvc,
+		configRepo: repo,
+		servers:    make(map[MCPServerID]*MCPServer),
 	}
 
-	for _, srv := range stored {
+	if err := s.loadServers(ctx); err != nil {
+		if wraped, ok := err.(interface{ Unwrap() []error }); ok {
+			for _, e := range wraped.Unwrap() {
+				slog.Error("mcp service: server init: config", "error", e)
+			}
+		} else {
+			slog.Error("mcp service: server init", "error", err)
+		}
+	}
+
+	return s, nil
+}
+
+func (s *Service) loadServers(ctx context.Context) error {
+	cfgs, err := s.configRepo.Load()
+	if err != nil {
+		return err
+	}
+	var errs []error
+	for _, cfg := range cfgs {
+
+		gateway, err := createGateway(cfg.ServerGatewayConfig)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		srv, err := NewMCPServer(gateway, WithState(cfg.ID, cfg.Connected))
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		// no identity check.
+		// if repo return the dublicated cfg's then problem is in repo
 		s.servers[srv.ID] = srv
-		if srv.Connected {
-			if err := s.Connect(ctx, srv.ID); err != nil {
-				slog.Error("mcp service, servers connection", "error", err)
-				srv.Connected = false
+
+		if cfg.Connected {
+			if err := s.Connect(ctx, cfg.ID); err != nil {
+				errs = append(errs, err)
+				continue
 			}
 		}
 	}
 
-	return s, s.flush() // flush to commit servers bad connection attempts
+	return errors.Join(errs...)
 }
 
 func (s *Service) List() []*MCPServer {
@@ -56,23 +94,104 @@ func (s *Service) List() []*MCPServer {
 	return slices.Collect(maps.Values(s.servers))
 }
 
-func (s *Service) Add(ctx context.Context, url string) (MCPServerID, error) {
+type ServerConfig struct {
+	ID                  MCPServerID `json:"id"`
+	Connected           bool        `json:"connected"`
+	ServerGatewayConfig `json:"gateway"`
+}
 
-	if err := s.ensureServerUnique(url); err != nil {
+type ServerGatewayConfig struct {
+	HTTP   *GatewayHTTPConfig `json:"http,omitempty"`
+	NPM    *GatewayNPMConfig  `json:"npm,omitempty"`
+	Binary *GatewayBinConfig  `json:"bin,omitempty"`
+}
+
+type GatewayHTTPConfig struct {
+	URL   string `json:"url"`
+	Token string `json:"token,omitempty"`
+}
+
+type GatewayNPMConfig struct {
+	Package string            `json:"package"`
+	Args    []string          `json:"args,omitempty"`
+	Env     map[string]string `json:"env,omitempty"`
+}
+
+type GatewayBinConfig struct {
+	Path string            `json:"path,omitempty"`
+	Args []string          `json:"args,omitempty"`
+	Env  map[string]string `json:"env,omitempty"`
+}
+
+func validateConfig(cfg ServerGatewayConfig) error {
+
+	problems := map[string]string{}
+
+	// TODO: add more checks
+	// e.g. ->
+	// map[string]string{
+	// 	"config": "config must contain only one gateway",
+	// },
+
+	if cfg.HTTP == nil &&
+		cfg.NPM == nil &&
+		cfg.Binary == nil {
+
+		problems["config"] = "must be at least one gateway (http,npm,bin)"
+	}
+
+	if len(problems) > 0 {
+		return types.NewValidationError(problems)
+	}
+
+	return nil
+}
+
+func createGateway(cfg ServerGatewayConfig) (gateway, error) {
+	switch {
+	case cfg.HTTP != nil:
+		return newHTTPGateway(cfg.HTTP.URL, cfg.HTTP.Token), nil
+	case cfg.NPM != nil:
+		return newNPMProcessGateway(cfg.NPM.Package, cfg.NPM.Args, cfg.NPM.Env)
+	case cfg.Binary != nil:
+		return newBinaryProcessGateway(cfg.Binary.Path, cfg.Binary.Args, cfg.Binary.Env)
+	default:
+		return nil, fmt.Errorf("mcp add has no gateway")
+	}
+}
+
+func (s *Service) Add(ctx context.Context, cfg ServerGatewayConfig) (MCPServerID, error) {
+
+	if err := validateConfig(cfg); err != nil {
 		return "", err
 	}
 
-	// ctx, cancel := context.WithTimeout(context.Background(), initTimeout)
-	// defer cancel()
+	gateway, err := createGateway(cfg)
+	if err != nil {
+		return "", err
+	}
 
-	srv, err := NewMCPServer(WithInit(ctx, url))
+	srv, err := NewMCPServer(gateway, WithInit(ctx))
 	if err != nil {
 		return "", fmt.Errorf("mcp: server initialization: %w", err)
 	}
 
-	if err := s.putServer(srv); err != nil {
+	if err := s.ensureServerUnique(srv.ID); err != nil {
 		return "", err
 	}
+
+	if err := s.saveServer(srv); err != nil {
+		return "", err
+	}
+
+	if err := s.toolSvc.Connect(srv); err != nil {
+		return "", err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.servers[srv.ID] = srv
 
 	return srv.ID, nil
 }
@@ -100,12 +219,12 @@ func (s *Service) Connect(ctx context.Context, id MCPServerID) error {
 		return err
 	}
 
-	if err := tryConnect(ctx, srv, DefaultMaxAttempts); err != nil {
+	if err := srv.Connect(ctx); err != nil {
 		return err
 	}
 
 	srv.OnDisconnect(func() {
-		s.flush()
+		s.saveServer(srv)
 	})
 
 	// connect to tool service
@@ -114,7 +233,7 @@ func (s *Service) Connect(ctx context.Context, id MCPServerID) error {
 		return fmt.Errorf("mcp: register tools: %w", err)
 	}
 
-	return s.flush()
+	return s.saveServer(srv)
 }
 
 func (s *Service) Disconnect(id MCPServerID) error {
@@ -141,35 +260,51 @@ func (s *Service) getServer(id MCPServerID) (*MCPServer, error) {
 }
 
 // safe put server ptr
-func (s *Service) putServer(srv *MCPServer) error {
+func (s *Service) saveServer(srv *MCPServer) error {
+	return s.configRepo.Save(ServerConfig{
+		ID:                  srv.ID,
+		Connected:           srv.Connected,
+		ServerGatewayConfig: gatewayToConfig(srv.gateway),
+	})
+}
 
-	// check existence
-	_, err := s.getServer(srv.ID)
-	if err == nil {
-		return fmt.Errorf("server %s already exists", srv.ID)
+func gatewayToConfig(g gateway) ServerGatewayConfig {
+
+	var cfg ServerGatewayConfig
+	switch typed := g.(type) {
+	case *httpGateway:
+		cfg.HTTP = &GatewayHTTPConfig{
+			URL:   typed.url,
+			Token: typed.authToken,
+		}
+	case *processGateway:
+		if strings.HasSuffix(typed.command, "npx") {
+			cfg.NPM = &GatewayNPMConfig{
+				Package: typed.command,
+				Args:    typed.args,
+				Env:     typed.env,
+			}
+		} else {
+			cfg.Binary = &GatewayBinConfig{
+				Path: typed.command,
+				Args: typed.args,
+				Env:  typed.env,
+			}
+		}
 	}
 
-	s.mu.Lock()
-	s.servers[srv.ID] = srv
-	s.mu.Unlock()
-
-	return s.flush()
+	return cfg
 }
 
 // validation on url server uniqueness
-func (s *Service) ensureServerUnique(url string) error {
+func (s *Service) ensureServerUnique(id MCPServerID) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	for _, srv := range s.servers {
-		if srv.URL == url {
-			return fmt.Errorf("mcp: server with url %s already added", url)
+		if srv.ID == id {
+			return fmt.Errorf("mcp: server %s: %w", id, types.ErrAlreadyExist)
 		}
 	}
 	return nil
-}
-
-// save current state to repo
-func (s *Service) flush() error {
-	return s.repo.Save(s.List())
 }

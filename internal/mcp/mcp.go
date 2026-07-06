@@ -9,32 +9,36 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type MCPServerID string
 
+type gateway interface {
+	GetSession(context.Context) (*mcp.ClientSession, error)
+}
+
 var _ tools.ToolServer = (*MCPServer)(nil)
+var _ tools.DynamicToolServer = (*MCPServer)(nil)
 
 type MCPServer struct {
 	ID        MCPServerID
-	URL       string
 	Connected bool
 
 	session      *mcpsdk.ClientSession
 	tools        []agent.Tool
 	onChanged    func() error
 	onDisconnect func()
+
+	gateway gateway
 }
 
-type MCPRepo interface {
-	Save([]*MCPServer) error
-	Load() ([]*MCPServer, error)
-}
+func NewMCPServer(g gateway, opts ...MCPServerOption) (*MCPServer, error) {
 
-func NewMCPServer(opts ...MCPServerOption) (*MCPServer, error) {
-
-	s := &MCPServer{}
+	s := &MCPServer{
+		gateway: g,
+	}
 	for _, opt := range opts {
 		if err := opt(s); err != nil {
 			return nil, err
@@ -81,7 +85,7 @@ func (s *MCPServer) OnDisconnect(fn func()) {
 func (s *MCPServer) Connect(ctx context.Context) error {
 
 	// session
-	sess, err := produceSession(ctx, s.URL)
+	sess, err := s.gateway.GetSession(ctx)
 	if err != nil {
 		return err
 	}
@@ -141,6 +145,10 @@ func (s *MCPServer) monitor(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
+			if s.session == nil {
+				return fmt.Errorf("no session: server %s", s.ID)
+			}
+
 			if err := s.session.Ping(ctx, &mcpsdk.PingParams{}); err != nil {
 				s.Disconnect()
 				return err
@@ -151,10 +159,9 @@ func (s *MCPServer) monitor(ctx context.Context) error {
 
 type MCPServerOption func(*MCPServer) error
 
-func WithInit(ctx context.Context, url string) MCPServerOption {
+func WithInit(ctx context.Context) MCPServerOption {
 	return func(s *MCPServer) error {
-		s.URL = url
-		sess, err := produceSession(ctx, url)
+		sess, err := s.gateway.GetSession(ctx)
 		if err != nil {
 			return err
 		}
@@ -174,12 +181,25 @@ func WithInit(ctx context.Context, url string) MCPServerOption {
 	}
 }
 
-func WithState(id MCPServerID, url string, connected bool) MCPServerOption {
+func WithState(id MCPServerID, connected bool) MCPServerOption {
 	return func(s *MCPServer) error {
 		s.ID = id
-		s.URL = url
 		s.Connected = connected
 
 		return nil
 	}
+}
+
+func extractTools(ctx context.Context, session *mcpsdk.ClientSession) ([]agent.Tool, error) {
+	toolsResult, err := session.ListTools(ctx, &mcpsdk.ListToolsParams{})
+	if err != nil {
+		return nil, fmt.Errorf("list tools: %w", err)
+	}
+
+	agtTools := make([]agent.Tool, len(toolsResult.Tools))
+	for i, t := range toolsResult.Tools {
+		agtTools[i] = mcptoolToInternal(t, session)
+	}
+
+	return agtTools, nil
 }
