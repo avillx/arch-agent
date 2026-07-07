@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"maps"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -101,26 +100,19 @@ type ServerConfig struct {
 }
 
 type ServerGatewayConfig struct {
-	HTTP   *GatewayHTTPConfig `json:"http,omitempty"`
-	NPM    *GatewayNPMConfig  `json:"npm,omitempty"`
-	Binary *GatewayBinConfig  `json:"bin,omitempty"`
+	HTTPGateway    *HTTPGatewayConfig    `json:"http_gateway,omitempty"`
+	CommandGateway *CommandGatewayConfig `json:"command_gateway,omitempty"`
 }
 
-type GatewayHTTPConfig struct {
+type HTTPGatewayConfig struct {
 	URL   string `json:"url"`
 	Token string `json:"token,omitempty"`
 }
 
-type GatewayNPMConfig struct {
-	Package string            `json:"package"`
+type CommandGatewayConfig struct {
+	Command string            `json:"command,omitempty"`
 	Args    []string          `json:"args,omitempty"`
 	Env     map[string]string `json:"env,omitempty"`
-}
-
-type GatewayBinConfig struct {
-	Path string            `json:"path,omitempty"`
-	Args []string          `json:"args,omitempty"`
-	Env  map[string]string `json:"env,omitempty"`
 }
 
 func validateConfig(cfg ServerGatewayConfig) error {
@@ -133,11 +125,10 @@ func validateConfig(cfg ServerGatewayConfig) error {
 	// 	"config": "config must contain only one gateway",
 	// },
 
-	if cfg.HTTP == nil &&
-		cfg.NPM == nil &&
-		cfg.Binary == nil {
+	if cfg.HTTPGateway == nil &&
+		cfg.CommandGateway == nil {
 
-		problems["config"] = "must be at least one gateway (http,npm,bin)"
+		problems["config"] = "must be at least one gateway (http or command)"
 	}
 
 	if len(problems) > 0 {
@@ -149,12 +140,17 @@ func validateConfig(cfg ServerGatewayConfig) error {
 
 func createGateway(cfg ServerGatewayConfig) (gateway, error) {
 	switch {
-	case cfg.HTTP != nil:
-		return newHTTPGateway(cfg.HTTP.URL, cfg.HTTP.Token), nil
-	case cfg.NPM != nil:
-		return newNPMProcessGateway(cfg.NPM.Package, cfg.NPM.Args, cfg.NPM.Env)
-	case cfg.Binary != nil:
-		return newBinaryProcessGateway(cfg.Binary.Path, cfg.Binary.Args, cfg.Binary.Env)
+	case cfg.HTTPGateway != nil:
+		return newHTTPGateway(
+			cfg.HTTPGateway.URL,
+			cfg.HTTPGateway.Token,
+		), nil
+	case cfg.CommandGateway != nil:
+		return newBinaryProcessGateway(
+			cfg.CommandGateway.Command,
+			cfg.CommandGateway.Args,
+			cfg.CommandGateway.Env,
+		)
 	default:
 		return nil, fmt.Errorf("mcp add has no gateway")
 	}
@@ -273,23 +269,15 @@ func gatewayToConfig(g gateway) ServerGatewayConfig {
 	var cfg ServerGatewayConfig
 	switch typed := g.(type) {
 	case *httpGateway:
-		cfg.HTTP = &GatewayHTTPConfig{
+		cfg.HTTPGateway = &HTTPGatewayConfig{
 			URL:   typed.url,
 			Token: typed.authToken,
 		}
 	case *processGateway:
-		if strings.HasSuffix(typed.command, "npx") {
-			cfg.NPM = &GatewayNPMConfig{
-				Package: typed.command,
-				Args:    typed.args,
-				Env:     typed.env,
-			}
-		} else {
-			cfg.Binary = &GatewayBinConfig{
-				Path: typed.command,
-				Args: typed.args,
-				Env:  typed.env,
-			}
+		cfg.CommandGateway = &CommandGatewayConfig{
+			Command: typed.command,
+			Args:    typed.args,
+			Env:     typed.env,
 		}
 	}
 

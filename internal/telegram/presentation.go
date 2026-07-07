@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -104,36 +103,24 @@ func commandToGatewayConfig(commandParts []string) (mcp.ServerGatewayConfig, err
 		args = append(args, p)
 	}
 
-	if after, found := strings.CutPrefix(args[0], "npm/"); found {
-		cfg.NPM = &mcp.GatewayNPMConfig{
-			Package: after,
-			Args:    args[1:],
-			Env:     envs,
-		}
+	if strings.HasPrefix(args[0], "http") {
+		if _, err := url.Parse(args[0]); err == nil {
+			cfg.HTTPGateway = &mcp.HTTPGatewayConfig{
+				URL: args[0],
+			}
 
-		return cfg, nil
+			if len(args) > 1 {
+				cfg.HTTPGateway.Token = args[1]
+			}
+
+			return cfg, nil
+		}
 	}
 
-	if _, err := url.Parse(args[0]); err == nil {
-		cfg.HTTP = &mcp.GatewayHTTPConfig{
-			URL: args[0],
-		}
-
-		if len(args) > 1 {
-			cfg.HTTP.Token = args[1]
-		}
-
-		return cfg, nil
-	}
-
-	if !fs.ValidPath(args[0]) {
-		return cfg, fmt.Errorf("invalid path")
-	}
-
-	cfg.Binary = &mcp.GatewayBinConfig{
-		Path: args[0],
-		Args: args[1:],
-		Env:  envs,
+	cfg.CommandGateway = &mcp.CommandGatewayConfig{
+		Command: args[0],
+		Args:    args[1:],
+		Env:     envs,
 	}
 
 	return cfg, nil

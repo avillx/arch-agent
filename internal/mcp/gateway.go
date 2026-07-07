@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"arch-agent/internal/types"
 	"context"
 	"errors"
 	"fmt"
@@ -89,31 +90,18 @@ type processGateway struct {
 	cs *mcp.ClientSession
 }
 
-func newNPMProcessGateway(pkg string, args []string, env map[string]string) (*processGateway, error) {
-	npxPath, err := exec.LookPath("npx")
+func newBinaryProcessGateway(command string, args []string, env map[string]string) (*processGateway, error) {
+
+	_, err := exec.LookPath(command)
 	if err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
-			return nil, fmt.Errorf("npm gateway: %w", ErrNPMRequired)
+			return nil, fmt.Errorf("command %s: %w", command, types.ErrIsNotExist)
 		}
-		return nil, fmt.Errorf("npm gateway: %w", err)
+		return nil, fmt.Errorf("%s: %w", command, err)
 	}
-	return &processGateway{
-		command: npxPath,
-		args:    append([]string{"-y", pkg}, args...),
-		env:     env,
-	}, nil
-}
 
-func newBinaryProcessGateway(path string, args []string, env map[string]string) (*processGateway, error) {
-	info, err := os.Stat(path)
-	if err != nil {
-		return nil, fmt.Errorf("binary not found at %s: %w", path, err)
-	}
-	if info.IsDir() {
-		return nil, fmt.Errorf("%s is a directory, not an executable", path)
-	}
 	return &processGateway{
-		command: path,
+		command: command,
 		args:    args,
 		env:     env,
 	}, nil
