@@ -84,17 +84,14 @@ All memory stores in `/agent/data/...`
 - [ ] API endpints
 
 **alpha v0.5**
-- [ ] shell access
-- [ ] envvars managment
-- [ ] web search gateway as CLI
 - [ ] exclude telegram integration
 - [ ] runtime fallback models pool
 - [ ] runtime toolcall loop detection
 - [ ] a2a sub agent call stack limit
 
 **alpha v0.7**
-- [ ] Skill adding tools
-- [ ] Observer skill selected tool - result excluded
+- [ ] skill provide tool servers
+- [ ] observer before log, exclude all skills entry from context 
 - [ ] harness hooks (on complete, on done, on tool use, on sub agent call)
 
 **alpha v0.9**
