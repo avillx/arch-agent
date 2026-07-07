@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -22,7 +21,6 @@ type httpGateway struct {
 	url       string
 	authToken string
 
-	cs *mcp.ClientSession
 	mu sync.Mutex
 }
 
@@ -34,14 +32,10 @@ func newHTTPGateway(url string, authToken string) *httpGateway {
 }
 
 // gateway implementation
-func (g *httpGateway) GetSession(ctx context.Context) (*mcp.ClientSession, error) {
+func (g *httpGateway) createSession(ctx context.Context) (*mcp.ClientSession, error) {
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
-
-	if g.cs != nil {
-		return g.cs, nil
-	}
 
 	httpClient := http.DefaultClient
 
@@ -64,19 +58,7 @@ func (g *httpGateway) GetSession(ctx context.Context) (*mcp.ClientSession, error
 		return nil, err
 	}
 
-	go func() {
-		if err := cs.Wait(); err != nil {
-			slog.Error("mcp: http gateway", "URL", g.url, "error", err)
-		}
-		g.mu.Lock()
-		defer g.mu.Unlock()
-
-		g.cs = nil
-	}()
-
-	g.cs = cs
-
-	return cs, err
+	return cs, nil
 }
 
 var ErrNPMRequired = errors.New("npm required")
@@ -87,7 +69,6 @@ type processGateway struct {
 	env     map[string]string
 
 	mu sync.Mutex
-	cs *mcp.ClientSession
 }
 
 func newBinaryProcessGateway(command string, args []string, env map[string]string) (*processGateway, error) {
@@ -108,13 +89,9 @@ func newBinaryProcessGateway(command string, args []string, env map[string]strin
 }
 
 // gateway implementation
-func (g *processGateway) GetSession(ctx context.Context) (*mcp.ClientSession, error) {
+func (g *processGateway) createSession(ctx context.Context) (*mcp.ClientSession, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-
-	if g.cs != nil {
-		return g.cs, nil
-	}
 
 	cmd := exec.Command(g.command, g.args...)
 	cmd.Env = append(os.Environ(), envToSlice(g.env)...)
@@ -131,21 +108,6 @@ func (g *processGateway) GetSession(ctx context.Context) (*mcp.ClientSession, er
 		return nil, err
 	}
 
-	go func() {
-		if err := cs.Wait(); err != nil {
-			slog.Error("mcp: process gateway", "command", g.command, "error", err)
-		}
-		g.mu.Lock()
-		defer g.mu.Unlock()
-
-		if err := killProcessGroup(cmd); err != nil {
-			slog.Error("mcp: process gateway", "command", g.command, "error", err)
-		}
-
-		g.cs = nil
-	}()
-
-	g.cs = cs
 	return cs, nil
 }
 

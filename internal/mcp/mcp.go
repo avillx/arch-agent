@@ -3,190 +3,164 @@ package mcp
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/tools"
+	"arch-agent/internal/types"
 	"context"
-	"errors"
 	"fmt"
-	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+const healthInterval = 30 * time.Second
+
 type MCPServerID string
 
-type gateway interface {
-	GetSession(context.Context) (*mcp.ClientSession, error)
-}
-
 var _ tools.ToolServer = (*MCPServer)(nil)
-var _ tools.DynamicToolServer = (*MCPServer)(nil)
 
-type MCPServer struct {
-	ID        MCPServerID
-	Connected bool
-
-	session      *mcpsdk.ClientSession
-	tools        []agent.Tool
-	onChanged    func() error
-	onDisconnect func()
-
-	gateway gateway
+type ServerGatewayConfig struct {
+	HTTPGateway    *HTTPGatewayConfig    `json:"http_gateway,omitempty"`
+	CommandGateway *CommandGatewayConfig `json:"command_gateway,omitempty"`
 }
 
-func NewMCPServer(g gateway, opts ...MCPServerOption) (*MCPServer, error) {
-
-	s := &MCPServer{
-		gateway: g,
-	}
-	for _, opt := range opts {
-		if err := opt(s); err != nil {
-			return nil, err
-		}
-	}
-
-	return s, nil
+type HTTPGatewayConfig struct {
+	URL   string `json:"url"`
+	Token string `json:"token,omitempty"`
 }
 
-func (s *MCPServer) Name() string { return string(s.ID) }
-
-func (s *MCPServer) Tools() []agent.Tool { return s.tools }
-
-// invoke callback on tools changed, operation not override other callbacks
-// append - like behaviour
-func (s *MCPServer) OnToolsChanged(fn func() error) {
-	if s.onChanged == nil {
-		s.onChanged = fn
-		return
-	}
-
-	unwrappedOnChanged := s.onChanged
-	s.onChanged = func() error {
-		return errors.Join(fn(), unwrappedOnChanged())
-	}
+type CommandGatewayConfig struct {
+	Command string            `json:"command,omitempty"`
+	Args    []string          `json:"args,omitempty"`
+	Env     map[string]string `json:"env,omitempty"`
 }
 
-// invoke callback on server disconnection, operation not override other callbacks
-// append - like behaviour
-func (s *MCPServer) OnDisconnect(fn func()) {
+func validateConfig(cfg ServerGatewayConfig) error {
 
-	if s.onDisconnect == nil {
-		s.onDisconnect = fn
-		return
+	problems := map[string]string{}
+
+	if cfg.HTTPGateway != nil &&
+		cfg.CommandGateway != nil {
+
+		problems["config"] = "must be at least one gateway (http or command)"
 	}
 
-	unwrappedOnDisconnect := s.onDisconnect
-	s.onDisconnect = func() {
-		fn()
-		unwrappedOnDisconnect()
+	if cfg.HTTPGateway == nil &&
+		cfg.CommandGateway == nil {
+
+		problems["config"] = "must be at least one gateway (http or command)"
 	}
-}
 
-func (s *MCPServer) Connect(ctx context.Context) error {
-
-	// session
-	sess, err := s.gateway.GetSession(ctx)
-	if err != nil {
-		return err
+	if len(problems) > 0 {
+		return types.NewValidationError(problems)
 	}
-	if s.session != nil {
-		s.session.Close()
-	}
-	s.session = sess
-
-	// tools
-	agtTools, err := extractTools(ctx, sess)
-	if err != nil {
-		return err
-	}
-	s.tools = agtTools
-
-	go s.safeMontior()
-
-	s.Connected = true
 
 	return nil
 }
 
-func (s *MCPServer) Disconnect() {
-	s.tools = nil
-	s.onChanged = nil
-	s.Connected = false
-
-	if s.onDisconnect != nil {
-		s.onDisconnect()
-		s.onDisconnect = nil
-	}
-
-	if s.session != nil {
-		s.session.Close()
-		s.session = nil
-	}
+type gateway interface {
+	createSession(context.Context) (*mcp.ClientSession, error)
 }
 
-func (s *MCPServer) safeMontior() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+type MCPServer struct {
+	ID          MCPServerID
+	Instruction string
 
-	s.OnDisconnect(cancel)
+	tools      []agent.Tool
+	gateway    gateway
+	shutdownCh chan error
 
-	if err := s.monitor(ctx); err != nil {
-		slog.Error("mcp: health monitor", "error", err)
-	}
+	mu sync.Mutex
 }
+
+func NewMCPServer(ctx context.Context, cfg ServerGatewayConfig) (*MCPServer, error) {
+
+	if err := validateConfig(cfg); err != nil {
+		return nil, err
+	}
+
+	g, err := createGateway(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// init
+	sess, err := g.createSession(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer sess.Close()
+
+	initResult := sess.InitializeResult()
+	if initResult == nil {
+		return nil, fmt.Errorf("has no initial result")
+	}
+
+	serverInfo := initResult.ServerInfo
+	if serverInfo == nil {
+		return nil, fmt.Errorf("has no server info")
+	}
+
+	return &MCPServer{
+		ID: MCPServerID(serverInfo.Name),
+		// Instruction: initResult.Instructions,
+		gateway: g,
+	}, nil
+}
+
+func (s *MCPServer) Tools() []agent.Tool { return s.tools }
 
 // blocking
-func (s *MCPServer) monitor(ctx context.Context) error {
+func (s *MCPServer) Run(ctx context.Context) error {
+
+	sess, err := s.gateway.createSession(ctx)
+	if err != nil {
+		return err
+	}
+
+	t, err := extractTools(ctx, sess)
+	if err != nil {
+		return err
+	}
+	s.tools = t
+
+	// observer
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go monitorSession(ctx, sess)
+
+	// shutdowner
+	go func() {
+		<-s.shutdownCh
+		sess.Close()
+	}()
+
+	return sess.Wait()
+}
+
+func (s *MCPServer) Shutdown() {
+	close(s.shutdownCh)
+}
+
+func monitorSession(ctx context.Context, sess *mcp.ClientSession) {
 	ticker := time.NewTicker(healthInterval)
 	defer ticker.Stop()
+	defer sess.Close()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return
 		case <-ticker.C:
-			if s.session == nil {
-				return fmt.Errorf("no session: server %s", s.ID)
+			if sess == nil {
+				return
+				// return fmt.Errorf("no session: server %s", s.ID)
 			}
-
-			if err := s.session.Ping(ctx, &mcpsdk.PingParams{}); err != nil {
-				s.Disconnect()
-				return err
+			if err := sess.Ping(ctx, &mcpsdk.PingParams{}); err != nil {
+				// slog
+				return
 			}
 		}
-	}
-}
-
-type MCPServerOption func(*MCPServer) error
-
-func WithInit(ctx context.Context) MCPServerOption {
-	return func(s *MCPServer) error {
-		sess, err := s.gateway.GetSession(ctx)
-		if err != nil {
-			return err
-		}
-
-		initResult := sess.InitializeResult()
-		if initResult == nil {
-			return fmt.Errorf("has no initial result")
-		}
-
-		serverInfo := initResult.ServerInfo
-		if serverInfo == nil {
-			return fmt.Errorf("has no server info")
-		}
-
-		s.ID = MCPServerID(serverInfo.Name)
-		return nil
-	}
-}
-
-func WithState(id MCPServerID, connected bool) MCPServerOption {
-	return func(s *MCPServer) error {
-		s.ID = id
-		s.Connected = connected
-
-		return nil
 	}
 }
 
@@ -202,4 +176,22 @@ func extractTools(ctx context.Context, session *mcpsdk.ClientSession) ([]agent.T
 	}
 
 	return agtTools, nil
+}
+
+func createGateway(cfg ServerGatewayConfig) (gateway, error) {
+	switch {
+	case cfg.HTTPGateway != nil:
+		return newHTTPGateway(
+			cfg.HTTPGateway.URL,
+			cfg.HTTPGateway.Token,
+		), nil
+	case cfg.CommandGateway != nil:
+		return newBinaryProcessGateway(
+			cfg.CommandGateway.Command,
+			cfg.CommandGateway.Args,
+			cfg.CommandGateway.Env,
+		)
+	default:
+		return nil, fmt.Errorf("mcp add has no gateway")
+	}
 }

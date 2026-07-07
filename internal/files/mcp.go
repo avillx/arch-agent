@@ -11,11 +11,6 @@ const mcpServersFile = "mcp_servers.json"
 
 var _ mcp.ConfigRepo = (*MCPFiles)(nil)
 
-type mcpServerDTO struct {
-	Connected bool `json:"connected"`
-	mcp.ServerGatewayConfig
-}
-
 type MCPFiles struct {
 	fs *FileSystem
 
@@ -26,7 +21,7 @@ func NewMCPFiles(fs *FileSystem) *MCPFiles {
 	return &MCPFiles{fs: fs}
 }
 
-func (f *MCPFiles) Save(cfg mcp.ServerConfig) error {
+func (f *MCPFiles) Save(id mcp.MCPServerID, cfg mcp.ServerGatewayConfig) error {
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -36,10 +31,7 @@ func (f *MCPFiles) Save(cfg mcp.ServerConfig) error {
 		return err
 	}
 
-	dtoMap[cfg.ID] = mcpServerDTO{
-		Connected:           cfg.Connected,
-		ServerGatewayConfig: cfg.ServerGatewayConfig,
-	}
+	dtoMap[id] = cfg
 
 	data, err := json.MarshalIndent(dtoMap, "", "	")
 	if err != nil {
@@ -49,7 +41,7 @@ func (f *MCPFiles) Save(cfg mcp.ServerConfig) error {
 	return f.fs.WriteToFile(mcpServersFile, data)
 }
 
-func (f *MCPFiles) Load() ([]mcp.ServerConfig, error) {
+func (f *MCPFiles) Load() ([]mcp.ServerGatewayConfig, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -58,25 +50,21 @@ func (f *MCPFiles) Load() ([]mcp.ServerConfig, error) {
 		return nil, err
 	}
 
-	configs := make([]mcp.ServerConfig, 0, len(dto))
-	for k, v := range dto {
-		configs = append(configs, mcp.ServerConfig{
-			ID:                  k,
-			Connected:           v.Connected,
-			ServerGatewayConfig: v.ServerGatewayConfig,
-		})
+	configs := make([]mcp.ServerGatewayConfig, 0, len(dto))
+	for _, v := range dto {
+		configs = append(configs, v)
 	}
 
 	return configs, nil
 }
 
-func (f *MCPFiles) loadDTO() (map[mcp.MCPServerID]mcpServerDTO, error) {
+func (f *MCPFiles) loadDTO() (map[mcp.MCPServerID]mcp.ServerGatewayConfig, error) {
 	data, err := f.fs.ReadFile(mcpServersFile)
 	if err != nil {
 		return nil, err
 	}
 
-	var dto map[mcp.MCPServerID]mcpServerDTO
+	var dto map[mcp.MCPServerID]mcp.ServerGatewayConfig
 	if err := json.Unmarshal(data, &dto); err != nil {
 		return nil, err
 	}

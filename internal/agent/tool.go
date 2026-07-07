@@ -15,8 +15,7 @@ const (
 )
 
 type ToolRegistry interface {
-	GetTools([]ToolName) ([]Tool, error)
-	GetToolsByServers([]string) ([]Tool, error)
+	GetServerTools([]string) ([]Tool, error)
 }
 
 type ToolProperty struct {

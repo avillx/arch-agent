@@ -35,15 +35,25 @@ func processMCPCommand(ctx context.Context, mcpSvc *mcp.Service, u tgbotapi.Upda
 
 	const helpMessage = `availavble args:
 	"/mcp" - show list of added servers
-	"/mcp add <url>"
-	"/mcp add <@npm/package>"
-	"/mcp add <path/to/binary>"
-	"/mcp remove <server_name>"
-	"/mcp connect <server_name>"
+	"/mcp reload"
+	"/mcp connect <url> <token>"
+	"/mcp connect <command> <ags> <env:key=value>"
+	"/mcp remove <server_name>" 
 	"/mcp disconnect <server_name>"
 	"/mcp help" - show this message`
 
 	switch command[0] {
+	case "reload":
+		if err := mcpSvc.Reload(ctx); err != nil {
+			if errs, ok := err.(interface{ Unwrap() []error }); ok {
+				var sb strings.Builder
+				for _, e := range errs.Unwrap() {
+					sb.WriteString(e.Error())
+				}
+				return sb.String(), nil
+			}
+			return "", err
+		}
 	case "add":
 
 		cfg, err := commandToGatewayConfig(command[1:])
@@ -51,23 +61,12 @@ func processMCPCommand(ctx context.Context, mcpSvc *mcp.Service, u tgbotapi.Upda
 			return "", err
 		}
 
-		newMcpID, err := mcpSvc.Add(ctx, cfg)
+		newMcpID, err := mcpSvc.Connect(ctx, cfg)
 		if err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("mcp %s added", newMcpID), nil
 
-	case "remove":
-		if err := mcpSvc.Remove(mcp.MCPServerID(command[1])); err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("mcp %s removed", command[1]), nil
-	case "connect":
-
-		if err := mcpSvc.Connect(ctx, mcp.MCPServerID(command[1])); err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("mcp %s connected", command[1]), nil
 	case "disconnect":
 
 		if err := mcpSvc.Disconnect(mcp.MCPServerID(command[1])); err != nil {
@@ -219,16 +218,7 @@ func mcpListRepr(servers []*mcp.MCPServer) string {
 	var sb strings.Builder
 
 	for _, s := range servers {
-
-		var status string
-		switch s.Connected {
-		case true:
-			status = "connected 🆗"
-		default:
-			status = "disconnected ⚰️"
-		}
-
-		fmt.Fprintf(&sb, "Server: %s \nStatus: %s\n\n", s.ID, status)
+		fmt.Fprintf(&sb, "Server: %s\n\n", s.ID)
 	}
 	return sb.String()
 }

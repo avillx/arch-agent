@@ -70,20 +70,11 @@ func (s *executor) chat(
 	}
 
 	// tools
-	tools, err := s.toolRegistry.GetTools(agt.Tools())
+	tools, err := s.toolRegistry.GetServerTools(agt.ToolServers())
 	if err != nil {
 		if err := distillErrNotExist(agt.ID(), err); err != nil {
 			return err
 		}
-	}
-	svcTools, err := s.toolRegistry.GetToolsByServers(agt.ToolServers())
-	if err != nil {
-		if err := distillErrNotExist(agt.ID(), err); err != nil {
-			return err
-		}
-	}
-	if svcTools != nil {
-		tools = append(tools, svcTools...)
 	}
 
 	if r.ProvidedTools != nil {

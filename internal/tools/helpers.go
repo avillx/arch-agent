@@ -16,17 +16,15 @@ import (
 var _ ToolServer = (*BuildInToolServer)(nil)
 
 type BuildInToolServer struct {
-	name  string
 	tools []agent.Tool
 }
 
-func NewBuildInToolServer(name string, tools ...agent.Tool) *BuildInToolServer {
+func NewBuildInToolServer(tools ...agent.Tool) *BuildInToolServer {
 	return &BuildInToolServer{
-		name:  name,
 		tools: tools,
 	}
 }
-func (s *BuildInToolServer) Name() string        { return s.name }
+
 func (s *BuildInToolServer) Tools() []agent.Tool { return s.tools }
 
 func UnwrapArgs[T any](raw agent.ToolArguments) (T, error) {

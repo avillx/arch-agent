@@ -159,10 +159,7 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 	contextAssembler := runtime.NewContextAssembler(skillFiles, activityRepo, files.NewMemoryFiles(fs))
 	rt := runtime.NewAgentRuntime(observer, contextAssembler)
 
-	toolSvc, err := tools.NewService()
-	if err != nil {
-		return nil, err
-	}
+	toolSvc := tools.NewService()
 
 	mcpRepo := files.NewMCPFiles(fs)
 	mcpSvc, err := mcp.NewService(ctx, toolSvc, mcpRepo)
@@ -186,60 +183,53 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 
 	a2aSvc := a2a.NewService(chatSvc, sessSvc)
 
-	todoStorage := todo.NewInMemoryStore()
-
 	// agent Tools
 	ruledFSFactory := fstools.NewAgentAccessRuledFS(fs, agentRepo)
-	fsTools := tools.NewBuildInToolServer(
-		"filesystem",
-		fstools.NewListDirTool(ruledFSFactory),
-		fstools.NewReadFileTool(ruledFSFactory),
-		fstools.NewWriteFileTool(ruledFSFactory),
-		fstools.NewEditFileTool(ruledFSFactory),
-		fstools.NewMoveFileTool(ruledFSFactory),
-		fstools.NewDeleteTool(ruledFSFactory),
-		fstools.NewSearchFilesTool(ruledFSFactory),
-	)
-	if err := toolSvc.Connect(fsTools); err != nil {
-		return nil, err
-	}
 
+	toolSvc.Connect(
+		"filesystem",
+		tools.NewBuildInToolServer(
+			fstools.NewListDirTool(ruledFSFactory),
+			fstools.NewReadFileTool(ruledFSFactory),
+			fstools.NewWriteFileTool(ruledFSFactory),
+			fstools.NewEditFileTool(ruledFSFactory),
+			fstools.NewMoveFileTool(ruledFSFactory),
+			fstools.NewDeleteTool(ruledFSFactory),
+			fstools.NewSearchFilesTool(ruledFSFactory),
+		),
+	)
+
+	toolSvc.Connect(
+		"tasks",
+		tools.NewBuildInToolServer(
+			tasktools.NewAddTaskTool(taskSvc),
+			tasktools.NewGetTasksTool(taskSvc),
+			tasktools.NewEditTaskTool(taskSvc),
+			tasktools.NewDeleteTasksTool(taskSvc),
+		),
+	)
+
+	toolSvc.Connect(
+		"web",
+		tools.NewBuildInToolServer(
+			fetch.NewFetchTool(),
+		),
+	)
+
+	toolSvc.Connect(
+		"agent",
+		tools.NewBuildInToolServer(
+			tools.NewCallAgentTool(a2aSvc, agentRepo),
+		),
+	)
+
+	todoStorage := todo.NewInMemoryStore()
 	todoTools := tools.NewBuildInToolServer(
-		"todo",
 		&todo.CreateTodoTool{Store: todoStorage},
 		&todo.ListTodoTool{Store: todoStorage},
 		&todo.UpdateTodoTool{Store: todoStorage},
 	)
-	if err := toolSvc.Connect(todoTools); err != nil {
-		return nil, err
-	}
-
-	taskControlTools := tools.NewBuildInToolServer(
-		"tasks",
-		tasktools.NewAddTaskTool(taskSvc),
-		tasktools.NewGetTasksTool(taskSvc),
-		tasktools.NewEditTaskTool(taskSvc),
-		tasktools.NewDeleteTasksTool(taskSvc),
-	)
-	if err := toolSvc.Connect(taskControlTools); err != nil {
-		return nil, err
-	}
-
-	webTools := tools.NewBuildInToolServer(
-		"web",
-		fetch.NewFetchTool(),
-	)
-	if err := toolSvc.Connect(webTools); err != nil {
-		return nil, err
-	}
-
-	callAgentTools := tools.NewBuildInToolServer(
-		"agent",
-		tools.NewCallAgentTool(a2aSvc, agentRepo),
-	)
-	if err := toolSvc.Connect(callAgentTools); err != nil {
-		return nil, err
-	}
+	toolSvc.Connect("todo", todoTools)
 
 	// Telegram Bots
 	botOrchestra, err := telegram.NewBotOrchestrator(cfg.BotConfigs...)
