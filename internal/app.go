@@ -11,14 +11,12 @@ import (
 	"arch-agent/internal/openai"
 	"arch-agent/internal/runtime"
 	"arch-agent/internal/runtime/memory"
-	"arch-agent/internal/searxng"
 	"arch-agent/internal/session"
 	"arch-agent/internal/task"
 	"arch-agent/internal/telegram"
 	"arch-agent/internal/tools"
 	"arch-agent/internal/tools/fetch"
 	fstools "arch-agent/internal/tools/fs"
-	"arch-agent/internal/tools/search"
 	tasktools "arch-agent/internal/tools/task"
 	"arch-agent/internal/tools/todo"
 	"arch-agent/internal/uuid"
@@ -188,8 +186,6 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 
 	a2aSvc := a2a.NewService(chatSvc, sessSvc)
 
-	searx := searxng.NewSearXSearch(cfg.SearchHostScheme, cfg.SearchHost)
-
 	todoStorage := todo.NewInMemoryStore()
 
 	// agent Tools
@@ -232,7 +228,6 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 	webTools := tools.NewBuildInToolServer(
 		"web",
 		fetch.NewFetchTool(),
-		search.NewWebSearchTool(searx),
 	)
 	if err := toolSvc.Connect(webTools); err != nil {
 		return nil, err
