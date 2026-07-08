@@ -132,9 +132,9 @@ func (r *AgentRuntime) runTurn(
 	}
 
 	// resolve precontext hooks
-	hooks := r.contextAssembler.resolvePreContextHooks(agt, sess)
-	if len(hooks) > 0 {
-		contextMessages = append(contextMessages, hooks...)
+	preContextMessages := r.contextAssembler.resolvePreContextMessages(agt, sess)
+	if len(preContextMessages) > 0 {
+		contextMessages = append(contextMessages, preContextMessages...)
 	}
 
 	inputMessages := append(contextMessages, sess.Messages()...)

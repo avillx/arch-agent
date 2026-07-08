@@ -70,24 +70,24 @@ func (a *ContextAssembler) assembeSystemMessage(agt agent.Agent, toolKit []agent
 	return agent.NewSystemMessage(assembled)
 }
 
-func (a *ContextAssembler) resolvePreContextHooks(agt agent.Agent, sess session.Session) []agent.Message {
-	var hooks []string
+func (a *ContextAssembler) resolvePreContextMessages(agt agent.Agent, sess session.Session) []agent.Message {
+	var msgs []string
 
 	if summary := sess.Summary(); summary != "" {
-		hooks = append(hooks, prompt.SummaryExplanation(summary))
+		msgs = append(msgs, prompt.SummaryExplanation(summary))
 	}
 
 	if agt.HasMemory() {
 		if activity := a.resolveActivity(agt, sess); activity != "" {
-			hooks = append(hooks, prompt.ActivityExplanation(activity))
+			msgs = append(msgs, prompt.ActivityExplanation(activity))
 		}
 	}
 
-	if len(hooks) == 0 {
+	if len(msgs) == 0 {
 		return nil
 	}
 
-	return preContextHookDialogue(strings.Join(hooks, "\n"))
+	return preContextHookDialogue(strings.Join(msgs, "\n"))
 }
 
 const activityStorageKey = "activity"
