@@ -8,6 +8,8 @@ import (
 	"sync"
 )
 
+const SecretsFile = ".secrets"
+
 type SecretsFiles struct {
 	mu      sync.RWMutex
 	secrets map[string]string
@@ -25,9 +27,9 @@ func NewSecretsFiles(fs *FileSystem) (*SecretsFiles, error) {
 }
 
 func (sf *SecretsFiles) load() error {
-	data, err := sf.fs.ReadFile(".secrets")
+	data, err := sf.fs.ReadFile(SecretsFile)
 	if err != nil && os.IsNotExist(err) {
-		return sf.fs.WriteToFile(".secrets", []byte{})
+		return sf.fs.WriteToFile(SecretsFile, []byte{})
 	}
 	if err != nil {
 		return err
@@ -74,5 +76,5 @@ func (sf *SecretsFiles) save() error {
 	if err != nil {
 		return err
 	}
-	return sf.fs.WriteToFile(".secrets", data)
+	return sf.fs.WriteToFile(SecretsFile, data)
 }

@@ -124,5 +124,5 @@ func resolveSessionPath(agentID agent.ID, sessionID session.ID) string {
 	return filepath.Join(resolveSessionFolderPath(agentID), fmt.Sprintf("%s.json", sessionID))
 }
 func resolveSessionFolderPath(agentID agent.ID) string {
-	return fmt.Sprintf("/agents/%s/sessions", agentID)
+	return fmt.Sprintf("/%s/sessions", agentID)
 }

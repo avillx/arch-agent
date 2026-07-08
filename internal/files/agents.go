@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 
@@ -86,9 +87,32 @@ func (s *AgentFiles) Get(id agent.ID) (agent.Agent, error) {
 	return nil, errors.New("can't get agent")
 }
 
+const sharedFolder = "shared"
+
+func validateAgentName(agentName string) error {
+	reservedNames := []string{
+		mcpServersFile,
+		modelSettingsFile,
+		TaskFile,
+		SecretsFile,
+		skillsFolder,
+		sharedFolder,
+	}
+
+	if slices.Contains(reservedNames, agentName) {
+		return fmt.Errorf("name %s is reserved", agentName)
+	}
+
+	return nil
+}
+
 func (s *AgentFiles) Save(agt agent.Agent) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if err := validateAgentName(string(agt.ID())); err != nil {
+		return err
+	}
 
 	data, err := marshalAgentFile(agt)
 	if err != nil {
@@ -184,5 +208,5 @@ func marshalAgentFile(agt agent.Agent) ([]byte, error) {
 }
 
 func resolveAgentFilePath(agentID agent.ID) string {
-	return fmt.Sprintf("/agents/%s/agent.md", agentID)
+	return fmt.Sprintf("/%s/agent.md", agentID)
 }

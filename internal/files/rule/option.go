@@ -272,7 +272,7 @@ func WithWhiteListVisibility(dir string, whitelist ...string) Option {
 }
 
 func AgentAccessRules(agt agent.Agent) []Option {
-	prefix := fmt.Sprintf("/agents/%s", agt.ID())
+	prefix := fmt.Sprintf("/%s", agt.ID())
 	const _10kb = 1024 * 10
 
 	// Order is important!
@@ -322,7 +322,7 @@ func AgentAccessRules(agt agent.Agent) []Option {
 ///
 
 func AgentMemoryAccessRules(agentID agent.ID) []Option {
-	prefix := fmt.Sprintf("/agents/%s", agentID)
+	prefix := fmt.Sprintf("/%s", agentID)
 	const _10kb = 1024 * 10
 
 	// Order is important!

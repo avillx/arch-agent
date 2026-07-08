@@ -36,7 +36,7 @@ func (f *ActivityFiles) GetActivity(id agent.ID, date time.Time) (string, error)
 
 func resolveActivityFilePath(agentID agent.ID, t time.Time) string {
 	return filepath.Join(
-		fmt.Sprintf("/agents/%s/activity", agentID),
+		fmt.Sprintf("/%s/activity", agentID),
 		t.Format("2006/01/02/"),
 		fmt.Sprintf("%s.md", t.Format("2006-01-02")),
 	)
