@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 )
 
 var _ runtime.PerAgentInstructed = (*CallAgentTool)(nil)
@@ -51,6 +52,10 @@ func (t *CallAgentTool) Name() agent.ToolName {
 
 func (t *CallAgentTool) Description() string {
 	return "Delegate a task or question to another agent"
+}
+
+func (t *CallAgentTool) TimeOut() time.Duration {
+	return 10 * time.Minute
 }
 
 func (t *CallAgentTool) Schema() []agent.ToolProperty {

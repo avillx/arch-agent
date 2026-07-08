@@ -223,6 +223,8 @@ func (r *AgentRuntime) processToolCalls(
 	return errors.Join(errs...)
 }
 
+const defaultToolCallTimeout = 30 * time.Second
+
 func (r *AgentRuntime) processToolCall(
 	ctx context.Context,
 	toolkit map[agent.ToolName]agent.Tool,
@@ -232,9 +234,12 @@ func (r *AgentRuntime) processToolCall(
 	tool, exist := toolkit[call.ToolName]
 	if !exist {
 		return "", types.NewAgentMistakeError(fmt.Sprintf("tool %s is not exist", call.ToolName))
+	timeout := defaultToolCallTimeout
+	if customTO, ok := tool.(interface{ TimeOut() time.Duration }); ok {
+		timeout = customTO.TimeOut()
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 
 	defer func() {
 		cancel()
