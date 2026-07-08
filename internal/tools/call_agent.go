@@ -87,11 +87,19 @@ func (t *CallAgentTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 	agentID := MustAgentID(ctx)
 	sessionID := MustSessionID(ctx)
 
-	return t.a2aService.Call(
+	res, err := t.a2aService.Call(
 		ctx,
 		agentID,
 		args.Name,
 		sessionID,
 		args.Request,
 	)
+
+	if err != nil {
+		res = fmt.Sprintf("%s. agent %s has errors when processing your request", res, args.Name)
+	} else {
+		res = fmt.Sprintf("# Agent %s respones:\n%s", args.Name, res)
+	}
+
+	return res, err
 }
