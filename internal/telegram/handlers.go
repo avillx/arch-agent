@@ -115,6 +115,12 @@ func (b *Bot) handleMessage(ctx context.Context, message *tgbotapi.Message) erro
 		},
 	}
 
+	// add provided sticker tools
+	tools := []agent.Tool{}
+	if len(b.stickerMap) > 0 {
+		tools = append(tools, NewSendStickerTool(b, message.From.ID))
+	}
+
 	// Process message through chat service
 	err := b.chatSvc.Chat(
 		ctx,
@@ -123,7 +129,7 @@ func (b *Bot) handleMessage(ctx context.Context, message *tgbotapi.Message) erro
 			SessionID:     b.sessionID,
 			UserMessage:   toMessage(b, message),
 			Reader:        eventReader,
-			ProvidedTools: b.tools,
+			ProvidedTools: tools,
 			Logging:       true,
 		},
 	)

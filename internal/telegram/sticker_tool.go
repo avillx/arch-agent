@@ -1,4 +1,4 @@
-package tgtools
+package telegram
 
 import (
 	"arch-agent/internal/agent"
@@ -9,21 +9,23 @@ import (
 
 // SendSticker tool
 type SendStickerTool struct {
-	bot Bot
+	bot    *Bot
+	chatID int64
 }
 
-func NewSendStickerTool(b Bot) *SendStickerTool {
+func NewSendStickerTool(b *Bot, chatID int64) *SendStickerTool {
 	return &SendStickerTool{
-		bot: b,
+		bot:    b,
+		chatID: chatID,
 	}
 }
 
-// func (t *SendStickerTool) Instruction() string {
-// 	return `Stickers:
-// - Use stickers for immersive, expressive chatting.
-// - Send them when it genuinely fits the mood or context — not forced.
-// - It feels natural when: reacting emotionally, celebrating, sympathizing, or adding humor.`
-// }
+func (t *SendStickerTool) Instruction() string {
+	return `Stickers:
+- Use stickers for immersive, expressive chatting.
+- Send them when it genuinely fits the mood or context — not forced.
+- It feels natural when: reacting emotionally, celebrating, sympathizing, or adding humor.`
+}
 
 func (t *SendStickerTool) Name() agent.ToolName {
 	return "send_sticker"
@@ -53,14 +55,13 @@ func (t *SendStickerTool) Schema() []agent.ToolProperty {
 
 func (t *SendStickerTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
 	args, err := tools.UnwrapArgs[struct {
-		ChatID int64  `json:"chat_id"`
-		Emoji  string `json:"emoji"`
+		Emoji string `json:"emoji"`
 	}](rawArgs)
 	if err != nil {
 		return "", err
 	}
 
-	if err := t.bot.SendSticker(args.ChatID, args.Emoji); err != nil {
+	if err := t.bot.SendSticker(t.chatID, args.Emoji); err != nil {
 		return "sticker is not sended", err
 	}
 	return "sticker sended", nil

@@ -5,7 +5,6 @@ import (
 	"arch-agent/internal/chat"
 	"arch-agent/internal/mcp"
 	"arch-agent/internal/session"
-	tgtools "arch-agent/internal/telegram/telegram"
 	"context"
 	"errors"
 	"fmt"
@@ -55,9 +54,6 @@ type Bot struct {
 	sessionID    session.ID
 	sessionTimer *time.Timer
 
-	// tools
-	tools []agent.Tool
-
 	// mode
 	isWebhook bool
 
@@ -91,7 +87,6 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 		if err := bot.loadStickers(cfg.StickerSetName); err != nil {
 			slog.Warn("failed to load stickers", "error", err)
 		}
-		bot.tools = append(bot.tools, tgtools.NewSendStickerTool(bot))
 	}
 
 	// Configure update channel based on mode
