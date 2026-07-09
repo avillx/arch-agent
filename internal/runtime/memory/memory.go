@@ -72,6 +72,7 @@ func (m *Memory) consolidateMemoryFor(ctx context.Context, agt agent.Agent) erro
 		m.createMemorizationSession(agt.ID()),
 		evCh,
 		false,
+		nil,
 	)
 }
 

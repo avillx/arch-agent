@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 )
@@ -62,7 +63,7 @@ func (a *ContextAssembler) assembeSystemMessage(agt agent.Agent, toolKit []agent
 		if err != nil {
 			slog.Error("memory index is not reached", "error", err)
 		} else {
-			completionContext = append(completionContext, prompt.PersistentMemoryPrompt(idx))
+			completionContext = append(completionContext, prompt.PersistentMemoryPrompt(idx, agt.ID()))
 		}
 	}
 
@@ -176,4 +177,46 @@ func truncateActivity(s string) string {
 	start := len(lines) - keep
 
 	return strings.Join(lines[start:], "\n")
+}
+
+func excludeUnsupportedModalities(msgs []agent.Message, mdls []agent.Modality) []agent.Message {
+	var distill []agent.Message
+
+	if !slices.Contains(mdls, agent.ImageModality) {
+		for i, m := range msgs {
+
+			var shouldReplaceMsg bool
+
+			contentParts := m.Content()
+			for contentPartIdx := range contentParts {
+
+				if contentParts[contentPartIdx].ImageURL != "" {
+
+					if !shouldReplaceMsg {
+						shouldReplaceMsg = true
+						contentParts = slices.Clone(contentParts)
+					}
+
+					contentParts[contentPartIdx].ImageURL = ""
+					contentParts[contentPartIdx].Text += prompt.ExcludedUnsupportedModality(agent.ImageModality)
+				}
+
+			}
+
+			if shouldReplaceMsg {
+				if distill == nil {
+					distill = slices.Clone(msgs)
+				}
+
+				distill[i] = agent.CloneMessage(msgs[i])
+				distill[i].SetContent(contentParts)
+			}
+		}
+	}
+
+	if distill == nil {
+		return msgs
+	}
+
+	return distill
 }

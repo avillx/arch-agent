@@ -80,6 +80,10 @@ func (fs *FileSystem) Delete(path string) error {
 	return toInternalNotExist(err)
 }
 
+func (fs *FileSystem) Cwd() string {
+	return fs.dir
+}
+
 func (fs *FileSystem) resolveAbsolutePath(relativePath string) string {
 	return filepath.Join(fs.dir, relativePath)
 }

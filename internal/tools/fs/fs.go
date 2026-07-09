@@ -1,43 +1,14 @@
 package fstools
 
 import (
-	"arch-agent/internal/agent"
 	"arch-agent/internal/files"
-	rf "arch-agent/internal/files/rule"
-	ruledfiles "arch-agent/internal/files/rule"
-	"arch-agent/internal/runtime"
 	"arch-agent/internal/types"
-	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path"
 	"strings"
 )
-
-type RuledAccessFactory func(ctx context.Context) (*ruledfiles.RuledFileSystem, error)
-
-func NewAgentAccessRuledFS(fs *files.FileSystem, repo agent.Repo) RuledAccessFactory {
-	return func(ctx context.Context) (*ruledfiles.RuledFileSystem, error) {
-		agentID, ok := runtime.AgentIDFromContext(ctx)
-		if !ok {
-			return nil, fmt.Errorf("no agent in context")
-		}
-		agt, err := repo.Get(agentID)
-		if err != nil {
-			return nil, err
-		}
-		return rf.NewRuledFileSystem(fs, rf.AgentAccessRules(agt)...)
-	}
-}
-
-func NewMemoryAccessRuledFS(fs *files.FileSystem) RuledAccessFactory {
-	return func(ctx context.Context) (*ruledfiles.RuledFileSystem, error) {
-		agentID, ok := runtime.AgentIDFromContext(ctx)
-		if !ok {
-			return nil, fmt.Errorf("no agent in context")
-		}
-		return rf.NewRuledFileSystem(fs, rf.AgentMemoryAccessRules(agentID)...)
-	}
-}
 
 func matchLines(agentPath, content, query string, limit int) []string {
 	lower := strings.ToLower(query)
@@ -53,14 +24,60 @@ func matchLines(agentPath, content, query string, limit int) []string {
 	return matches
 }
 
-func mapErrsToAgentMistake(err error) error {
+func mapErrs(err error) error {
 	if errors.Is(err, types.ErrIsNotExist) {
 		return types.NewAgentMistakeError("path is not found, ensure path existence")
 	}
-
-	var ruleError *rf.RuleError
-	if errors.As(err, &ruleError) {
-		return types.NewAgentMistakeErrorf("%v", ruleError.Unwrap())
-	}
 	return err
+}
+
+func extractLines(data []byte, from, to *int) string {
+	lines := strings.Split(string(data), "\n")
+	total := len(lines)
+
+	startLine := 1
+	endLine := total
+
+	if from != nil {
+		startLine = *from
+	}
+	if to != nil {
+		endLine = *to
+	}
+
+	startLine = max(1, min(startLine, total))
+	endLine = max(startLine, min(endLine, total))
+
+	return strings.Join(lines[startLine-1:endLine], "\n")
+}
+
+func formatEntry(
+	fs interface {
+		ReadFile(path string) ([]byte, error)
+	},
+	dirPath string,
+	e os.DirEntry,
+) string {
+	label := path.Join(dirPath, e.Name())
+
+	info, err := e.Info()
+	if err != nil {
+		return label
+	}
+	size := files.FormatSize(int(info.Size()))
+
+	if e.IsDir() {
+		return fmt.Sprintf("%s %s", label, size)
+	}
+
+	content, err := fs.ReadFile(path.Join(dirPath, e.Name()))
+	if err != nil {
+		return fmt.Sprintf("%s %s", label, size)
+	}
+
+	lineCount := strings.Count(string(content), "\n")
+	if len(content) > 0 && content[len(content)-1] != '\n' {
+		lineCount++
+	}
+	return fmt.Sprintf("%s %s [%d lines]", label, size, lineCount)
 }

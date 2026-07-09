@@ -2,16 +2,17 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"context"
 )
 
 type ReadFileTool struct {
-	fsFactory RuledAccessFactory
+	fs *files.FileSystem
 }
 
-func NewReadFileTool(fsFactory RuledAccessFactory) *ReadFileTool {
-	return &ReadFileTool{fsFactory: fsFactory}
+func NewReadFileTool(fs *files.FileSystem) *ReadFileTool {
+	return &ReadFileTool{fs: fs}
 }
 
 func (t *ReadFileTool) Name() agent.ToolName { return "read_file" }
@@ -25,7 +26,7 @@ func (t *ReadFileTool) Schema() []agent.ToolProperty {
 			Name:        "path",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "File path, e.g. /mnt/notes/README.md",
+			Description: "File path, e.g. './shared/project-x/README.md'",
 		},
 		{
 			Name:        "start_line",
@@ -52,19 +53,16 @@ func (t *ReadFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 		return "", err
 	}
 
-	rfs, err := t.fsFactory(ctx)
-	if err != nil {
-		return "", err
-	}
-
 	if args.StartLine != nil || args.EndLine != nil {
-		res, err := rfs.ReadLines(args.Path, args.StartLine, args.EndLine)
-		return res, mapErrsToAgentMistake(err)
+		res, err := t.fs.ReadFile(args.Path)
+
+		return extractLines(res, args.StartLine, args.EndLine),
+			mapErrs(err)
 	}
 
-	data, err := rfs.ReadFile(args.Path)
+	data, err := t.fs.ReadFile(args.Path)
 	if err != nil {
-		return "", mapErrsToAgentMistake(err)
+		return "", mapErrs(err)
 	}
 	return string(data), nil
 }

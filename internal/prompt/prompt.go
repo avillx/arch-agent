@@ -90,8 +90,8 @@ func MemoryHeaderPrompt() string { return memoryHeaderRaw }
 
 func EpisodicMemoryPrompt() string { return episodicMemoryRaw }
 
-func PersistentMemoryPrompt(memoryIndex string) string {
-	return mustExecute(persistentMemoryTmpl, map[string]any{"Index": memoryIndex})
+func PersistentMemoryPrompt(memoryIndex string, agentID agent.ID) string {
+	return mustExecute(persistentMemoryTmpl, map[string]any{"Index": memoryIndex, "Agent": agentID})
 }
 
 func SummarizationAgent() string { return summarizationAgentRaw }

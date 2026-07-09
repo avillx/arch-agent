@@ -1,5 +1,5 @@
 ## Knowledge Memory
-- Stored at: `/mnt/memory/`
+- Stored at: `./{{ .Agent }}/memory/`
 - All available knowledge files are listed in 'INDEX.md'.
 - Read relevant files when the context involves a known domain, project, or person.
 - If unsure whether a file is needed, search before reading.

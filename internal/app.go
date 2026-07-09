@@ -6,6 +6,7 @@ import (
 	"arch-agent/internal/chat"
 	"arch-agent/internal/cron"
 	"arch-agent/internal/files"
+	"arch-agent/internal/hooks"
 	"arch-agent/internal/mcp"
 	"arch-agent/internal/model"
 	"arch-agent/internal/openai"
@@ -98,16 +99,14 @@ func BuildMemoryConsolidator(
 	additionalTools []agent.Tool,
 ) (*memory.Memory, error) {
 
-	ruledFSFactory := fstools.NewMemoryAccessRuledFS(fs)
-
 	fsTools := []agent.Tool{
-		fstools.NewListDirTool(ruledFSFactory),
-		fstools.NewReadFileTool(ruledFSFactory),
-		fstools.NewWriteFileTool(ruledFSFactory),
-		fstools.NewEditFileTool(ruledFSFactory),
-		fstools.NewMoveFileTool(ruledFSFactory),
-		fstools.NewDeleteTool(ruledFSFactory),
-		fstools.NewSearchFilesTool(ruledFSFactory),
+		fstools.NewListDirTool(fs),
+		fstools.NewReadFileTool(fs),
+		fstools.NewWriteFileTool(fs),
+		fstools.NewEditFileTool(fs),
+		fstools.NewMoveFileTool(fs),
+		fstools.NewDeleteTool(fs),
+		fstools.NewSearchFilesTool(fs),
 	}
 
 	consolidatorModel, err := modelRepo.Get("consolidator")
@@ -167,7 +166,15 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		return nil, fmt.Errorf("build mcp service: %w", err)
 	}
 
-	chatExecutor := chat.NewExecutor(agentRepo, sessSvc, modelRepo, toolSvc, rt)
+	harnessFactory := func(agentID agent.ID) *runtime.Harness {
+
+		set := runtime.NewHookSet(hooks.AgentAccess(fs.Cwd(), agentID))
+		return &runtime.Harness{
+			OnToolCall: set,
+		}
+	}
+
+	chatExecutor := chat.NewExecutor(agentRepo, sessSvc, modelRepo, toolSvc, rt, harnessFactory)
 	chatSvc := chat.NewService(chatExecutor)
 
 	taskSvc, err := BuildTaskSvc(
@@ -183,19 +190,16 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 
 	a2aSvc := a2a.NewService(chatSvc, sessSvc)
 
-	// agent Tools
-	ruledFSFactory := fstools.NewAgentAccessRuledFS(fs, agentRepo)
-
 	toolSvc.Connect(
 		"filesystem",
 		tools.NewBuildInToolServer(
-			fstools.NewListDirTool(ruledFSFactory),
-			fstools.NewReadFileTool(ruledFSFactory),
-			fstools.NewWriteFileTool(ruledFSFactory),
-			fstools.NewEditFileTool(ruledFSFactory),
-			fstools.NewMoveFileTool(ruledFSFactory),
-			fstools.NewDeleteTool(ruledFSFactory),
-			fstools.NewSearchFilesTool(ruledFSFactory),
+			fstools.NewListDirTool(fs),
+			fstools.NewReadFileTool(fs),
+			fstools.NewWriteFileTool(fs),
+			fstools.NewEditFileTool(fs),
+			fstools.NewMoveFileTool(fs),
+			fstools.NewDeleteTool(fs),
+			fstools.NewSearchFilesTool(fs),
 		),
 	)
 

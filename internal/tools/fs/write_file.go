@@ -2,17 +2,18 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"context"
 	"fmt"
 )
 
 type WriteFileTool struct {
-	fsFactory RuledAccessFactory
+	fs *files.FileSystem
 }
 
-func NewWriteFileTool(fsFactory RuledAccessFactory) *WriteFileTool {
-	return &WriteFileTool{fsFactory: fsFactory}
+func NewWriteFileTool(fs *files.FileSystem) *WriteFileTool {
+	return &WriteFileTool{fs: fs}
 }
 
 func (t *WriteFileTool) Name() agent.ToolName { return "write_file" }
@@ -25,19 +26,19 @@ func (t *WriteFileTool) Schema() []agent.ToolProperty {
 			Name:        "path",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "file path, e.g. /mnt/notes/README.md",
+			Description: "File path, e.g. './shared/project-x/README.md'",
 		},
 		{
 			Name:        "content",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "text content to write",
+			Description: "Text content to write",
 		},
 		{
 			Name:        "mode",
 			Required:    false,
 			Type:        agent.TypeString,
-			Description: `"overwrite" (default) or "append"`,
+			Description: `"Overwrite" (default) or "append"`,
 			Enum:        []string{"overwrite", "append"},
 		},
 	}
@@ -53,20 +54,15 @@ func (t *WriteFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 		return "", err
 	}
 
-	rfs, err := t.fsFactory(ctx)
-	if err != nil {
-		return "", err
-	}
-
 	data := []byte(args.Content)
 
 	if args.Mode == "append" {
-		err = rfs.AppendToFile(args.Path, data)
+		err = t.fs.AppendToFile(args.Path, data)
 	} else {
-		err = rfs.WriteFile(args.Path, data)
+		err = t.fs.WriteToFile(args.Path, data)
 	}
 	if err != nil {
-		return "", mapErrsToAgentMistake(err)
+		return "", mapErrs(err)
 	}
 
 	return fmt.Sprintf("wrote %d bytes to %s", len(data), args.Path), nil

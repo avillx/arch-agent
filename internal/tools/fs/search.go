@@ -2,6 +2,7 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"context"
 	"fmt"
@@ -11,11 +12,11 @@ import (
 )
 
 type SearchFilesTool struct {
-	fsFactory RuledAccessFactory
+	fs *files.FileSystem
 }
 
-func NewSearchFilesTool(fsFactory RuledAccessFactory) *SearchFilesTool {
-	return &SearchFilesTool{fsFactory: fsFactory}
+func NewSearchFilesTool(fs *files.FileSystem) *SearchFilesTool {
+	return &SearchFilesTool{fs: fs}
 }
 
 func (t *SearchFilesTool) Instruction() string {
@@ -35,7 +36,7 @@ func (t *SearchFilesTool) Schema() []agent.ToolProperty {
 			Name:        "root",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "Directory to search under, e.g. /mnt/some_dir/",
+			Description: "Directory to search under, e.g. './{your_folder}/memory/'",
 		},
 		{
 			Name:        "query",
@@ -62,17 +63,12 @@ func (t *SearchFilesTool) Call(ctx context.Context, rawArgs agent.ToolArguments)
 		return "", err
 	}
 
-	rfs, err := t.fsFactory(ctx)
-	if err != nil {
-		return "", err
-	}
-
 	limit := 20
 	if args.MaxResults != nil && *args.MaxResults > 0 {
 		limit = *args.MaxResults
 	}
 
-	matches := collect(rfs, args.Root, args.Query, limit)
+	matches := collect(t.fs, args.Root, args.Query, limit)
 	if len(matches) == 0 {
 		return "no matches found", nil
 	}

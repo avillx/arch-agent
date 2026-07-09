@@ -2,14 +2,12 @@ package runtime
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/prompt"
 	"arch-agent/internal/session"
 	"arch-agent/internal/types"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 	"time"
 )
 
@@ -43,6 +41,7 @@ func (r *AgentRuntime) RunStream(
 	sess session.Session,
 	evCh chan Event,
 	logActivity bool,
+	harness *Harness,
 ) error {
 
 	ctx = withAgentID(ctx, agt.ID())
@@ -66,7 +65,7 @@ func (r *AgentRuntime) RunStream(
 		default:
 		}
 
-		done, err := r.runTurn(ctx, model, agt, tools, sess, evCh)
+		done, err := r.runTurn(ctx, model, agt, tools, sess, harness, evCh)
 		if err != nil {
 
 			// compact session
@@ -112,19 +111,12 @@ func (r *AgentRuntime) RunStream(
 	return NewRuntimeError(sess.ID(), agt.ID(), fmt.Errorf("max turns limit exceed"))
 }
 
-func (r *AgentRuntime) runTurn(
-	ctx context.Context,
-	model agent.Model,
+func (r *AgentRuntime) buildContext(
+	sess session.Session,
 	agt agent.Agent,
 	tools []agent.Tool,
-	sess session.Session,
-	evCh chan Event,
-) (bool, error) {
-
-	// check compaction
-	if shouldCompact(sess.InputTokens(), sess.OutputTokens(), model.ContextLimit()) {
-		return false, ErrContextOverflow
-	}
+	model agent.Model,
+) []agent.Message {
 
 	// build system message
 	contextMessages := []agent.Message{
@@ -139,28 +131,62 @@ func (r *AgentRuntime) runTurn(
 
 	inputMessages := append(contextMessages, sess.Messages()...)
 
-	distillMessages := excludeUnsupportedModalities(inputMessages, model.SupportedModalities())
+	return excludeUnsupportedModalities(inputMessages, model.SupportedModalities())
+}
+
+func (r *AgentRuntime) runTurn(
+	ctx context.Context,
+	model agent.Model,
+	agt agent.Agent,
+	tools []agent.Tool,
+	sess session.Session,
+	harness *Harness,
+	evCh chan Event,
+) (bool, error) {
+	// check compaction
+	if shouldCompact(sess.InputTokens(), sess.OutputTokens(), model.ContextLimit()) {
+		return false, ErrContextOverflow
+	}
+
+	// context
+	agentContext := r.buildContext(sess, agt, tools, model)
 
 	// run completion
-	result, err := model.Complete(
+	completion, err := model.Complete(
 		ctx,
 		tools,
-		distillMessages,
+		agentContext,
 	)
 	if err != nil {
 		return true, fmt.Errorf("completion: %w", err)
 	}
 
-	slog.Debug("completion", "result", result)
-	sess.ApplyCompletion(result)
-	evCh <- NewCompleteEvent(agt.ID(), sess.ID(), result)
+	var errs []error
 
-	if err := r.processToolCalls(ctx, agt, tools, result.ToolCalls, sess, evCh); err != nil {
-		// can't just call tools and fogot when errors occured
-		return false, fmt.Errorf("tool call process: %w", err)
+	// apply completion hooks
+	if harness != nil && harness.OnComplete != nil {
+		newCompletion, err := harness.OnComplete.Apply(completion)
+		var agentMistake *types.AgentMistakeError
+		if err != nil {
+			if !errors.As(err, &agentMistake) {
+				return true, fmt.Errorf("harness: %w", err)
+			}
+			errs = append(errs, err)
+		}
+		completion = newCompletion
 	}
 
-	return result.Done, nil
+	slog.Debug("completion", "agent", agt.ID(), "result", completion)
+
+	sess.ApplyCompletion(completion)
+	evCh <- NewCompleteEvent(agt.ID(), sess.ID(), completion)
+
+	if err := r.processToolCalls(ctx, agt, tools, completion.ToolCalls, sess, harness, evCh); err != nil {
+		// can't just call tools and fogot when errors occured
+		return false, fmt.Errorf("tool calls processing: %w", err)
+	}
+
+	return completion.Done, nil
 }
 
 func (r *AgentRuntime) processToolCalls(
@@ -169,16 +195,21 @@ func (r *AgentRuntime) processToolCalls(
 	tools []agent.Tool,
 	toolcalls []*agent.ToolCall,
 	sess session.Session,
+	harness *Harness,
 	evCh chan Event,
 ) error {
 
 	toolMap := toolsToMap(tools)
+
+	var onCallHooks HookSet[*agent.ToolCall]
+	if harness != nil {
+		onCallHooks = harness.OnToolCall
+	}
+
 	var errs []error
 	for _, call := range toolcalls {
-
-		msg, err := r.processToolCall(ctx, toolMap, call)
+		msg, err := r.processToolCall(ctx, toolMap, call, onCallHooks, harness.OnToolCallResultMessage)
 		if err != nil {
-
 			var agentMistakeErr *types.AgentMistakeError
 			if errors.As(err, &agentMistakeErr) {
 				// if error is by agent mistake, no needed to return it.
@@ -229,11 +260,26 @@ func (r *AgentRuntime) processToolCall(
 	ctx context.Context,
 	toolkit map[agent.ToolName]agent.Tool,
 	call *agent.ToolCall,
+	onCallHooks HookSet[*agent.ToolCall],
+	afterCallHooks HookSet[*AfterToolCall],
 ) (result string, err error) {
 
 	tool, exist := toolkit[call.ToolName]
 	if !exist {
 		return "", types.NewAgentMistakeError(fmt.Sprintf("tool %s is not exist", call.ToolName))
+	}
+
+	if onCallHooks != nil {
+		newCall, err := onCallHooks.Apply(call)
+		var agentMistake *types.AgentMistakeError
+		if err != nil {
+			if errors.As(err, &agentMistake) {
+				return "", err
+			}
+		}
+		call = newCall
+	}
+
 	timeout := defaultToolCallTimeout
 	if customTO, ok := tool.(interface{ TimeOut() time.Duration }); ok {
 		timeout = customTO.TimeOut()
@@ -250,7 +296,22 @@ func (r *AgentRuntime) processToolCall(
 		}
 	}()
 
-	return tool.Call(ctx, call.Arguments)
+	result, err = tool.Call(ctx, call.Arguments)
+
+	if afterCallHooks != nil {
+		atc, hErr := afterCallHooks.Apply(
+			&AfterToolCall{
+				ToolCall: call,
+				ToolCallResult: &agent.ToolCallResult{
+					Result: result,
+				},
+			},
+		)
+		err = errors.Join(err, hErr)
+		result = atc.Result
+	}
+
+	return
 }
 
 type agentIDCTXKey struct{}
@@ -295,46 +356,4 @@ func toolsToMap(tools []agent.Tool) map[agent.ToolName]agent.Tool {
 	}
 
 	return toolMap
-}
-
-func excludeUnsupportedModalities(msgs []agent.Message, mdls []agent.Modality) []agent.Message {
-	var distill []agent.Message
-
-	if !slices.Contains(mdls, agent.ImageModality) {
-		for i, m := range msgs {
-
-			var shouldReplaceMsg bool
-
-			contentParts := m.Content()
-			for contentPartIdx := range contentParts {
-
-				if contentParts[contentPartIdx].ImageURL != "" {
-
-					if !shouldReplaceMsg {
-						shouldReplaceMsg = true
-						contentParts = slices.Clone(contentParts)
-					}
-
-					contentParts[contentPartIdx].ImageURL = ""
-					contentParts[contentPartIdx].Text += prompt.ExcludedUnsupportedModality(agent.ImageModality)
-				}
-
-			}
-
-			if shouldReplaceMsg {
-				if distill == nil {
-					distill = slices.Clone(msgs)
-				}
-
-				distill[i] = agent.CloneMessage(msgs[i])
-				distill[i].SetContent(contentParts)
-			}
-		}
-	}
-
-	if distill == nil {
-		return msgs
-	}
-
-	return distill
 }

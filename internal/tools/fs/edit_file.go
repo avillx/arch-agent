@@ -2,6 +2,7 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"arch-agent/internal/types"
 	"context"
@@ -10,21 +11,21 @@ import (
 )
 
 type EditFileTool struct {
-	fsFactory RuledAccessFactory
-	repo      agent.Repo
+	fs   *files.FileSystem
+	repo agent.Repo
 }
 
 func NewEditFileTool(
-	fsFactory RuledAccessFactory,
+	fs *files.FileSystem,
 ) *EditFileTool {
 	return &EditFileTool{
-		fsFactory: fsFactory,
+		fs: fs,
 	}
 }
 
 func (t *EditFileTool) Name() agent.ToolName { return "edit_file" }
 func (t *EditFileTool) Description() string {
-	return "replace a unique string in a file; old_str must match exactly once"
+	return "Replace a unique string in a file; old_str must match exactly once"
 }
 
 func (t *EditFileTool) Schema() []agent.ToolProperty {
@@ -33,7 +34,7 @@ func (t *EditFileTool) Schema() []agent.ToolProperty {
 			Name:        "path",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "File path",
+			Description: "File path e.g './shared/project-x/README.md'",
 		},
 		{
 			Name:        "old_str",
@@ -60,14 +61,9 @@ func (t *EditFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 		return "", err
 	}
 
-	rfs, err := t.fsFactory(ctx)
+	data, err := t.fs.ReadFile(args.Path)
 	if err != nil {
-		return "", err
-	}
-
-	data, err := rfs.ReadFile(args.Path)
-	if err != nil {
-		return "", mapErrsToAgentMistake(err)
+		return "", mapErrs(err)
 	}
 
 	content := string(data)
@@ -81,8 +77,8 @@ func (t *EditFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 	}
 
 	updated := strings.Replace(content, args.OldStr, args.NewStr, 1)
-	if err := rfs.WriteFile(args.Path, []byte(updated)); err != nil {
-		return "", mapErrsToAgentMistake(err)
+	if err := t.fs.WriteToFile(args.Path, []byte(updated)); err != nil {
+		return "", mapErrs(err)
 	}
 
 	return fmt.Sprintf("edited %s", args.Path), nil

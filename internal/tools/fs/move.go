@@ -2,17 +2,18 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"context"
 	"fmt"
 )
 
 type MoveFileTool struct {
-	fsFactory RuledAccessFactory
+	fs *files.FileSystem
 }
 
-func NewMoveFileTool(fsFactory RuledAccessFactory) *MoveFileTool {
-	return &MoveFileTool{fsFactory: fsFactory}
+func NewMoveFileTool(fs *files.FileSystem) *MoveFileTool {
+	return &MoveFileTool{fs: fs}
 }
 
 func (t *MoveFileTool) Name() agent.ToolName { return "move_file" }
@@ -25,13 +26,13 @@ func (t *MoveFileTool) Schema() []agent.ToolProperty {
 			Name:        "src",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "Source file path",
+			Description: "Source file path './shared/project-x/README.md'",
 		},
 		{
 			Name:        "dst",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "Destination file path",
+			Description: "Destination file path './shared/other-project/README.md'",
 		},
 	}
 }
@@ -45,22 +46,17 @@ func (t *MoveFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 		return "", err
 	}
 
-	rfs, err := t.fsFactory(ctx)
+	data, err := t.fs.ReadFile(args.Src)
 	if err != nil {
-		return "", err
+		return "", mapErrs(err)
 	}
 
-	data, err := rfs.ReadFile(args.Src)
-	if err != nil {
-		return "", mapErrsToAgentMistake(err)
+	if err := t.fs.WriteToFile(args.Dst, data); err != nil {
+		return "", mapErrs(err)
 	}
 
-	if err := rfs.WriteFile(args.Dst, data); err != nil {
-		return "", mapErrsToAgentMistake(err)
-	}
-
-	if err := rfs.Delete(args.Src); err != nil {
-		return fmt.Sprintf("file copied to %s but failed to remove source", args.Dst), mapErrsToAgentMistake(err)
+	if err := t.fs.Delete(args.Src); err != nil {
+		return fmt.Sprintf("file copied to %s but failed to remove source", args.Dst), mapErrs(err)
 	}
 
 	return fmt.Sprintf("moved %s → %s", args.Src, args.Dst), nil

@@ -21,11 +21,12 @@ type Request struct {
 
 // request executor
 type executor struct {
-	agentRepo    agent.Repo
-	sessionSvc   *session.Service
-	modelRepo    agent.ModelRepository
-	toolRegistry agent.ToolRegistry
-	runtime      *runtime.AgentRuntime
+	agentRepo      agent.Repo
+	sessionSvc     *session.Service
+	modelRepo      agent.ModelRepository
+	toolRegistry   agent.ToolRegistry
+	harnessFactory func(agentID agent.ID) *runtime.Harness
+	runtime        *runtime.AgentRuntime
 }
 
 func NewExecutor(
@@ -34,13 +35,15 @@ func NewExecutor(
 	modelRepo agent.ModelRepository,
 	toolRegistry agent.ToolRegistry,
 	runtime *runtime.AgentRuntime,
+	harnessFactory func(agentID agent.ID) *runtime.Harness,
 ) *executor {
 	return &executor{
-		agentRepo:    agentRepo,
-		sessionSvc:   sessionSvc,
-		modelRepo:    modelRepo,
-		toolRegistry: toolRegistry,
-		runtime:      runtime,
+		agentRepo:      agentRepo,
+		sessionSvc:     sessionSvc,
+		modelRepo:      modelRepo,
+		toolRegistry:   toolRegistry,
+		runtime:        runtime,
+		harnessFactory: harnessFactory,
 	}
 }
 
@@ -92,6 +95,7 @@ func (s *executor) chat(
 		sess,
 		evCh,
 		r.Logging,
+		s.harnessFactory(r.AgentID),
 	)
 
 	return errors.Join(err, s.sessionSvc.Save(agt.ID(), sess))

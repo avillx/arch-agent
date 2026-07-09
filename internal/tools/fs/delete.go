@@ -2,17 +2,18 @@ package fstools
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
 	"context"
 	"fmt"
 )
 
 type DeleteTool struct {
-	fsFactory RuledAccessFactory
+	fs *files.FileSystem
 }
 
-func NewDeleteTool(fsFactory RuledAccessFactory) *DeleteTool {
-	return &DeleteTool{fsFactory: fsFactory}
+func NewDeleteTool(fs *files.FileSystem) *DeleteTool {
+	return &DeleteTool{fs: fs}
 }
 
 func (t *DeleteTool) Name() agent.ToolName { return "delete" }
@@ -25,7 +26,7 @@ func (t *DeleteTool) Schema() []agent.ToolProperty {
 			Name:        "path",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "Path to the file or directory",
+			Description: "Path to the file or directory './shared/deprecated",
 		},
 	}
 }
@@ -38,13 +39,8 @@ func (t *DeleteTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (str
 		return "", err
 	}
 
-	rfs, err := t.fsFactory(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	if err := rfs.Delete(args.Path); err != nil {
-		return "", mapErrsToAgentMistake(err)
+	if err := t.fs.Delete(args.Path); err != nil {
+		return "", mapErrs(err)
 	}
 
 	return fmt.Sprintf("deleted %s", args.Path), nil
