@@ -1,7 +1,9 @@
 package fstools
 
 import (
+	"arch-agent/internal/agent"
 	"arch-agent/internal/files"
+	"arch-agent/internal/prompt"
 	"arch-agent/internal/types"
 	"errors"
 	"fmt"
@@ -9,6 +11,18 @@ import (
 	"path"
 	"strings"
 )
+
+type instrucredRead struct {
+	*ReadFileTool
+}
+
+func (r *instrucredRead) AgentInstruction(agt agent.Agent) string {
+	return prompt.GetFileSystemInstructionPrompt(r.fs.Cwd(), agt.ID())
+}
+
+func WithInstruction(t *ReadFileTool) *instrucredRead {
+	return &instrucredRead{ReadFileTool: t}
+}
 
 func matchLines(agentPath, content, query string, limit int) []string {
 	lower := strings.ToLower(query)

@@ -6,7 +6,7 @@ import (
 	"arch-agent/internal/chat"
 	"arch-agent/internal/cron"
 	"arch-agent/internal/files"
-	"arch-agent/internal/hooks"
+	h "arch-agent/internal/hooks"
 	"arch-agent/internal/mcp"
 	"arch-agent/internal/model"
 	"arch-agent/internal/openai"
@@ -168,9 +168,22 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 
 	harnessFactory := func(agentID agent.ID) *runtime.Harness {
 
-		set := runtime.NewHookSet(hooks.AgentAccess(fs.Cwd(), agentID))
+		// agent file access
+		accessHook, _ := h.NewFileAccessHook(
+			fs.Cwd(),
+
+			h.Rule{Pattern: ".", Access: h.No},
+			h.Rule{Pattern: "./shared/*", Access: h.Write},
+			h.Rule{Pattern: "./skills/*", Access: h.Read},
+			h.Rule{Pattern: fmt.Sprintf("./%s/*", agentID), Access: h.Write},
+			h.Rule{Pattern: fmt.Sprintf("./%s/memory/*", agentID), Access: h.Read},
+			h.Rule{Pattern: fmt.Sprintf("./%s/sessions", agentID), Access: h.No},
+			h.Rule{Pattern: fmt.Sprintf("./%s/agent.md", agentID), Access: h.No},
+			h.Rule{Pattern: fmt.Sprintf("./%s/activity/*", agentID), Access: h.Read},
+		)
+
 		return &runtime.Harness{
-			OnToolCall: set,
+			OnToolCall: runtime.NewHookSet(accessHook),
 		}
 	}
 
@@ -193,8 +206,8 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 	toolSvc.Connect(
 		"filesystem",
 		tools.NewBuildInToolServer(
+			fstools.WithInstruction(fstools.NewReadFileTool(fs)),
 			fstools.NewListDirTool(fs),
-			fstools.NewReadFileTool(fs),
 			fstools.NewWriteFileTool(fs),
 			fstools.NewEditFileTool(fs),
 			fstools.NewMoveFileTool(fs),

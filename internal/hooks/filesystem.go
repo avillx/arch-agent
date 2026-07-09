@@ -83,24 +83,6 @@ import (
 
 ////
 
-func AgentAccess(cwd string, agentID agent.ID) (accessHook *FileAccessHook) {
-	accessHook, _ = NewFileAccessHook(
-		cwd,
-		// common
-		Rule{Pattern: ".", Access: No},
-		Rule{Pattern: "./shared/*", Access: Write},
-		Rule{Pattern: "./skills/*", Access: Read},
-
-		// per agent
-		Rule{Pattern: fmt.Sprintf("./%s/*", agentID), Access: Write},
-		Rule{Pattern: fmt.Sprintf("./%s/memory/*", agentID), Access: Read},
-		Rule{Pattern: fmt.Sprintf("./%s/sessions", agentID), Access: No},
-		Rule{Pattern: fmt.Sprintf("./%s/agent.md", agentID), Access: No},
-		Rule{Pattern: fmt.Sprintf("./%s/activity/*", agentID), Access: Read},
-	)
-	return
-}
-
 var searchFilesToolName = (&fstools.SearchFilesTool{}).Name()
 var readFileToolName = (&fstools.ReadFileTool{}).Name()   // read_file
 var editFileToolName = (&fstools.EditFileTool{}).Name()   // edit_file
@@ -217,8 +199,8 @@ func (h *FileAccessHook) verifyPath(toolName agent.ToolName, p string) error {
 const unixSeparator = "/"
 
 func matchPattern(pattern, p string) bool {
-	if dir, ok := strings.CutSuffix(pattern, string(unixSeparator)+"*"); ok {
-		return p == dir || strings.HasPrefix(p, dir+string(unixSeparator))
+	if dir, ok := strings.CutSuffix(pattern, unixSeparator+"*"); ok {
+		return p == dir || strings.HasPrefix(p, dir+unixSeparator)
 	}
 	match, _ := filepath.Match(pattern, p)
 	return match

@@ -67,6 +67,10 @@ var excludedModalityTmpl = template.Must(template.New("excluded_unsupported_moda
 var autonomousRequestRaw string
 var autonomousRequestTmpl = template.Must(template.New("autonomous_request").Parse(autonomousRequestRaw))
 
+//go:embed templates/file_system_instruction.md
+var filesystemInstructionRaw string
+var filesystemInstructionTmpl = template.Must(template.New("file_system_instruction").Parse(filesystemInstructionRaw))
+
 func mustExecute(tmpl *template.Template, data any) string {
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
@@ -128,4 +132,8 @@ func ExcludedUnsupportedModality(modality agent.Modality) string {
 
 func GetAutonomusRequest(request string) string {
 	return mustExecute(autonomousRequestTmpl, map[string]any{"Request": request})
+}
+
+func GetFileSystemInstructionPrompt(cwd string, agentID agent.ID) string {
+	return mustExecute(filesystemInstructionTmpl, map[string]any{"Cwd": cwd, "Agent": agentID})
 }
