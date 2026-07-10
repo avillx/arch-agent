@@ -71,6 +71,10 @@ var autonomousRequestTmpl = template.Must(template.New("autonomous_request").Par
 var filesystemInstructionRaw string
 var filesystemInstructionTmpl = template.Must(template.New("file_system_instruction").Parse(filesystemInstructionRaw))
 
+//go:embed templates/memory_file_system_instruction.md
+var memoryFilesystemInstructionRaw string
+var memoryFilesystemInstructionTmpl = template.Must(template.New("mem_fs_inst").Parse(memoryFilesystemInstructionRaw))
+
 func mustExecute(tmpl *template.Template, data any) string {
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
@@ -134,6 +138,23 @@ func GetAutonomusRequest(request string) string {
 	return mustExecute(autonomousRequestTmpl, map[string]any{"Request": request})
 }
 
-func GetFileSystemInstructionPrompt(cwd string, agentID agent.ID) string {
-	return mustExecute(filesystemInstructionTmpl, map[string]any{"Cwd": cwd, "Agent": agentID})
+func getMemoryFileSystemInstructionPrompt(agentID agent.ID) string {
+	return mustExecute(filesystemInstructionTmpl, map[string]any{"Agent": agentID})
+}
+
+func GetFileSystemInstructionPrompt(cwd string, agentID agent.ID, addMemory bool) string {
+
+	additional := ""
+
+	if addMemory {
+		additional = getMemoryFileSystemInstructionPrompt(agentID)
+	}
+
+	components := map[string]any{
+		"Cwd":        cwd,
+		"Agent":      agentID,
+		"Additional": additional,
+	}
+
+	return mustExecute(filesystemInstructionTmpl, components)
 }
