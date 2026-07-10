@@ -2,6 +2,7 @@ package hooks
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/session"
 	"arch-agent/internal/tools"
 	fstools "arch-agent/internal/tools/fs"
 	"arch-agent/internal/types"
@@ -106,14 +107,14 @@ type Rule struct {
 }
 
 type FileAccessHook struct {
-	rules []Rule
-	cwd   string
+	rulesFactory func(agent.Agent) []Rule
+	cwd          string
 }
 
-func NewFileAccessHook(cwd string, rules ...Rule) (*FileAccessHook, error) {
+func NewFileAccessHook(cwd string, rulesFactory func(agent.Agent) []Rule) (*FileAccessHook, error) {
 
-	// validate pattern
-	for i, r := range rules {
+	// validate patterns
+	for _, r := range rulesFactory(agent.NewAgent("", "", "", "", nil, nil, nil, false)) {
 		if strings.Contains(r.Pattern, "**") {
 			return nil, fmt.Errorf("rule '%s' :'**' is not supported", r.Pattern)
 		}
@@ -121,9 +122,19 @@ func NewFileAccessHook(cwd string, rules ...Rule) (*FileAccessHook, error) {
 		if _, err := path.Match(r.Pattern, ""); err != nil {
 			return nil, err
 		}
+	}
 
+	return &FileAccessHook{
+		rulesFactory: rulesFactory,
+		cwd:          cwd,
+	}, nil
+}
+
+func (h *FileAccessHook) resolveRules(agt agent.Agent) []Rule {
+	rules := h.rulesFactory(agt)
+	for i, r := range rules {
 		if !path.IsAbs(r.Pattern) {
-			r.Pattern = path.Join(cwd, r.Pattern)
+			r.Pattern = path.Join(h.cwd, r.Pattern)
 		}
 
 		rules[i] = Rule{Pattern: r.Pattern, Access: r.Access}
@@ -134,13 +145,10 @@ func NewFileAccessHook(cwd string, rules ...Rule) (*FileAccessHook, error) {
 		return len(rules[i].Pattern) > len(rules[j].Pattern)
 	})
 
-	return &FileAccessHook{
-		rules: rules,
-		cwd:   cwd,
-	}, nil
+	return rules
 }
 
-func (h *FileAccessHook) Apply(tc *agent.ToolCall) (*agent.ToolCall, error) {
+func (h *FileAccessHook) Apply(sessID session.ID, agt agent.Agent, tc *agent.ToolCall) (*agent.ToolCall, error) {
 
 	paths, err := resolvePaths(tc)
 	if err != nil {
@@ -152,7 +160,7 @@ func (h *FileAccessHook) Apply(tc *agent.ToolCall) (*agent.ToolCall, error) {
 	}
 
 	for _, p := range paths {
-		if err := h.verifyPath(tc.ToolName, path.Clean(p)); err != nil {
+		if err := h.verifyPath(agt, tc.ToolName, path.Clean(p)); err != nil {
 			return nil, err
 		}
 	}
@@ -160,7 +168,7 @@ func (h *FileAccessHook) Apply(tc *agent.ToolCall) (*agent.ToolCall, error) {
 	return tc, nil
 }
 
-func (h *FileAccessHook) verifyPath(toolName agent.ToolName, p string) error {
+func (h *FileAccessHook) verifyPath(agt agent.Agent, toolName agent.ToolName, p string) error {
 
 	if !path.IsAbs(p) { // /skills/test_note.md is abs for this validate
 		p = path.Join(h.cwd, p)
@@ -177,7 +185,7 @@ func (h *FileAccessHook) verifyPath(toolName agent.ToolName, p string) error {
 
 	// ensure access
 	access := No
-	for _, r := range h.rules {
+	for _, r := range h.resolveRules(agt) {
 		if match := matchPattern(r.Pattern, p); match {
 			access = r.Access
 			break // rules sorted most-specific-first — first match wins
