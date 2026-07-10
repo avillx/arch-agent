@@ -58,12 +58,12 @@ func (t *CreateTodoTool) Schema() []agent.ToolProperty {
 	}
 }
 
-func (t *CreateTodoTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
+func (t *CreateTodoTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	args, err := tools.UnwrapArgs[struct {
 		Titles []string `json:"titles"`
 	}](rawArgs)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	sessionID := tools.MustSessionID(ctx)
@@ -76,7 +76,7 @@ func (t *CreateTodoTool) Call(ctx context.Context, rawArgs agent.ToolArguments) 
 	t.Store.Add(sessionID, agentID, items)
 
 	all := t.Store.List(sessionID, agentID)
-	return "Todos created:\n" + renderList(all), nil
+	return tools.Result("Todos created:\n" + renderList(all)), nil
 }
 
 type UpdateTodoTool struct{ Store Store }
@@ -102,24 +102,26 @@ func (t *UpdateTodoTool) Schema() []agent.ToolProperty {
 	}
 }
 
-func (t *UpdateTodoTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
+func (t *UpdateTodoTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	args, err := tools.UnwrapArgs[struct {
 		ID     int    `json:"id"`
 		Status Status `json:"status"`
 	}](rawArgs)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	sessionID := tools.MustSessionID(ctx)
 	agentID := tools.MustAgentID(ctx)
 
 	if err := t.Store.Update(sessionID, agentID, args.ID, args.Status); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	all := t.Store.List(sessionID, agentID)
-	return fmt.Sprintf("Todo #%d updated to **%s**:\n%s", args.ID, args.Status, renderList(all)), nil
+
+	resulMessage := fmt.Sprintf("Todo #%d updated to **%s**:\n%s", args.ID, args.Status, renderList(all))
+	return tools.Result(resulMessage), nil
 }
 
 type ListTodoTool struct{ Store Store }
@@ -131,10 +133,10 @@ func (t *ListTodoTool) Description() string {
 
 func (t *ListTodoTool) Schema() []agent.ToolProperty { return nil }
 
-func (t *ListTodoTool) Call(ctx context.Context, _ agent.ToolArguments) (string, error) {
+func (t *ListTodoTool) Call(ctx context.Context, _ agent.ToolArguments) ([]agent.ContentPart, error) {
 	sessionID := tools.MustSessionID(ctx)
 	agentID := tools.MustAgentID(ctx)
 
 	items := t.Store.List(sessionID, agentID)
-	return "**Todo list:**\n" + renderList(items), nil
+	return tools.Result("**Todo list:**\n" + renderList(items)), nil
 }

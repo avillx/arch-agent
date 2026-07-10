@@ -53,18 +53,18 @@ func (t *SendStickerTool) Schema() []agent.ToolProperty {
 	}
 }
 
-func (t *SendStickerTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
+func (t *SendStickerTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	args, err := tools.UnwrapArgs[struct {
 		Emoji string `json:"emoji"`
 	}](rawArgs)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if err := t.bot.SendSticker(t.chatID, args.Emoji); err != nil {
-		return "sticker is not sended", err
+		return agent.NewContent("sticker sended"), err
 	}
-	return "sticker sended", nil
+	return agent.NewContent("sticker sended"), nil
 }
 
 var ErrNoAcc = errors.New("You have no telegram bot account")

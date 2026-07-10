@@ -36,17 +36,17 @@ func (t *DeleteTasksTool) Schema() []agent.ToolProperty {
 	}
 }
 
-func (t *DeleteTasksTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
+func (t *DeleteTasksTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	args, err := tools.UnwrapArgs[struct {
 		Name string `json:"name"`
 	}](rawArgs)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if err := t.taskSvc.Delete(args.Name); err != nil {
-		return "", mapSvcErrors(err)
+		return nil, mapSvcErrors(err)
 	}
 
-	return fmt.Sprintf("task %s deleted succecceful", args.Name), nil
+	return tools.Result(fmt.Sprintf("task %s deleted succecceful", args.Name)), nil
 }

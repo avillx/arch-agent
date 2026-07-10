@@ -3,6 +3,7 @@ package tasktools
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/task"
+	"arch-agent/internal/tools"
 	"context"
 	"fmt"
 	"strconv"
@@ -31,18 +32,18 @@ func (t *GetTasksTool) Schema() []agent.ToolProperty {
 	return []agent.ToolProperty{}
 }
 
-func (t *GetTasksTool) Call(ctx context.Context, _ agent.ToolArguments) (string, error) {
+func (t *GetTasksTool) Call(ctx context.Context, _ agent.ToolArguments) ([]agent.ContentPart, error) {
 
 	tasks, err := t.taskSvc.List()
 	if err != nil {
-		return "", mapSvcErrors(err)
+		return nil, mapSvcErrors(err)
 	}
 
 	if len(tasks) > 0 {
-		return reprTaskRecords(tasks), nil
+		return tools.Result(reprTaskRecords(tasks)), nil
 	}
 
-	return "has no tasks", nil
+	return tools.Result("has no tasks"), nil
 }
 
 func reprTaskRecords(tasks []task.TaskConfig) string {

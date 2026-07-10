@@ -4,7 +4,10 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/files"
 	"arch-agent/internal/tools"
+	"arch-agent/internal/types"
 	"context"
+	"path"
+	"strings"
 )
 
 type ReadFileTool struct {
@@ -43,26 +46,57 @@ func (t *ReadFileTool) Schema() []agent.ToolProperty {
 	}
 }
 
-func (t *ReadFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
+func (t *ReadFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	args, err := tools.UnwrapArgs[struct {
 		Path      string `json:"path"`
 		StartLine *int   `json:"start_line,omitempty"`
 		EndLine   *int   `json:"end_line,omitempty"`
 	}](rawArgs)
 	if err != nil {
-		return "", err
+		return nil, err
+	}
+
+	// if is image
+	if imageType := detectImageType(args.Path); imageType != "" {
+		data, err := t.fs.ReadFile(args.Path)
+		if err != nil {
+			return nil, err
+		}
+
+		content, err := agent.NewImageContent(imageType, data)
+		if err != nil {
+			return nil, types.NewAgentMistakeError(err.Error())
+		}
+
+		return []agent.ContentPart{content}, nil
 	}
 
 	if args.StartLine != nil || args.EndLine != nil {
 		res, err := t.fs.ReadFile(args.Path)
+		lines := extractLines(res, args.StartLine, args.EndLine)
 
-		return extractLines(res, args.StartLine, args.EndLine),
-			mapErrs(err)
+		return tools.Result(lines), mapErrs(err)
 	}
 
 	data, err := t.fs.ReadFile(args.Path)
 	if err != nil {
-		return "", mapErrs(err)
+		return nil, mapErrs(err)
 	}
-	return string(data), nil
+	return tools.Result(string(data)), nil
+}
+
+func detectImageType(p string) agent.AllowedMIME {
+
+	switch strings.TrimPrefix(path.Ext(p), ".") {
+	case "png":
+		return agent.Png
+	case "bmp":
+		return agent.Bmp
+	case "jpeg", "jpg":
+		return agent.Jpeg
+	case "webp":
+		return agent.Webp
+	default:
+		return ""
+	}
 }

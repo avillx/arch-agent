@@ -82,18 +82,18 @@ func (t *EditTaskTool) Schema() []agent.ToolProperty {
 	}
 }
 
-func (t *EditTaskTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
+func (t *EditTaskTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	args, err := tools.UnwrapArgs[struct {
 		Existed string `json:"existed"`
 		task.TaskPatch
 	}](rawArgs)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if err := t.taskSvc.Patch(args.Existed, args.TaskPatch); err != nil {
 		err = mapSvcErrors(err)
-		return "task is not edited", unwrapValidationError(err)
+		return tools.Result("task is not edited"), unwrapValidationError(err)
 	}
-	return "task edited succecceful", nil
+	return tools.Result("task edited succecceful"), nil
 }

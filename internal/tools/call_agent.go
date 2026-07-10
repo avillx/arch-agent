@@ -75,13 +75,13 @@ func (t *CallAgentTool) Schema() []agent.ToolProperty {
 	}
 }
 
-func (t *CallAgentTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
+func (t *CallAgentTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	args, err := UnwrapArgs[struct {
 		Name    agent.ID `json:"name"`
 		Request string   `json:"request"`
 	}](rawArgs)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	agentID := MustAgentID(ctx)
@@ -101,5 +101,5 @@ func (t *CallAgentTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 		res = fmt.Sprintf("# Agent %s respones:\n%s", args.Name, res)
 	}
 
-	return res, err
+	return Result(res), err
 }

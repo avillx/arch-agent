@@ -232,9 +232,13 @@ func (r *AgentRuntime) processToolCalls(
 
 	var errs []error
 	for _, call := range toolcalls {
-		msg, err := r.processToolCall(ctx, agt, sess, toolMap, call, onCallHooks, harness.OnToolCallResultMessage)
+		result, err := r.processToolCall(ctx, agt, sess, toolMap, call, onCallHooks, harness.OnToolCallResultMessage)
 		if err != nil {
-			var agentMistakeErr *types.AgentMistakeError
+
+			var (
+				agentMistakeErr *types.AgentMistakeError
+				msg             string
+			)
 			if errors.As(err, &agentMistakeErr) {
 				// if error is by agent mistake, no needed to return it.
 				// agent should recive error message and correct call
@@ -257,22 +261,20 @@ func (r *AgentRuntime) processToolCalls(
 				default:
 					msg = fmt.Sprintf("%s errors occured: internal error, is not your mistake", msg)
 				}
-
 				errs = append(errs, NewToolCallError(call, err))
 			}
 
+			if result == nil {
+				result = agent.NewToolResult(call.ID, msg)
+			} else {
+				result.Result = append(result.Result, agent.ContentPart{Text: msg})
+			}
 		}
 
-		slog.Debug("tool called", "result message", msg)
+		slog.Debug("tool called", "result message", result)
+		sess.AddMessages(agent.NewToolResultMessage(result))
 
-		sess.AddMessages(
-			agent.NewToolResultMessage(
-				call.ID,
-				msg,
-			),
-		)
-
-		evCh <- NewToolCallResultEvent(agt.ID(), sess.ID(), msg)
+		evCh <- NewToolCallResultEvent(agt.ID(), sess.ID(), result)
 	}
 
 	return errors.Join(errs...)
@@ -288,11 +290,11 @@ func (r *AgentRuntime) processToolCall(
 	call *agent.ToolCall,
 	onCallHooks HookSet[*agent.ToolCall],
 	afterCallHooks HookSet[*AfterToolCall],
-) (result string, err error) {
+) (result *agent.ToolResult, err error) {
 
 	tool, exist := toolkit[call.ToolName]
 	if !exist {
-		return "", types.NewAgentMistakeError(fmt.Sprintf("tool %s is not exist", call.ToolName))
+		return nil, types.NewAgentMistakeError(fmt.Sprintf("tool %s is not exist", call.ToolName))
 	}
 
 	if onCallHooks != nil {
@@ -300,7 +302,7 @@ func (r *AgentRuntime) processToolCall(
 		var agentMistake *types.AgentMistakeError
 		if err != nil {
 			if errors.As(err, &agentMistake) {
-				return "", err
+				return nil, err
 			}
 		}
 		call = newCall
@@ -322,24 +324,24 @@ func (r *AgentRuntime) processToolCall(
 		}
 	}()
 
-	result, err = tool.Call(ctx, call.Arguments)
+	content, err := tool.Call(ctx, call.Arguments)
+
+	result = agent.NewToolResult(call.ID, content)
 
 	if afterCallHooks != nil {
 		atc, hErr := afterCallHooks.Apply(
 			sess.ID(),
 			agt,
 			&AfterToolCall{
-				ToolCall: call,
-				ToolCallResult: &agent.ToolCallResult{
-					Result: result,
-				},
+				ToolCall:   call,
+				ToolResult: result,
 			},
 		)
 		err = errors.Join(err, hErr)
-		result = atc.Result
+		result = atc.ToolResult
 	}
 
-	return
+	return result, err
 }
 
 type agentIDCTXKey struct{}

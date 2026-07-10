@@ -51,19 +51,19 @@ func (t *EditFileTool) Schema() []agent.ToolProperty {
 	}
 }
 
-func (t *EditFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
+func (t *EditFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	args, err := tools.UnwrapArgs[struct {
 		Path   string `json:"path"`
 		OldStr string `json:"old_str"`
 		NewStr string `json:"new_str"`
 	}](rawArgs)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	data, err := t.fs.ReadFile(args.Path)
 	if err != nil {
-		return "", mapErrs(err)
+		return nil, mapErrs(err)
 	}
 
 	content := string(data)
@@ -71,15 +71,15 @@ func (t *EditFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (s
 
 	switch {
 	case count == 0:
-		return "", types.NewAgentMistakeErrorf("%s: old_str not found", args.Path)
+		return nil, types.NewAgentMistakeErrorf("%s: old_str not found", args.Path)
 	case count > 1:
-		return "", types.NewAgentMistakeErrorf("%s: old_str found %d times, must be unique", args.Path, count)
+		return nil, types.NewAgentMistakeErrorf("%s: old_str found %d times, must be unique", args.Path, count)
 	}
 
 	updated := strings.Replace(content, args.OldStr, args.NewStr, 1)
 	if err := t.fs.WriteToFile(args.Path, []byte(updated)); err != nil {
-		return "", mapErrs(err)
+		return nil, mapErrs(err)
 	}
 
-	return fmt.Sprintf("edited %s", args.Path), nil
+	return tools.Result(fmt.Sprintf("edited %s", args.Path)), nil
 }

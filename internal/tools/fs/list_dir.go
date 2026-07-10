@@ -36,26 +36,26 @@ func (t *ListDirTool) Schema() []agent.ToolProperty {
 	}
 }
 
-func (t *ListDirTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
+func (t *ListDirTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	args, err := tools.UnwrapArgs[struct {
 		Path string `json:"path"`
 	}](rawArgs)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	entries, err := t.fs.ReadDir(args.Path)
 	if err != nil {
-		return "", mapErrs(err)
+		return nil, mapErrs(err)
 	}
 
 	if len(entries) == 0 {
-		return "directory is empty", nil
+		return tools.Result("directory is empty"), nil
 	}
 
 	lines := make([]string, len(entries))
 	for i, e := range entries {
 		lines[i] = formatEntry(t.fs, args.Path, e)
 	}
-	return strings.Join(lines, "\n"), nil
+	return tools.Result(strings.Join(lines, "\n")), nil
 }

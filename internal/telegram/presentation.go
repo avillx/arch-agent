@@ -4,7 +4,6 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/mcp"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -286,10 +285,6 @@ func resolveImage(b *Bot, image tgbotapi.PhotoSize) (agent.ContentPart, error) {
 		return agent.ContentPart{}, err
 	}
 
-	encoded := base64.StdEncoding.EncodeToString(data)
-	mimeType := http.DetectContentType(data)
-
-	return agent.ContentPart{
-		ImageURL: fmt.Sprintf("data:%s;base64,%s", mimeType, encoded),
-	}, nil
+	ct := http.DetectContentType(data)
+	return agent.NewImageContent(agent.AllowedMIME(ct), data)
 }

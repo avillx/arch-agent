@@ -30,14 +30,15 @@ func (tc *ToolCall) String() string {
 	return fmt.Sprintf("tool:%s, args:%s\n", tc.ToolName, string(tc.Arguments))
 }
 
-type ToolCallResult struct {
+type ToolResult struct {
 	ID     string
-	Result string
+	Result []ContentPart
 }
 
-func NewToolCallResult(id string, result string) ToolCallResult {
-	return ToolCallResult{
+func NewToolResult[T string | []ContentPart](id string, content T) *ToolResult {
+
+	return &ToolResult{
 		ID:     id,
-		Result: result,
+		Result: NewContent(content),
 	}
 }

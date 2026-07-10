@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"encoding/base64"
 	"fmt"
 	"slices"
 	"strings"
@@ -29,12 +30,30 @@ type ContentPart struct {
 	// File
 }
 
-type messageBase struct {
-	role    Role
-	content []ContentPart
+type AllowedMIME string
+
+const (
+	Png  AllowedMIME = "image/png"
+	Jpeg AllowedMIME = "image/jpeg"
+	Webp AllowedMIME = "image/webp"
+	Bmp  AllowedMIME = "image/bmp"
+)
+
+func NewImageContent(mimeType AllowedMIME, data []byte) (ContentPart, error) {
+
+	encoded := base64.StdEncoding.EncodeToString(data)
+
+	// validate mime type
+	if !slices.Contains([]AllowedMIME{Png, Jpeg, Webp, Bmp}, mimeType) {
+		return ContentPart{}, fmt.Errorf("type %s is not allowed", mimeType)
+	}
+
+	return ContentPart{
+		ImageURL: fmt.Sprintf("data:%s;base64,%s", mimeType, encoded),
+	}, nil
 }
 
-func newMessageBase[T string | []ContentPart](role Role, content T) messageBase {
+func NewContent[T string | []ContentPart](content T) []ContentPart {
 	var contentParts []ContentPart
 	switch v := any(content).(type) {
 	case string:
@@ -42,10 +61,19 @@ func newMessageBase[T string | []ContentPart](role Role, content T) messageBase 
 	case []ContentPart:
 		contentParts = v
 	}
+	return contentParts
+}
+
+type messageBase struct {
+	role    Role
+	content []ContentPart
+}
+
+func newMessageBase[T string | []ContentPart](role Role, content T) messageBase {
 
 	return messageBase{
 		role:    role,
-		content: contentParts,
+		content: NewContent(content),
 	}
 }
 
@@ -118,10 +146,10 @@ func NewAgentMessage[T string | []ContentPart](content T, tc []*ToolCall) *Agent
 	}
 }
 
-func NewToolResultMessage[T string | []ContentPart](id string, content T) *ToolResultMessage {
+func NewToolResultMessage(res *ToolResult) *ToolResultMessage {
 	return &ToolResultMessage{
-		toolCallID:  id,
-		messageBase: newMessageBase(ToolMessageRole, content),
+		toolCallID:  res.ID,
+		messageBase: newMessageBase(ToolMessageRole, res.Result),
 	}
 }
 

@@ -54,20 +54,20 @@ func (t *FetchTool) Schema() []agent.ToolProperty {
 	}
 }
 
-func (t *FetchTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
+func (t *FetchTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 
 	args, err := tools.UnwrapArgs[struct {
 		URL    string `json:"url"`
 		Format string `json:"format,omitempty"`
 	}](rawArgs)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// agentID := tools.MustAgentID(ctx)
 
 	if len(args.URL) == 0 {
-		return "", errors.New("at least one URL is required")
+		return nil, errors.New("at least one URL is required")
 	}
 
 	client := &http.Client{
@@ -91,7 +91,8 @@ func (t *FetchTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (stri
 		formatter = htmlToMarkdown
 	}
 
-	return fetchURL(ctx, client, args.URL, formatter)
+	res, err := fetchURL(ctx, client, args.URL, formatter)
+	return tools.Result(res), err
 
 }
 

@@ -73,15 +73,15 @@ func (t *AddTaskTool) Schema() []agent.ToolProperty {
 	}
 }
 
-func (t *AddTaskTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
+func (t *AddTaskTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	cfg, err := tools.UnwrapArgs[task.TaskConfig](rawArgs)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if err := t.taskSvc.Add(cfg); err != nil {
-		return "task is not created", mapSvcErrors(err)
+		return tools.Result("task is not created"), mapSvcErrors(err)
 	}
 
-	return "task created succecceful", nil
+	return tools.Result("task created succecceful"), nil
 }

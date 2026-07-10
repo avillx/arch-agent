@@ -100,7 +100,7 @@ func DtoToMessage(dto MessageDTO) (agent.Message, error) {
 		return agent.NewAgentMessage(dtoToContent(dto.Content), toolCalls), nil
 
 	case "tool":
-		return agent.NewToolResultMessage(dto.CallID, dtoToContent(dto.Content)), nil
+		return agent.NewToolResultMessage(agent.NewToolResult(dto.CallID, dtoToContent(dto.Content))), nil
 
 	default:
 		return nil, fmt.Errorf("unknown role: %s", dto.Role)

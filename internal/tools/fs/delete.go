@@ -31,17 +31,17 @@ func (t *DeleteTool) Schema() []agent.ToolProperty {
 	}
 }
 
-func (t *DeleteTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
+func (t *DeleteTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	args, err := tools.UnwrapArgs[struct {
 		Path string `json:"path"`
 	}](rawArgs)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if err := t.fs.Delete(args.Path); err != nil {
-		return "", mapErrs(err)
+		return nil, mapErrs(err)
 	}
 
-	return fmt.Sprintf("deleted %s", args.Path), nil
+	return tools.Result(fmt.Sprintf("deleted %s", args.Path)), nil
 }

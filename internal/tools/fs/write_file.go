@@ -44,14 +44,14 @@ func (t *WriteFileTool) Schema() []agent.ToolProperty {
 	}
 }
 
-func (t *WriteFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
+func (t *WriteFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	args, err := tools.UnwrapArgs[struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`
 		Mode    string `json:"mode"`
 	}](rawArgs)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	data := []byte(args.Content)
@@ -62,8 +62,8 @@ func (t *WriteFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 		err = t.fs.WriteToFile(args.Path, data)
 	}
 	if err != nil {
-		return "", mapErrs(err)
+		return nil, mapErrs(err)
 	}
 
-	return fmt.Sprintf("wrote %d bytes to %s", len(data), args.Path), nil
+	return tools.Result(fmt.Sprintf("wrote %d bytes to %s", len(data), args.Path)), nil
 }

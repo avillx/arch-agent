@@ -19,14 +19,17 @@ type SecretsRepo interface {
 func messagesToOpenAI(internalFromatMessages []agent.Message) []openai.ChatCompletionMessageParamUnion {
 	messages := make([]openai.ChatCompletionMessageParamUnion, 0, len(internalFromatMessages))
 	for _, msg := range internalFromatMessages {
-		messages = append(messages, messageToOpenAI(msg))
+		messages = append(messages, messageToOpenAI(msg)...)
 	}
 	return messages
 }
 
-func messageToOpenAI(internalFromatMessage agent.Message) openai.ChatCompletionMessageParamUnion {
+func messageToOpenAI(internalFromatMessage agent.Message) []openai.ChatCompletionMessageParamUnion {
 
-	var result openai.ChatCompletionMessageParamUnion
+	var (
+		result            openai.ChatCompletionMessageParamUnion
+		additionalContent = []openai.ChatCompletionContentPartUnionParam{}
+	)
 
 	switch msg := internalFromatMessage.(type) {
 	case *agent.AgentMessage:
@@ -80,13 +83,27 @@ func messageToOpenAI(internalFromatMessage agent.Message) openai.ChatCompletionM
 		openAIContent := make([]openai.ChatCompletionContentPartTextParam, len(internalContent))
 
 		for i, cp := range internalContent {
+
+			if cp.ImageURL != "" {
+				imagePartContent := openai.ChatCompletionContentPartUnionParam{
+					OfImageURL: &openai.ChatCompletionContentPartImageParam{
+						ImageURL: openai.ChatCompletionContentPartImageImageURLParam{URL: cp.ImageURL},
+					},
+				}
+				additionalContent = append(additionalContent, imagePartContent)
+			}
+
 			openAIContent[i] = openai.ChatCompletionContentPartTextParam{Text: cp.Text}
 		}
 
 		result = openai.ToolMessage(openAIContent, msg.ToolCallID())
 	}
 
-	return result
+	resultBundle := []openai.ChatCompletionMessageParamUnion{result}
+	if len(additionalContent) > 0 {
+		resultBundle = append(resultBundle, openai.UserMessage(additionalContent))
+	}
+	return resultBundle
 }
 
 func toolCallsToOpenAi(toolCalls []*agent.ToolCall) []openai.ChatCompletionMessageToolCallUnionParam {

@@ -14,7 +14,7 @@ var (
 type EventReader struct {
 	OnError      func(agent.ID, session.ID, error)
 	OnComplete   func(agent.ID, session.ID, *agent.Completion)
-	OnToolResult func(agent.ID, session.ID, agent.ToolCallResult)
+	OnToolResult func(agent.ID, session.ID, *agent.ToolResult)
 	OnCompaction func(agent.ID, session.ID, string)
 	OnEvent      func(Event)
 }
@@ -36,7 +36,7 @@ func (r EventReader) Read(ch <-chan Event) {
 			}
 		case ToolCallResultEvent:
 			if r.OnToolResult != nil {
-				r.OnToolResult(typedEv.Agent(), typedEv.Session(), agent.ToolCallResult{Result: typedEv.Result()})
+				r.OnToolResult(typedEv.Agent(), typedEv.Session(), typedEv.Result())
 			}
 		case CompactionEvent:
 			if r.OnCompaction != nil {
@@ -86,7 +86,7 @@ type CompleteEvent interface {
 
 type ToolCallResultEvent interface {
 	Event
-	Result() string
+	Result() *agent.ToolResult
 }
 
 type baseEvent struct {
@@ -142,10 +142,10 @@ func (e completeEvent) Complete() *agent.Completion {
 
 type toolCallResultEvent struct {
 	baseEvent
-	result string
+	result *agent.ToolResult
 }
 
-func NewToolCallResultEvent(agentID agent.ID, sessionID session.ID, result string) toolCallResultEvent {
+func NewToolCallResultEvent(agentID agent.ID, sessionID session.ID, result *agent.ToolResult) toolCallResultEvent {
 	return toolCallResultEvent{
 		baseEvent: baseEvent{
 			agentID:   agentID,
@@ -155,7 +155,7 @@ func NewToolCallResultEvent(agentID agent.ID, sessionID session.ID, result strin
 	}
 }
 
-func (e toolCallResultEvent) Result() string {
+func (e toolCallResultEvent) Result() *agent.ToolResult {
 	return e.result
 }
 

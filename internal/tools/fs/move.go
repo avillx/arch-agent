@@ -37,27 +37,27 @@ func (t *MoveFileTool) Schema() []agent.ToolProperty {
 	}
 }
 
-func (t *MoveFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
+func (t *MoveFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	args, err := tools.UnwrapArgs[struct {
 		Src string `json:"src"`
 		Dst string `json:"dst"`
 	}](rawArgs)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	data, err := t.fs.ReadFile(args.Src)
 	if err != nil {
-		return "", mapErrs(err)
+		return nil, mapErrs(err)
 	}
 
 	if err := t.fs.WriteToFile(args.Dst, data); err != nil {
-		return "", mapErrs(err)
+		return nil, mapErrs(err)
 	}
 
 	if err := t.fs.Delete(args.Src); err != nil {
-		return fmt.Sprintf("file copied to %s but failed to remove source", args.Dst), mapErrs(err)
+		return tools.Result(fmt.Sprintf("file copied to %s but failed to remove source", args.Dst)), mapErrs(err)
 	}
 
-	return fmt.Sprintf("moved %s → %s", args.Src, args.Dst), nil
+	return tools.Result(fmt.Sprintf("moved %s → %s", args.Src, args.Dst)), nil
 }

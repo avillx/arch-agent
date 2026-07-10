@@ -76,3 +76,7 @@ func MustSessionID(ctx context.Context) session.ID {
 	}
 	return sessionID
 }
+
+func Result[T string | []agent.ContentPart](res T) []agent.ContentPart {
+	return agent.NewContent(res)
+}

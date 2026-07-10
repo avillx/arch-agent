@@ -53,14 +53,14 @@ func (t *SearchFilesTool) Schema() []agent.ToolProperty {
 	}
 }
 
-func (t *SearchFilesTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (string, error) {
+func (t *SearchFilesTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	args, err := tools.UnwrapArgs[struct {
 		Root       string `json:"root"`
 		Query      string `json:"query"`
 		MaxResults *int   `json:"max_results,omitempty"`
 	}](rawArgs)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	limit := 20
@@ -70,14 +70,14 @@ func (t *SearchFilesTool) Call(ctx context.Context, rawArgs agent.ToolArguments)
 
 	matches := collect(t.fs, args.Root, args.Query, limit)
 	if len(matches) == 0 {
-		return "no matches found", nil
+		return tools.Result("no matches found"), nil
 	}
 
 	result := strings.Join(matches, "\n")
 	if len(matches) == limit {
 		result += fmt.Sprintf("\n[limited to %d results]", limit)
 	}
-	return result, nil
+	return tools.Result(result), nil
 }
 
 func collect(fs interface {

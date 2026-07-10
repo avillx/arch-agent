@@ -39,7 +39,7 @@ func (s HookSet[T]) Apply(sessID session.ID, agentID agent.Agent, v T) (T, error
 
 type AfterToolCall struct {
 	*agent.ToolCall
-	*agent.ToolCallResult
+	*agent.ToolResult
 }
 
 type Harness struct {

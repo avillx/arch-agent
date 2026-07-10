@@ -31,5 +31,5 @@ type Tool interface {
 	Name() ToolName
 	Description() string
 	Schema() []ToolProperty
-	Call(context.Context, ToolArguments) (string, error)
+	Call(context.Context, ToolArguments) ([]ContentPart, error)
 }
