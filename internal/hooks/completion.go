@@ -13,7 +13,7 @@ import (
 // empty answer harness
 type EmptyAnswerHook struct{}
 
-func (h *EmptyAnswerHook) Apply(c *agent.Completion) (*agent.Completion, error) {
+func (h *EmptyAnswerHook) Apply(_ session.ID, _ agent.Agent, c *agent.Completion) (*agent.Completion, error) {
 	if c.Content == "" && c.Done {
 		c.Done = false
 		return c, types.NewAgentMistakeError(prompt.GetEmptyAnswerCautionPrompt())
@@ -29,27 +29,23 @@ type todoStorage interface {
 // todo harness
 type undoneTodoHook struct {
 	storage todoStorage
-	sessID  session.ID
-	agentID agent.ID
 }
 
-func NewUndoneTodoHook(storage todoStorage, sessID session.ID, agentID agent.ID) *undoneTodoHook {
+func NewUndoneTodoHook(storage todoStorage) *undoneTodoHook {
 	return &undoneTodoHook{
 		storage: storage,
-		sessID:  sessID,
-		agentID: agentID,
 	}
 }
 
-func (h *undoneTodoHook) Apply(c *agent.Completion) (*agent.Completion, error) {
+func (h *undoneTodoHook) Apply(sessID session.ID, agt agent.Agent, c *agent.Completion) (*agent.Completion, error) {
 
 	if !c.Done {
 		return c, nil
 	}
 
 	var undoneTodos []todo.TodoItem
-	for _, item := range h.storage.List(h.sessID, h.agentID) {
-		if item.Status != todo.Done {
+	for _, item := range h.storage.List(sessID, agt.ID()) {
+		if item.Status != todo.Done && item.Status != todo.Declined {
 			undoneTodos = append(undoneTodos, item)
 		}
 	}
