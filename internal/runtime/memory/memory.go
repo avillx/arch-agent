@@ -17,6 +17,7 @@ type Memory struct {
 	runtime   *runtime.AgentRuntime
 	tools     []agent.Tool
 	model     agent.Model
+	harness   *runtime.Harness
 }
 
 func NewMemory(
@@ -24,6 +25,7 @@ func NewMemory(
 	runtime *runtime.AgentRuntime,
 	tools []agent.Tool,
 	model agent.Model,
+	harness *runtime.Harness,
 ) (*Memory, error) {
 
 	if !(len(tools) > 0) {
@@ -47,6 +49,7 @@ func NewMemory(
 		agentRepo: agentRepo,
 		runtime:   runtime,
 		tools:     tools,
+		harness:   harness,
 	}, nil
 }
 
@@ -72,7 +75,7 @@ func (m *Memory) consolidateMemoryFor(ctx context.Context, agt agent.Agent) erro
 		m.createMemorizationSession(agt.ID()),
 		evCh,
 		false,
-		nil,
+		m.harness,
 	)
 }
 

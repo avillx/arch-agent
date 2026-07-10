@@ -38,3 +38,26 @@ func NewAgentHarness(b cwdBearer, todoStorage todoStorage) (*runtime.Harness, er
 		OnComplete: runtime.NewHookSet(undoneTasks, &EmptyAnswerHook{}),
 	}, nil
 }
+
+func NewMemoryHarness(b cwdBearer, todoStorage todoStorage) *runtime.Harness {
+
+	accessHook, _ := NewFileAccessHook(
+		b.Cwd(),
+		func(agt agent.Agent) []Rule {
+			return []Rule{
+				{Pattern: fmt.Sprintf("./%s/*", agt.ID()), Access: Read},
+				{Pattern: fmt.Sprintf("./%s/memory/*", agt.ID()), Access: Write},
+				{Pattern: fmt.Sprintf("./%s/sessions", agt.ID()), Access: No},
+				{Pattern: fmt.Sprintf("./%s/agent.md", agt.ID()), Access: No},
+				{Pattern: fmt.Sprintf("./%s/activity/*", agt.ID()), Access: Read},
+			}
+		},
+	)
+
+	undoneTasks := NewUndoneTodoHook(todoStorage)
+
+	return &runtime.Harness{
+		OnToolCall: runtime.NewHookSet(accessHook),
+		OnComplete: runtime.NewHookSet(undoneTasks, &EmptyAnswerHook{}),
+	}
+}

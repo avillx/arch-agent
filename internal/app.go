@@ -94,6 +94,7 @@ func BuildTaskSvc(
 func BuildMemoryConsolidator(
 	fs *files.FileSystem,
 	rt *runtime.AgentRuntime,
+	todoStorage todo.Store,
 	modelRepo agent.ModelRepository,
 	agentRepo agent.Repo,
 	additionalTools []agent.Tool,
@@ -119,6 +120,7 @@ func BuildMemoryConsolidator(
 		rt,
 		append(fsTools, additionalTools...),
 		consolidatorModel,
+		hooks.NewMemoryHarness(fs, todoStorage),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("memory consolidator: %w", err)
@@ -238,7 +240,7 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		return nil, err
 	}
 
-	memoryConsolidator, err := BuildMemoryConsolidator(fs, rt, modelRepo, agentRepo, todoTools.Tools())
+	memoryConsolidator, err := BuildMemoryConsolidator(fs, rt, todoStorage, modelRepo, agentRepo, todoTools.Tools())
 	if err != nil {
 		return nil, err
 	}
