@@ -167,9 +167,12 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 	}
 
 	todoStorage := todo.NewInMemoryStore()
-	harnessFactory := hooks.ProduceHarnessFactory(fs, todoStorage)
+	agentHarness, err := hooks.NewAgentHarness(fs, todoStorage)
+	if err != nil {
+		return nil, err
+	}
 
-	chatExecutor := chat.NewExecutor(agentRepo, sessSvc, modelRepo, toolSvc, rt, harnessFactory)
+	chatExecutor := chat.NewExecutor(agentRepo, sessSvc, modelRepo, toolSvc, rt, agentHarness)
 	chatSvc := chat.NewService(chatExecutor)
 
 	taskSvc, err := BuildTaskSvc(

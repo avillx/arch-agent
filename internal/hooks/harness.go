@@ -3,7 +3,6 @@ package hooks
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/runtime"
-	"arch-agent/internal/session"
 	"fmt"
 )
 
@@ -11,27 +10,31 @@ type cwdBearer interface {
 	Cwd() string
 }
 
-func ProduceHarnessFactory(b cwdBearer, todoStorage todoStorage) func(sessionID session.ID, agentID agent.ID) *runtime.Harness {
-	return func(sessionID session.ID, agentID agent.ID) *runtime.Harness {
-
-		// agent file access
-		accessHook, _ := NewFileAccessHook(
-			b.Cwd(),
-			Rule{Pattern: ".", Access: No},
-			Rule{Pattern: "./shared/*", Access: Write},
-			Rule{Pattern: "./skills/*", Access: Read},
-			Rule{Pattern: fmt.Sprintf("./%s/*", agentID), Access: Write},
-			Rule{Pattern: fmt.Sprintf("./%s/memory/*", agentID), Access: Read},
-			Rule{Pattern: fmt.Sprintf("./%s/sessions", agentID), Access: No},
-			Rule{Pattern: fmt.Sprintf("./%s/agent.md", agentID), Access: No},
-			Rule{Pattern: fmt.Sprintf("./%s/activity/*", agentID), Access: Read},
-		)
-
-		completionHook := NewUndoneTodoHook(todoStorage, sessionID, agentID)
-
-		return &runtime.Harness{
-			OnToolCall: runtime.NewHookSet(accessHook),
-			OnComplete: runtime.NewHookSet(completionHook, &EmptyAnswerHook{}),
-		}
+func NewAgentHarness(b cwdBearer, todoStorage todoStorage) (*runtime.Harness, error) {
+	// agent file access
+	accessHook, err := NewFileAccessHook(
+		b.Cwd(),
+		func(agt agent.Agent) []Rule {
+			return []Rule{
+				{Pattern: ".", Access: No},
+				{Pattern: "./shared/*", Access: Write},
+				{Pattern: "./skills/*", Access: Read},
+				{Pattern: fmt.Sprintf("./%s/*", agt.ID()), Access: Write},
+				{Pattern: fmt.Sprintf("./%s/memory/*", agt.ID()), Access: Read},
+				{Pattern: fmt.Sprintf("./%s/sessions", agt.ID()), Access: No},
+				{Pattern: fmt.Sprintf("./%s/agent.md", agt.ID()), Access: No},
+				{Pattern: fmt.Sprintf("./%s/activity/*", agt.ID()), Access: Read},
+			}
+		},
+	)
+	if err != nil {
+		return nil, err
 	}
+
+	undoneTasks := NewUndoneTodoHook(todoStorage)
+
+	return &runtime.Harness{
+		OnToolCall: runtime.NewHookSet(accessHook),
+		OnComplete: runtime.NewHookSet(undoneTasks, &EmptyAnswerHook{}),
+	}, nil
 }
