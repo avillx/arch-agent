@@ -78,11 +78,12 @@ func formatEntry(
 	if err != nil {
 		return label
 	}
-	size := files.FormatSize(int(info.Size()))
 
 	if e.IsDir() {
-		return fmt.Sprintf("%s %s", label, size)
+		return fmt.Sprintf("%s [directory]", label)
 	}
+
+	size := files.FormatSize(int(info.Size()))
 
 	content, err := fs.ReadFile(path.Join(dirPath, e.Name()))
 	if err != nil {
