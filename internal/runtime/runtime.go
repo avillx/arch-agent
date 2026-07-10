@@ -195,7 +195,7 @@ func (r *AgentRuntime) processCompletion(
 
 		// apply completion hooks
 		var newCompletion *agent.Completion
-		newCompletion, err = harness.OnComplete.Apply(completion)
+		newCompletion, err = harness.OnComplete.Apply(sess.ID(), agt, completion)
 
 		// check on agent ,mistakes
 		var agentMistake *types.AgentMistakeError
@@ -232,7 +232,7 @@ func (r *AgentRuntime) processToolCalls(
 
 	var errs []error
 	for _, call := range toolcalls {
-		msg, err := r.processToolCall(ctx, toolMap, call, onCallHooks, harness.OnToolCallResultMessage)
+		msg, err := r.processToolCall(ctx, agt, sess, toolMap, call, onCallHooks, harness.OnToolCallResultMessage)
 		if err != nil {
 			var agentMistakeErr *types.AgentMistakeError
 			if errors.As(err, &agentMistakeErr) {
@@ -282,6 +282,8 @@ const defaultToolCallTimeout = 30 * time.Second
 
 func (r *AgentRuntime) processToolCall(
 	ctx context.Context,
+	agt agent.Agent,
+	sess session.Session,
 	toolkit map[agent.ToolName]agent.Tool,
 	call *agent.ToolCall,
 	onCallHooks HookSet[*agent.ToolCall],
@@ -294,7 +296,7 @@ func (r *AgentRuntime) processToolCall(
 	}
 
 	if onCallHooks != nil {
-		newCall, err := onCallHooks.Apply(call)
+		newCall, err := onCallHooks.Apply(sess.ID(), agt, call)
 		var agentMistake *types.AgentMistakeError
 		if err != nil {
 			if errors.As(err, &agentMistake) {
@@ -324,6 +326,8 @@ func (r *AgentRuntime) processToolCall(
 
 	if afterCallHooks != nil {
 		atc, hErr := afterCallHooks.Apply(
+			sess.ID(),
+			agt,
 			&AfterToolCall{
 				ToolCall: call,
 				ToolCallResult: &agent.ToolCallResult{
