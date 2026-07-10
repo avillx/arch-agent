@@ -20,6 +20,11 @@ type TodoItem struct {
 	Status Status
 }
 
+func (i *TodoItem) String() string {
+	badge := statusBadge[i.Status]
+	return fmt.Sprintf("- %s #%d %s", badge, i.ID, i.Title)
+}
+
 type storeKey struct {
 	sessID  session.ID
 	agentID agent.ID

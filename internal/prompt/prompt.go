@@ -40,6 +40,9 @@ var reportSystemRaw string
 //go:embed templates/report_request.md
 var reportRequestRaw string
 
+//go:embed templates/empty_answer_caution.md
+var emptyAnswerCautionRaw string
+
 //go:embed templates/compaction.md
 var compactionRaw string
 
@@ -74,6 +77,10 @@ var filesystemInstructionTmpl = template.Must(template.New("file_system_instruct
 //go:embed templates/memory_file_system_instruction.md
 var memoryFilesystemInstructionRaw string
 var memoryFilesystemInstructionTmpl = template.Must(template.New("mem_fs_inst").Parse(memoryFilesystemInstructionRaw))
+
+//go:embed templates/undone_todos_caution.md
+var undoneTodoCautionRaw string
+var undoneTodoCautionTmpl = template.Must(template.New("undone_todos_caution").Parse(undoneTodoCautionRaw))
 
 func mustExecute(tmpl *template.Template, data any) string {
 	var buf bytes.Buffer
@@ -157,4 +164,12 @@ func GetFileSystemInstructionPrompt(cwd string, agentID agent.ID, addMemory bool
 	}
 
 	return mustExecute(filesystemInstructionTmpl, components)
+}
+
+func GetEmptyAnswerCautionPrompt() string {
+	return emptyAnswerCautionRaw
+}
+
+func GetUndoneTodosCautionPrompt(todoList string) string {
+	return mustExecute(undoneTodoCautionTmpl, map[string]any{"Todos": todoList})
 }

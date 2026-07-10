@@ -79,7 +79,6 @@ func NewBot(cfg BotConfig) (*Bot, error) {
 		blockedUsers: []int64{},
 		agentID:      agent.ID(cfg.Agent),
 		isWebhook:    cfg.Host != "",
-		tools:        []agent.Tool{},
 	}
 
 	// Load stickers if configured

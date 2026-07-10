@@ -25,7 +25,7 @@ type executor struct {
 	sessionSvc     *session.Service
 	modelRepo      agent.ModelRepository
 	toolRegistry   agent.ToolRegistry
-	harnessFactory func(agentID agent.ID) *runtime.Harness
+	harnessFactory func(sessionID session.ID, agentID agent.ID) *runtime.Harness
 	runtime        *runtime.AgentRuntime
 }
 
@@ -35,7 +35,7 @@ func NewExecutor(
 	modelRepo agent.ModelRepository,
 	toolRegistry agent.ToolRegistry,
 	runtime *runtime.AgentRuntime,
-	harnessFactory func(agentID agent.ID) *runtime.Harness,
+	harnessFactory func(sessionID session.ID, agentID agent.ID) *runtime.Harness,
 ) *executor {
 	return &executor{
 		agentRepo:      agentRepo,
@@ -95,7 +95,7 @@ func (s *executor) chat(
 		sess,
 		evCh,
 		r.Logging,
-		s.harnessFactory(r.AgentID),
+		s.harnessFactory(r.SessionID, r.AgentID),
 	)
 
 	return errors.Join(err, s.sessionSvc.Save(agt.ID(), sess))

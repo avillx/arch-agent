@@ -152,28 +152,38 @@ func (r *AgentRuntime) runTurn(
 	agentContext := r.buildContext(sess, agt, tools, model)
 
 	// run completion
+	completion, err := r.processCompletion(ctx, agentContext, agt, model, tools, sess, harness, evCh)
+	if err != nil {
+		return true, fmt.Errorf("completion processing: %w", err)
+	}
+
+	// run toolCalls
+	if err := r.processToolCalls(ctx, agt, tools, completion.ToolCalls, sess, harness, evCh); err != nil {
+		// can't just call tools and fogot when errors occured
+		return false, fmt.Errorf("tool calls processing: %w", err)
+	}
+
+	return completion.Done, nil
+}
+
+func (r *AgentRuntime) processCompletion(
+	ctx context.Context,
+	completionContext []agent.Message,
+	agt agent.Agent,
+	model agent.Model,
+	tools []agent.Tool,
+	sess session.Session,
+	harness *Harness,
+	evCh chan Event,
+) (*agent.Completion, error) {
+
 	completion, err := model.Complete(
 		ctx,
 		tools,
-		agentContext,
+		completionContext,
 	)
 	if err != nil {
-		return true, fmt.Errorf("completion: %w", err)
-	}
-
-	var errs []error
-
-	// apply completion hooks
-	if harness != nil && harness.OnComplete != nil {
-		newCompletion, err := harness.OnComplete.Apply(completion)
-		var agentMistake *types.AgentMistakeError
-		if err != nil {
-			if !errors.As(err, &agentMistake) {
-				return true, fmt.Errorf("harness: %w", err)
-			}
-			errs = append(errs, err)
-		}
-		completion = newCompletion
+		return nil, fmt.Errorf("completion: %w", err)
 	}
 
 	slog.Debug("completion", "agent", agt.ID(), "result", completion)
@@ -181,12 +191,26 @@ func (r *AgentRuntime) runTurn(
 	sess.ApplyCompletion(completion)
 	evCh <- NewCompleteEvent(agt.ID(), sess.ID(), completion)
 
-	if err := r.processToolCalls(ctx, agt, tools, completion.ToolCalls, sess, harness, evCh); err != nil {
-		// can't just call tools and fogot when errors occured
-		return false, fmt.Errorf("tool calls processing: %w", err)
+	if harness != nil && harness.OnComplete != nil {
+
+		// apply completion hooks
+		var newCompletion *agent.Completion
+		newCompletion, err = harness.OnComplete.Apply(completion)
+
+		// check on agent ,mistakes
+		var agentMistake *types.AgentMistakeError
+		if err != nil {
+			if !errors.As(err, &agentMistake) {
+				return nil, fmt.Errorf("harness: %w", err)
+			}
+			slog.Warn("agent make completion mistakes", "mistake", agentMistake.Message())
+			sess.AddMessages(agent.NewUserMessage(agentMistake.Message()))
+		}
+
+		completion = newCompletion
 	}
 
-	return completion.Done, nil
+	return completion, nil
 }
 
 func (r *AgentRuntime) processToolCalls(

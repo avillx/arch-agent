@@ -6,7 +6,7 @@ import (
 	"arch-agent/internal/chat"
 	"arch-agent/internal/cron"
 	"arch-agent/internal/files"
-	h "arch-agent/internal/hooks"
+	"arch-agent/internal/hooks"
 	"arch-agent/internal/mcp"
 	"arch-agent/internal/model"
 	"arch-agent/internal/openai"
@@ -166,26 +166,8 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		return nil, fmt.Errorf("build mcp service: %w", err)
 	}
 
-	harnessFactory := func(agentID agent.ID) *runtime.Harness {
-
-		// agent file access
-		accessHook, _ := h.NewFileAccessHook(
-			fs.Cwd(),
-
-			h.Rule{Pattern: ".", Access: h.No},
-			h.Rule{Pattern: "./shared/*", Access: h.Write},
-			h.Rule{Pattern: "./skills/*", Access: h.Read},
-			h.Rule{Pattern: fmt.Sprintf("./%s/*", agentID), Access: h.Write},
-			h.Rule{Pattern: fmt.Sprintf("./%s/memory/*", agentID), Access: h.Read},
-			h.Rule{Pattern: fmt.Sprintf("./%s/sessions", agentID), Access: h.No},
-			h.Rule{Pattern: fmt.Sprintf("./%s/agent.md", agentID), Access: h.No},
-			h.Rule{Pattern: fmt.Sprintf("./%s/activity/*", agentID), Access: h.Read},
-		)
-
-		return &runtime.Harness{
-			OnToolCall: runtime.NewHookSet(accessHook),
-		}
-	}
+	todoStorage := todo.NewInMemoryStore()
+	harnessFactory := hooks.ProduceHarnessFactory(fs, todoStorage)
 
 	chatExecutor := chat.NewExecutor(agentRepo, sessSvc, modelRepo, toolSvc, rt, harnessFactory)
 	chatSvc := chat.NewService(chatExecutor)
@@ -240,7 +222,6 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		),
 	)
 
-	todoStorage := todo.NewInMemoryStore()
 	todoTools := tools.NewBuildInToolServer(
 		&todo.CreateTodoTool{Store: todoStorage},
 		&todo.ListTodoTool{Store: todoStorage},

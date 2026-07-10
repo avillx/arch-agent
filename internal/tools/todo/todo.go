@@ -30,8 +30,7 @@ func renderList(items []TodoItem) string {
 	}
 	var sb strings.Builder
 	for _, item := range items {
-		badge := statusBadge[item.Status]
-		fmt.Fprintf(&sb, "- %s #%d %s\n", badge, item.ID, item.Title)
+		fmt.Fprintf(&sb, "%s\n", item.String())
 	}
 	return sb.String()
 }
