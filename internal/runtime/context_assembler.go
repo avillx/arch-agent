@@ -13,8 +13,8 @@ import (
 	"time"
 )
 
-type SkillIndexer interface {
-	GetIndex() map[agent.SkillID]agent.Skill
+type SkillRepo interface {
+	GetSkills(agentID agent.ID) ([]agent.SkillFrontmatter, error)
 }
 
 type MemoryIndexer interface {
@@ -22,13 +22,13 @@ type MemoryIndexer interface {
 }
 
 type ContextAssembler struct {
-	indexer       SkillIndexer
+	indexer       SkillRepo
 	activityRepo  agent.ActivityRepo
 	memoryIndexer MemoryIndexer
 }
 
 func NewContextAssembler(
-	indexer SkillIndexer,
+	indexer SkillRepo,
 	activityRepo agent.ActivityRepo,
 	memoryIndexer MemoryIndexer,
 ) *ContextAssembler {
@@ -74,9 +74,12 @@ func (a *ContextAssembler) assembeSystemMessage(agt agent.Agent, sess session.Se
 	}
 
 	// Skills
-	if len(agt.Skills()) > 0 {
-		skillIdx := resolveSkillIndex(a.indexer.GetIndex(), agt)
-		completionContext = append(completionContext, prompt.SkillGuidance(skillIdx))
+	skills, err := a.indexer.GetSkills(agt.ID())
+	if err != nil {
+		slog.Error("skill load", "error", err)
+	}
+	if len(skills) > 0 {
+		completionContext = append(completionContext, prompt.SkillGuidance(buildSkillIndex(skills)))
 	}
 
 	// Memory
@@ -142,16 +145,11 @@ func (a *ContextAssembler) resolveActivity(agt agent.Agent, sess session.Session
 	return activity
 }
 
-func resolveSkillIndex(idx map[agent.SkillID]agent.Skill, agt agent.Agent) string {
+func buildSkillIndex(skillsFronts []agent.SkillFrontmatter) string {
 
 	var sb strings.Builder
-	for _, skillID := range agt.Skills() {
-		skill, ok := idx[skillID]
-		if !ok {
-			slog.Warn("agent has non existing skill", "agent", agt.ID(), "skill", skill)
-			continue
-		}
-		fmt.Fprintf(&sb, "\n* %s - %s\n", skillID, skill.Description())
+	for _, skill := range skillsFronts {
+		fmt.Fprintf(&sb, "[%s](%s) - %s\n", skill.ID, skill.StoreHint, skill.Description)
 	}
 
 	return sb.String()

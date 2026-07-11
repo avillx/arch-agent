@@ -142,7 +142,6 @@ func (s *AgentFiles) fromDTO(dtos ...AgentDTO) ([]agent.Agent, error) {
 			dto.Model,
 			dto.Tools,
 			dto.ToolServers,
-			dto.Skills,
 			dto.HasMemory,
 		))
 	}
@@ -158,7 +157,6 @@ type AgentDTO struct {
 	SystemPrompt string           `yaml:"omitempty"`
 	Tools        []agent.ToolName `yaml:"tools,omitempty"`
 	ToolServers  []string         `yaml:"tool_servers,omitempty"`
-	Skills       []agent.SkillID  `yaml:"skills,omitempty"`
 	HasMemory    bool             `yaml:"memory,omitempty"`
 }
 
@@ -192,7 +190,6 @@ func marshalAgentFile(agt agent.Agent) ([]byte, error) {
 		Description: agt.Description(),
 		Model:       agt.Model(),
 		Tools:       agt.Tools(),
-		Skills:      agt.Skills(),
 		HasMemory:   agt.HasMemory(),
 	})
 	if err != nil {

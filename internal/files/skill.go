@@ -3,9 +3,12 @@ package files
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/runtime"
+	"arch-agent/internal/types"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -15,96 +18,105 @@ import (
 const skillsFolder = "/skills"
 const skillFile = "SKILL.md"
 
-var _ runtime.SkillIndexer = (*SkillFiles)(nil)
+var _ runtime.SkillRepo = (*SkillFiles)(nil)
 
 type SkillFiles struct {
 	fs *FileSystem
-
-	idx map[agent.SkillID]agent.Skill
 
 	mu sync.RWMutex
 }
 
 func NewSkillFiles(fs *FileSystem) *SkillFiles {
 	sf := &SkillFiles{
-		fs:  fs,
-		idx: map[agent.SkillID]agent.Skill{},
+		fs: fs,
 	}
-
-	sf.loadSkills()
 
 	return sf
 }
 
-func (f *SkillFiles) GetIndex() map[agent.SkillID]agent.Skill {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
+func (f *SkillFiles) GetSkills(agentID agent.ID) ([]agent.SkillFrontmatter, error) {
+	skills := []agent.SkillFrontmatter{}
 
-	return f.idx
+	// private skills
+	privateSkillsPath := path.Join(string(filepath.Separator), string(agentID), skillsFolder)
+	privateSkills, err := f.loadSkills(privateSkillsPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if privateSkills != nil {
+		skills = append(skills, privateSkills...)
+	}
+
+	// shared skills
+	sharedSkills, err := f.loadSkills(skillsFolder)
+	if err != nil {
+		return nil, err
+	}
+
+	if sharedSkills != nil {
+		skills = append(skills, sharedSkills...)
+	}
+
+	return skills, nil
 }
 
-func (f *SkillFiles) loadSkills() error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
+func (f *SkillFiles) loadSkills(p string) ([]agent.SkillFrontmatter, error) {
 
-	entries, err := f.fs.ReadDir(skillsFolder)
+	entries, err := f.fs.ReadDir(p)
 	if err != nil {
-		return err
+		if errors.Is(err, types.ErrIsNotExist) {
+			return nil, nil
+		}
+		return nil, err
 	}
 
-	for _, skillFolder := range entries {
-		data, err := f.fs.ReadFile(path.Join(skillsFolder, skillFolder.Name(), skillFile))
+	skills := []agent.SkillFrontmatter{}
+	for _, entry := range entries {
+		data, err := f.fs.ReadFile(path.Join(p, entry.Name(), skillFile))
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		skill, err := parseSkillFile(data)
+		skill, err := resolveSkillFrontmatter(path.Join(p, entry.Name(), skillFile), data)
 		if err != nil {
-			slog.Error("loading skills", "error", err, "skill", skillFolder)
+			slog.Error("loading skills", "error", err, "skill folder", entry)
 			continue
 		}
-
-		if !isSkillNameValid(skillFolder.Name(), skill.ID()) {
-			slog.Error("skill folder must named as skill", "skill folder", skillFolder, "skill name", skill.ID())
-			continue
-		}
-
-		f.idx[skill.ID()] = skill
+		skills = append(skills, skill)
 	}
 
-	return nil
+	return skills, nil
 }
 
 type skillFrontmatterDTO struct {
-	ID          agent.SkillID    `yaml:"name"`
+	ID          string           `yaml:"name"`
 	Description string           `yaml:"description,omitempty"`
 	Tools       []agent.ToolName `yaml:"allowed-tools,omitempty"`
 }
 
-func parseSkillFile(data []byte) (agent.Skill, error) {
+func resolveSkillFrontmatter(p string, data []byte) (agent.SkillFrontmatter, error) {
 	const delim = "---"
 	s := strings.ReplaceAll(string(data), "\r\n", "\n")
 
 	after, ok := strings.CutPrefix(s, delim+"\n")
 	if !ok {
-		return nil, fmt.Errorf("skill file must start with ---")
+		return agent.SkillFrontmatter{}, fmt.Errorf("skill file must start with ---")
 	}
 
 	fmEnd := strings.Index(after, "\n"+delim)
 	if fmEnd == -1 {
-		return nil, fmt.Errorf("unclosed frontmatter")
+		return agent.SkillFrontmatter{}, fmt.Errorf("unclosed frontmatter")
 	}
 
 	var dto skillFrontmatterDTO
 	if err := yaml.Unmarshal([]byte(after[:fmEnd]), &dto); err != nil {
-		return nil, err
+		return agent.SkillFrontmatter{}, err
 	}
 
-	prompt := strings.TrimPrefix(after[fmEnd+len("\n"+delim):], "\n")
-
-	return agent.NewSkill(dto.ID, dto.Description, dto.Tools, prompt), nil
-}
-
-func isSkillNameValid(skillFolder string, skillID agent.SkillID) bool {
-	return skillFolder == string(skillID)
+	return agent.SkillFrontmatter{
+		ID:          dto.ID,
+		Description: dto.Description,
+		StoreHint:   p,
+	}, nil
 }

@@ -114,7 +114,7 @@ type FileAccessHook struct {
 func NewFileAccessHook(cwd string, rulesFactory func(agent.Agent) []Rule) (*FileAccessHook, error) {
 
 	// validate patterns
-	for _, r := range rulesFactory(agent.NewAgent("", "", "", "", nil, nil, nil, false)) {
+	for _, r := range rulesFactory(agent.NewAgent("", "", "", "", nil, nil, false)) {
 		if strings.Contains(r.Pattern, "**") {
 			return nil, fmt.Errorf("rule '%s' :'**' is not supported", r.Pattern)
 		}

@@ -136,7 +136,6 @@ func (m *Memory) buildConsolidationAgent(agt agent.Agent) agent.Agent {
 		agt.Model(),
 		[]agent.ToolName{},
 		nil,
-		nil,
 		false,
 	)
 }
