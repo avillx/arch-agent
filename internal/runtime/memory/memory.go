@@ -81,7 +81,7 @@ func (m *Memory) consolidateMemoryFor(ctx context.Context, agt agent.Agent) erro
 
 func (m *Memory) createMemorizationSession(agentID agent.ID) session.Session {
 	sess := session.NewSession("hidden")
-	sess.AddMessages(agent.NewUserMessage(prompt.GetMemorizationRequest(agentID)))
+	sess.AddMessages(agent.NewUserMessage(prompt.MemorizationRequest(agentID)))
 	return sess
 }
 
@@ -132,7 +132,7 @@ func (m *Memory) buildConsolidationAgent(agt agent.Agent) agent.Agent {
 	return agent.NewAgent(
 		agt.ID(),
 		"",
-		prompt.GetMemorizationPrompt(agt.ID()),
+		prompt.Memorization(agt.ID()),
 		agt.Model(),
 		[]agent.ToolName{},
 		nil,

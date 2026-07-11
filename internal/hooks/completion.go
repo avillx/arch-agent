@@ -16,7 +16,7 @@ type EmptyAnswerHook struct{}
 func (h *EmptyAnswerHook) Apply(_ session.ID, _ agent.Agent, c *agent.Completion) (*agent.Completion, error) {
 	if c.Content == "" && c.Done {
 		c.Done = false
-		return c, types.NewAgentMistakeError(prompt.GetEmptyAnswerCautionPrompt())
+		return c, types.NewAgentMistakeError(prompt.EmptyAnswerCaution())
 	}
 
 	return c, nil
@@ -57,7 +57,7 @@ func (h *undoneTodoHook) Apply(sessID session.ID, agt agent.Agent, c *agent.Comp
 		}
 		c.Done = false
 
-		return c, types.NewAgentMistakeError(prompt.GetUndoneTodosCautionPrompt(b.String()))
+		return c, types.NewAgentMistakeError(prompt.UndoneTodosCaution(b.String()))
 	}
 
 	return c, nil

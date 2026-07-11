@@ -1,4 +1,4 @@
-## Skills
+# Skills
 You have access to a set of skills — folders containing SKILL.md files with
 specialized instructions.
 

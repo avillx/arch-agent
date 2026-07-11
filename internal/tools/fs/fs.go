@@ -17,7 +17,7 @@ type instrucredRead struct {
 }
 
 func (r *instrucredRead) AgentInstruction(agt agent.Agent) string {
-	return prompt.GetFileSystemInstructionPrompt(r.fs.Cwd(), agt.ID(), agt.HasMemory())
+	return prompt.FileSystemInstruction(r.fs.Cwd(), agt.ID(), agt.HasMemory())
 }
 
 func WithInstruction(t *ReadFileTool) *instrucredRead {

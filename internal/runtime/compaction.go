@@ -29,7 +29,7 @@ func doCompact(
 
 	completion, err := model.Complete(ctx, nil,
 		[]agent.Message{
-			agent.NewSystemMessage(prompt.CompactionPrompt()),
+			agent.NewSystemMessage(prompt.Compaction()),
 			agent.NewUserMessage(agent.StringifyConversation(toCompact)),
 		},
 	)
