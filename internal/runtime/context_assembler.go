@@ -4,6 +4,7 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/prompt"
 	"arch-agent/internal/session"
+	"arch-agent/internal/types"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -38,57 +39,52 @@ func NewContextAssembler(
 	}
 }
 
-func (a *ContextAssembler) assembeSystemMessage(agt agent.Agent, toolKit []agent.Tool) *agent.SystemMessage {
+func (a *ContextAssembler) assembeSystemMessage(agt agent.Agent, sess session.Session, toolKit []agent.Tool) *agent.SystemMessage {
 
-	systemPrompt := agt.SystemPrompt()
-	instructions := extractInstructions(agt, toolKit)
+	completionContext := []string{agt.SystemPrompt()}
 
-	completionContext := []string{
-		systemPrompt,
-		instructions,
+	// instructions
+	if instructions := toolInstructions(agt, toolKit); len(instructions) > 0 {
+		completionContext = append(completionContext, instructions...)
 	}
 
+	// Skills
 	if len(agt.Skills()) > 0 {
-		idx := buildBoundedSkillIndex(a.indexer.GetIndex(), agt)
-		skillGuidance := prompt.SkillGuidance(idx)
-		completionContext = append(completionContext, skillGuidance)
+		skillIdx := resolveSkillIndex(a.indexer.GetIndex(), agt)
+		completionContext = append(completionContext, prompt.SkillGuidance(skillIdx))
 	}
 
+	// Memory
 	if agt.HasMemory() {
-		completionContext = append(completionContext, prompt.MemoryHeaderPrompt())
-		completionContext = append(completionContext, prompt.EpisodicMemoryPrompt())
-
 		// load persistent memory prompt
 		idx, err := a.memoryIndexer.GetMemoryIndex(agt.ID())
 		if err != nil {
 			slog.Error("memory index is not reached", "error", err)
 		} else {
-			completionContext = append(completionContext, prompt.PersistentMemoryPrompt(idx, agt.ID()))
+			activity := a.resolveActivity(agt, sess)
+			if activity == "" {
+				activity = "you has no activity at last 24h"
+			}
+			activity = strings.TrimSuffix(activity, "\n")
+			completionContext = append(completionContext, prompt.PersistentMemory(agt.ID(), idx, activity))
 		}
 	}
 
-	assembled := strings.Join(completionContext, "\n")
+	assembled := strings.Join(completionContext, "\n\n")
 	return agent.NewSystemMessage(assembled)
 }
 
-func (a *ContextAssembler) resolvePreContextMessages(agt agent.Agent, sess session.Session) []agent.Message {
-	var msgs []string
+func (a *ContextAssembler) resolvePreContextMessages(_ agent.Agent, sess session.Session) []agent.Message {
 
-	if summary := sess.Summary(); summary != "" {
-		msgs = append(msgs, prompt.SummaryExplanation(summary))
-	}
-
-	if agt.HasMemory() {
-		if activity := a.resolveActivity(agt, sess); activity != "" {
-			msgs = append(msgs, prompt.ActivityExplanation(activity))
-		}
-	}
-
-	if len(msgs) == 0 {
+	summary := sess.Summary()
+	if summary == "" {
 		return nil
 	}
 
-	return preContextHookDialogue(strings.Join(msgs, "\n"))
+	return []agent.Message{
+		agent.NewUserMessage(prompt.SummaryExplanation(summary)),
+		agent.NewAgentMessage("okay i will account it", nil),
+	}
 }
 
 const activityStorageKey = "activity"
@@ -107,7 +103,7 @@ func (a *ContextAssembler) resolveActivity(agt agent.Agent, sess session.Session
 	// cache miss
 	activity, err := a.activityRepo.GetActivity(agt.ID(), time.Now())
 	if err != nil {
-		if !errors.Is(err, agent.ErrNoActivity) {
+		if !errors.Is(err, types.ErrIsNotExist) {
 			slog.Error("failed to get activity", "error", err, "agent", agt.ID())
 		}
 		return ""
@@ -121,7 +117,7 @@ func (a *ContextAssembler) resolveActivity(agt agent.Agent, sess session.Session
 	return activity
 }
 
-func buildBoundedSkillIndex(idx map[agent.SkillID]agent.Skill, agt agent.Agent) string {
+func resolveSkillIndex(idx map[agent.SkillID]agent.Skill, agt agent.Agent) string {
 
 	var sb strings.Builder
 	for _, skillID := range agt.Skills() {
@@ -136,13 +132,6 @@ func buildBoundedSkillIndex(idx map[agent.SkillID]agent.Skill, agt agent.Agent) 
 	return sb.String()
 }
 
-func preContextHookDialogue(instructions string) []agent.Message {
-	return []agent.Message{
-		agent.NewUserMessage(prompt.SummaryExplanation(instructions)),
-		agent.NewAgentMessage("okay i will account it", nil),
-	}
-}
-
 type Instructed interface {
 	Instruction() string
 }
@@ -151,19 +140,28 @@ type PerAgentInstructed interface {
 	AgentInstruction(agent.Agent) string
 }
 
-func extractInstructions(agt agent.Agent, toolKit []agent.Tool) string {
-	var sb strings.Builder
+func toolInstructions(agt agent.Agent, toolKit []agent.Tool) []string {
+	const baseToolInstruction = `# Tools
+Use available tools when action is required.
+Your capabilities limited by your possible tool usage,
+If something cannot be done with available tools, say so directly.`
+
+	instructions := []string{}
+
+	if len(toolKit) > 0 {
+		instructions = append(instructions, baseToolInstruction)
+	}
 
 	for _, t := range toolKit {
 		if instructedTool, ok := t.(Instructed); ok {
-			fmt.Fprintf(&sb, "%s\n\n", instructedTool.Instruction())
+			instructions = append(instructions, instructedTool.Instruction())
 		}
 		if agentInstructedTool, ok := t.(PerAgentInstructed); ok {
-			fmt.Fprintf(&sb, "%s\n\n", agentInstructedTool.AgentInstruction(agt))
+			instructions = append(instructions, agentInstructedTool.AgentInstruction(agt))
 		}
 	}
 
-	return sb.String()
+	return instructions
 }
 
 const ActivityLinesLimit = 70

@@ -111,6 +111,23 @@ func (r *AgentRuntime) RunStream(
 	return NewRuntimeError(sess.ID(), agt.ID(), fmt.Errorf("max turns limit exceed"))
 }
 
+func eliminateOldImages(messages []agent.Message) []agent.Message {
+	result := make([]agent.Message, len(messages))
+	copy(result, messages)
+
+	cutoff := len(messages) - 10
+	for i := 0; i < cutoff; i++ {
+		content := result[i].Content()
+		newContent := make([]agent.ContentPart, len(content))
+		copy(newContent, content)
+		for j := range newContent {
+			newContent[j].ImageURL = ""
+		}
+		result[i].SetContent(newContent)
+	}
+	return result
+}
+
 func (r *AgentRuntime) buildContext(
 	sess session.Session,
 	agt agent.Agent,
@@ -120,7 +137,7 @@ func (r *AgentRuntime) buildContext(
 
 	// build system message
 	contextMessages := []agent.Message{
-		r.contextAssembler.assembeSystemMessage(agt, tools),
+		r.contextAssembler.assembeSystemMessage(agt, sess, tools),
 	}
 
 	// resolve precontext hooks
@@ -129,9 +146,11 @@ func (r *AgentRuntime) buildContext(
 		contextMessages = append(contextMessages, preContextMessages...)
 	}
 
-	inputMessages := append(contextMessages, sess.Messages()...)
+	distillMessages := eliminateOldImages(sess.Messages())
 
-	return excludeUnsupportedModalities(inputMessages, model.SupportedModalities())
+	contextMessages = append(contextMessages, distillMessages...)
+
+	return excludeUnsupportedModalities(contextMessages, model.SupportedModalities())
 }
 
 func (r *AgentRuntime) runTurn(
@@ -271,7 +290,7 @@ func (r *AgentRuntime) processToolCalls(
 			}
 		}
 
-		slog.Debug("tool called", "result message", result)
+		slog.Debug("tool called", "result message", result.Result)
 		sess.AddMessages(agent.NewToolResultMessage(result))
 
 		evCh <- NewToolCallResultEvent(agt.ID(), sess.ID(), result)
