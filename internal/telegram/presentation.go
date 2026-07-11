@@ -35,8 +35,8 @@ func processMCPCommand(ctx context.Context, mcpSvc *mcp.Service, u tgbotapi.Upda
 	const helpMessage = `availavble args:
 	"/mcp" - show list of added servers
 	"/mcp reload"
-	"/mcp connect <url> <token>"
-	"/mcp connect <command> <ags> <env:key=value>"
+	"/mcp add <url> <token>"
+	"/mcp add <command> <ags> <env:key=value>"
 	"/mcp remove <server_name>" 
 	"/mcp disconnect <server_name>"
 	"/mcp help" - show this message`
@@ -77,7 +77,7 @@ func processMCPCommand(ctx context.Context, mcpSvc *mcp.Service, u tgbotapi.Upda
 		return helpMessage, nil
 	}
 
-	return fmt.Sprintf("unknown %s command args:\n%s", command[1], helpMessage), nil
+	return fmt.Sprintf("unknown %s command args:\n%s", command[0], helpMessage), nil
 }
 
 func commandToGatewayConfig(commandParts []string) (mcp.ServerGatewayConfig, error) {

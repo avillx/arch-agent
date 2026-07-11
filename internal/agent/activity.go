@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"errors"
 	"fmt"
 	"time"
 )
@@ -12,8 +11,6 @@ type ActivityRepo interface {
 }
 
 const TimeFormat = "15:04"
-
-var ErrNoActivity = errors.New("Activity on date is not found")
 
 type ActivityRecord struct {
 	Stamp   time.Time

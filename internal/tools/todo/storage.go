@@ -49,8 +49,10 @@ func (s *InMemoryStore) Add(sessionID session.ID, agentID agent.ID, items []Todo
 	defer s.mu.Unlock()
 
 	key := storeKey{sessID: sessionID, agentID: agentID}
+
+	currentLen := len(s.todos[key])
 	for i, item := range items {
-		item.ID = i
+		item.ID = currentLen + i
 		item.Status = Pending
 		s.todos[key] = append(s.todos[key], item)
 	}

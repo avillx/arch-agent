@@ -54,7 +54,20 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 		if _, sendErr := b.SendMessage(chat.ID, "internal error occured", 0); sendErr != nil {
 			err = errors.Join(err, sendErr)
 		}
-		slog.Error("failed to handle update", "error", err, "update_id", update.UpdateID)
+
+		// var error handling
+
+		if wrapper, ok := err.(interface{ Unwrap() []error }); ok {
+			for _, e := range wrapper.Unwrap() {
+				slog.Error("handle update", "error", e)
+			}
+		}
+
+		if wrapper, ok := err.(interface{ Unwrap() error }); ok {
+			slog.Error("handle update", "error", wrapper.Unwrap())
+		}
+
+		slog.Error("handle update", "error", err, "update_id", update.UpdateID)
 	}
 }
 
@@ -102,8 +115,8 @@ func (b *Bot) handleMessage(ctx context.Context, message *tgbotapi.Message) erro
 			// send response
 			msgs := strings.Split(completion.Content, "\n\n")
 			for i, m := range msgs {
-				if i == 0 {
-					m += toolRepr
+				if i == 0 && toolRepr != "" {
+					m = fmt.Sprintf("%s\n%s", toolRepr, m)
 				}
 
 				if m != "" {

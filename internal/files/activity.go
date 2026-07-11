@@ -2,6 +2,7 @@ package files
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/types"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,7 +28,7 @@ func (f *ActivityFiles) GetActivity(id agent.ID, date time.Time) (string, error)
 	data, err := f.fs.ReadFile(resolveActivityFilePath(id, date))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", agent.ErrNoActivity
+			return "", types.ErrIsNotExist
 		}
 		return "", err
 	}
