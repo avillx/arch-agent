@@ -20,7 +20,7 @@ func NewSearchFilesTool(fs *files.FileSystem) *SearchFilesTool {
 }
 
 func (t *SearchFilesTool) Instruction() string {
-	return `Search strategy:
+	return `## Search files:
 - Use short, specific terms — function names, identifiers, keywords.
 - Avoid natural language phrases; prefer exact tokens that appear in code or text.
 - Narrow root to the smallest relevant directory to reduce noise.`
@@ -30,7 +30,7 @@ func (t *SearchFilesTool) Name() agent.ToolName { return "search_files" }
 func (t *SearchFilesTool) Description() string {
 	return "recursively search file contents under root; returns matching lines as path:line: text"
 }
-func (t *SearchFilesTool) Schema() []agent.ToolProperty {
+func (t *SearchFilesTool) Schema() any {
 	return []agent.ToolProperty{
 		{
 			Name:        "root",

@@ -20,7 +20,7 @@ func (t *MoveFileTool) Name() agent.ToolName { return "move_file" }
 func (t *MoveFileTool) Description() string {
 	return "move or rename a file from src to dst"
 }
-func (t *MoveFileTool) Schema() []agent.ToolProperty {
+func (t *MoveFileTool) Schema() any {
 	return []agent.ToolProperty{
 		{
 			Name:        "src",

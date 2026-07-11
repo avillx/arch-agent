@@ -20,16 +20,16 @@ type ToolRegistry interface {
 
 type ToolProperty struct {
 	Name        string
+	Description string
 	Required    bool
 	IsArray     bool
 	Type        PropertyType
-	Description string
 	Enum        []string
 }
 
 type Tool interface {
 	Name() ToolName
 	Description() string
-	Schema() []ToolProperty
+	Schema() any
 	Call(context.Context, ToolArguments) ([]ContentPart, error)
 }

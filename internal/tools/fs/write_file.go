@@ -20,7 +20,7 @@ func (t *WriteFileTool) Name() agent.ToolName { return "write_file" }
 func (t *WriteFileTool) Description() string {
 	return "Write content to a file, creating it if it does not exist; default mode overwrites"
 }
-func (t *WriteFileTool) Schema() []agent.ToolProperty {
+func (t *WriteFileTool) Schema() any {
 	return []agent.ToolProperty{
 		{
 			Name:        "path",

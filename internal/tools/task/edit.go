@@ -28,7 +28,7 @@ func (t *EditTaskTool) Description() string {
 	each one fully replaces its old value (recipients: full new list, not appended).`
 }
 
-func (t *EditTaskTool) Schema() []agent.ToolProperty {
+func (t *EditTaskTool) Schema() any {
 	return []agent.ToolProperty{
 		{
 			Name:        "existed",

@@ -25,7 +25,7 @@ func (t *DeleteTasksTool) Name() agent.ToolName {
 func (t *DeleteTasksTool) Description() string {
 	return "Deletes selected task"
 }
-func (t *DeleteTasksTool) Schema() []agent.ToolProperty {
+func (t *DeleteTasksTool) Schema() any {
 	return []agent.ToolProperty{
 		{
 			Name:        "name",

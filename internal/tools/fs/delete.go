@@ -20,7 +20,7 @@ func (t *DeleteTool) Name() agent.ToolName { return "delete" }
 func (t *DeleteTool) Description() string {
 	return "permanently delete a file or directory; this operation cannot be undone"
 }
-func (t *DeleteTool) Schema() []agent.ToolProperty {
+func (t *DeleteTool) Schema() any {
 	return []agent.ToolProperty{
 		{
 			Name:        "path",

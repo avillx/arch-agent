@@ -36,7 +36,7 @@ func (t *FetchTool) Description() string {
 	return "Fetch content of a web page by URL"
 }
 
-func (t *FetchTool) Schema() []agent.ToolProperty {
+func (t *FetchTool) Schema() any {
 	return []agent.ToolProperty{
 		{
 			Name:        "url",

@@ -21,7 +21,7 @@ func NewSendStickerTool(b *Bot, chatID int64) *SendStickerTool {
 }
 
 func (t *SendStickerTool) Instruction() string {
-	return `Stickers:
+	return `## Stickers:
 - Use stickers for immersive, expressive chatting.
 - Send them when it genuinely fits the mood or context — not forced.
 - It feels natural when: reacting emotionally, celebrating, sympathizing, or adding humor.`
@@ -35,7 +35,7 @@ func (t *SendStickerTool) Description() string {
 	return "Send a sticker  to the current chat by emoji"
 }
 
-func (t *SendStickerTool) Schema() []agent.ToolProperty {
+func (t *SendStickerTool) Schema() any {
 	return []agent.ToolProperty{
 		{
 			Name:        "chat_id",

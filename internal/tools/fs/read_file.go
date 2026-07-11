@@ -23,7 +23,7 @@ func (t *ReadFileTool) Name() agent.ToolName { return "read_file" }
 func (t *ReadFileTool) Description() string {
 	return "Read file content, optionally limited to a line range (1-indexed)"
 }
-func (t *ReadFileTool) Schema() []agent.ToolProperty {
+func (t *ReadFileTool) Schema() any {
 	return []agent.ToolProperty{
 		{
 			Name:        "path",

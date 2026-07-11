@@ -165,7 +165,17 @@ func toolToOpenAI(t agent.Tool) openai.ChatCompletionToolUnionParam {
 	}
 }
 
-func propertiesToOpenAI(internalProps []agent.ToolProperty) shared.FunctionParameters {
+func propertiesToOpenAI(props any) shared.FunctionParameters {
+
+	if props == nil {
+		return map[string]any{}
+	}
+
+	internalProps, ok := props.([]agent.ToolProperty)
+	if !ok {
+		return props.(map[string]any)
+	}
+
 	functionParams := shared.FunctionParameters{"type": "object"}
 
 	properties := map[string]any{}

@@ -25,7 +25,7 @@ func (t *ListDirTool) Name() agent.ToolName { return "list_dir" }
 func (t *ListDirTool) Description() string {
 	return "List entries in a directory; returns one path per line"
 }
-func (t *ListDirTool) Schema() []agent.ToolProperty {
+func (t *ListDirTool) Schema() any {
 	return []agent.ToolProperty{
 		{
 			Name:        "path",

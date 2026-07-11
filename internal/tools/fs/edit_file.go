@@ -28,7 +28,7 @@ func (t *EditFileTool) Description() string {
 	return "Replace a unique string in a file; old_str must match exactly once"
 }
 
-func (t *EditFileTool) Schema() []agent.ToolProperty {
+func (t *EditFileTool) Schema() any {
 	return []agent.ToolProperty{
 		{
 			Name:        "path",

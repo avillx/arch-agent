@@ -41,12 +41,13 @@ func (t *CreateTodoTool) Name() agent.ToolName { return "create_todo" }
 func (t *CreateTodoTool) Description() string  { return "Create one or more todos" }
 
 func (t *CreateTodoTool) Instruction() string {
-	return `Todo managment:
-- Use create_todo to plan steps before starting a multistep task.
-- Keep titles short and action-oriented.`
+	return `## Todo managment:
+When your task is too complex create a plan with todo list and follow it step by step
+Use create_todo to plan steps before starting a multistep task.
+Keep titles short and action-oriented.`
 }
 
-func (t *CreateTodoTool) Schema() []agent.ToolProperty {
+func (t *CreateTodoTool) Schema() any {
 	return []agent.ToolProperty{
 		{
 			Name:        "titles",
@@ -84,7 +85,7 @@ type UpdateTodoTool struct{ Store Store }
 func (t *UpdateTodoTool) Name() agent.ToolName { return "update_todo" }
 func (t *UpdateTodoTool) Description() string  { return "Update a todo's status by ID" }
 
-func (t *UpdateTodoTool) Schema() []agent.ToolProperty {
+func (t *UpdateTodoTool) Schema() any {
 	return []agent.ToolProperty{
 		{
 			Name:        "id",
@@ -131,7 +132,7 @@ func (t *ListTodoTool) Description() string {
 	return "List all todos in the current session"
 }
 
-func (t *ListTodoTool) Schema() []agent.ToolProperty { return nil }
+func (t *ListTodoTool) Schema() any { return nil }
 
 func (t *ListTodoTool) Call(ctx context.Context, _ agent.ToolArguments) ([]agent.ContentPart, error) {
 	sessionID := tools.MustSessionID(ctx)

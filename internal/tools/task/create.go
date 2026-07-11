@@ -25,7 +25,7 @@ func (t *AddTaskTool) Name() agent.ToolName {
 func (t *AddTaskTool) Description() string {
 	return "Create a scheduled task that dispatches a request to agents on a cron schedule; use oneshot for one-time reminders"
 }
-func (t *AddTaskTool) Schema() []agent.ToolProperty {
+func (t *AddTaskTool) Schema() any {
 	return []agent.ToolProperty{
 		{
 			Name:        "name",

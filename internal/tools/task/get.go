@@ -28,7 +28,7 @@ func (t *GetTasksTool) Name() agent.ToolName {
 func (t *GetTasksTool) Description() string {
 	return "List all tasks with their current active state"
 }
-func (t *GetTasksTool) Schema() []agent.ToolProperty {
+func (t *GetTasksTool) Schema() any {
 	return []agent.ToolProperty{}
 }
 

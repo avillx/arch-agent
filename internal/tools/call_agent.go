@@ -26,6 +26,15 @@ func NewCallAgentTool(s *a2a.Service, agentRepo agent.Repo) *CallAgentTool {
 }
 
 func (t *CallAgentTool) AgentInstruction(agt agent.Agent) string {
+	const instruction = `## Call Agents:
+You can delegate task to other agents with diffirent capabilities.
+Also can call another yourself instance for keep context clean,
+do it when operation too complex (5+ toolcalls).
+Request should be exhaustive: e.g. task, details, context and expected result.
+Called agent is stateless. If agent clarify something
+then agent need full request with clarificaton again.
+`
+
 	agents, err := t.agentRepo.All()
 	if err != nil {
 		slog.Error("call agent tool", "error", "can't gather agents")
@@ -33,14 +42,17 @@ func (t *CallAgentTool) AgentInstruction(agt agent.Agent) string {
 	}
 
 	var sb strings.Builder
+
+	sb.WriteString(instruction + "\n")
 	sb.WriteString("Agent contacts:\n")
 	for _, a := range agents {
 
+		isYouLabel := ""
 		if a.ID() == agt.ID() {
-			continue
+			isYouLabel = "(You)"
 		}
 
-		fmt.Fprintf(&sb, "* %s - %s\n", string(a.ID()), a.Description())
+		fmt.Fprintf(&sb, "* %s%s - %s\n", string(a.ID()), isYouLabel, a.Description())
 	}
 
 	return sb.String()
@@ -58,7 +70,7 @@ func (t *CallAgentTool) TimeOut() time.Duration {
 	return 10 * time.Minute
 }
 
-func (t *CallAgentTool) Schema() []agent.ToolProperty {
+func (t *CallAgentTool) Schema() any {
 	return []agent.ToolProperty{
 		{
 			Name:        "name",
