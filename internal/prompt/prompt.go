@@ -41,6 +41,11 @@ var emptyAnswerCautionRaw string
 
 func EmptyAnswerCaution() string { return emptyAnswerCautionRaw }
 
+//go:embed templates/tool_usage_guidance.md
+var toolUsageGuidanceRaw string
+
+func ToolUsageGuide() string { return toolUsageGuidanceRaw }
+
 // templated prompts
 
 //go:embed templates/consolidate_memory.md

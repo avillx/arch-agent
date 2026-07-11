@@ -39,6 +39,31 @@ func NewContextAssembler(
 	}
 }
 
+func (a *ContextAssembler) buildContext(
+	sess session.Session,
+	agt agent.Agent,
+	tools []agent.Tool,
+	model agent.Model,
+) []agent.Message {
+
+	// build system message
+	contextMessages := []agent.Message{
+		a.assembeSystemMessage(agt, sess, tools),
+	}
+
+	// resolve precontext hooks
+	preContextMessages := a.resolvePreContextMessages(agt, sess)
+	if len(preContextMessages) > 0 {
+		contextMessages = append(contextMessages, preContextMessages...)
+	}
+
+	distillMessages := eliminateOldImages(sess.Messages())
+
+	contextMessages = append(contextMessages, distillMessages...)
+
+	return excludeUnsupportedModalities(contextMessages, model.SupportedModalities())
+}
+
 func (a *ContextAssembler) assembeSystemMessage(agt agent.Agent, sess session.Session, toolKit []agent.Tool) *agent.SystemMessage {
 
 	completionContext := []string{agt.SystemPrompt()}
@@ -141,15 +166,11 @@ type PerAgentInstructed interface {
 }
 
 func toolInstructions(agt agent.Agent, toolKit []agent.Tool) []string {
-	const baseToolInstruction = `# Tools
-Use available tools when action is required.
-Your capabilities limited by your possible tool usage,
-If something cannot be done with available tools, say so directly.`
 
 	instructions := []string{}
 
 	if len(toolKit) > 0 {
-		instructions = append(instructions, baseToolInstruction)
+		instructions = append(instructions, prompt.ToolUsageGuide())
 	}
 
 	for _, t := range toolKit {

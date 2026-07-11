@@ -128,31 +128,6 @@ func eliminateOldImages(messages []agent.Message) []agent.Message {
 	return result
 }
 
-func (r *AgentRuntime) buildContext(
-	sess session.Session,
-	agt agent.Agent,
-	tools []agent.Tool,
-	model agent.Model,
-) []agent.Message {
-
-	// build system message
-	contextMessages := []agent.Message{
-		r.contextAssembler.assembeSystemMessage(agt, sess, tools),
-	}
-
-	// resolve precontext hooks
-	preContextMessages := r.contextAssembler.resolvePreContextMessages(agt, sess)
-	if len(preContextMessages) > 0 {
-		contextMessages = append(contextMessages, preContextMessages...)
-	}
-
-	distillMessages := eliminateOldImages(sess.Messages())
-
-	contextMessages = append(contextMessages, distillMessages...)
-
-	return excludeUnsupportedModalities(contextMessages, model.SupportedModalities())
-}
-
 func (r *AgentRuntime) runTurn(
 	ctx context.Context,
 	model agent.Model,
@@ -168,7 +143,7 @@ func (r *AgentRuntime) runTurn(
 	}
 
 	// context
-	agentContext := r.buildContext(sess, agt, tools, model)
+	agentContext := r.contextAssembler.buildContext(sess, agt, tools, model)
 
 	// run completion
 	completion, err := r.processCompletion(ctx, agentContext, agt, model, tools, sess, harness, evCh)
