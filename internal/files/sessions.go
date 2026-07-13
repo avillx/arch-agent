@@ -4,8 +4,11 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/session"
 	"arch-agent/internal/types"
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,7 +39,7 @@ func (r *SessionFiles) Session(agentID agent.ID, sessionID session.ID) (session.
 		return nil, err
 	}
 
-	return r.unmarshalSession(sessionID, data)
+	return unmarshalSession(sessionID, data)
 }
 
 func (r *SessionFiles) Save(agentID agent.ID, s session.Session) error {
@@ -74,50 +77,79 @@ func (r *SessionFiles) List(agentID agent.ID) ([]session.ID, error) {
 	return sessionIDs, nil
 }
 
-func (r *SessionFiles) unmarshalSession(sessionID session.ID, data []byte) (session.Session, error) {
-	var dto SessionDTO
-	if err := json.Unmarshal(data, &dto); err != nil {
-		return nil, err
-	}
-	return r.dtoToSession(sessionID, dto)
+type SessionHeaderDTO struct {
+	InputTokens  int64          `json:"input_tokens"`
+	OutputTokens int64          `json:"output_tokens"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	Summary      string         `json:"summary"`
+	Extras       map[string]any `json:"extras"`
 }
 
-func (r *SessionFiles) dtoToSession(sessionID session.ID, dto SessionDTO) (session.Session, error) {
-	msgs, err := DtoToMessages(dto.Messages)
+func marshalSession(s session.Session) ([]byte, error) {
+	var buf bytes.Buffer
+
+	enc := json.NewEncoder(&buf)
+
+	if err := enc.Encode(SessionHeaderDTO{
+		InputTokens:  s.InputTokens(),
+		OutputTokens: s.OutputTokens(),
+		CreatedAt:    s.CreatedAt(),
+		UpdatedAt:    s.UpdatedAt(),
+		Summary:      s.Summary(),
+		Extras:       s.Extras(),
+	}); err != nil {
+		return nil, err
+	}
+
+	for _, m := range MessagesToDTO(s.Messages()) {
+		if err := enc.Encode(m); err != nil {
+			return nil, err
+		}
+	}
+
+	return buf.Bytes(), nil
+}
+
+func unmarshalSession(sessionID session.ID, data []byte) (session.Session, error) {
+
+	dec := json.NewDecoder(bytes.NewReader(data))
+
+	var header SessionHeaderDTO
+	if err := dec.Decode(&header); err != nil {
+		return nil, err
+	}
+
+	var msgs []MessageDTO
+	for {
+		var m MessageDTO
+		err := dec.Decode(&m)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, err
+		}
+		msgs = append(msgs, m)
+	}
+
+	return dtoToSession(sessionID, header, msgs)
+}
+
+func dtoToSession(sessionID session.ID, headerDTO SessionHeaderDTO, messagesDTO []MessageDTO) (session.Session, error) {
+	msgs, err := DtoToMessages(messagesDTO)
 	if err != nil {
 		return nil, err
 	}
 	return session.NewRestoredSession(
 		sessionID,
 		msgs,
-		dto.InputTokens,
-		dto.OutputTokens,
-		dto.Summary,
-		dto.CreatedAt,
-		dto.Extras,
+		headerDTO.InputTokens,
+		headerDTO.OutputTokens,
+		headerDTO.Summary,
+		headerDTO.CreatedAt,
+		headerDTO.Extras,
 	), nil
-}
-
-type SessionDTO struct {
-	InputTokens  int64          `json:"input_tokens"`
-	OutputTokens int64          `json:"output_tokens"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	Summary      string         `json:"summary"`
-	Messages     []MessageDTO   `json:"messages"`
-	Extras       map[string]any `json:"extras"`
-}
-
-func marshalSession(s session.Session) ([]byte, error) {
-	return json.MarshalIndent(SessionDTO{
-		InputTokens:  s.InputTokens(),
-		OutputTokens: s.OutputTokens(),
-		CreatedAt:    s.CreatedAt(),
-		UpdatedAt:    s.UpdatedAt(),
-		Summary:      s.Summary(),
-		Messages:     MessagesToDTO(s.Messages()),
-		Extras:       s.Extras(),
-	}, "", "	")
 }
 
 func resolveSessionPath(agentID agent.ID, sessionID session.ID) string {
