@@ -6,12 +6,29 @@ Key points:
 - Project focus on control clean context as possible and present only necceccary accesses
 - Agent SDK is designed for work as server daemon, not as desktop app.
 - File database is a decigion for minimize infrastructure.
-- Agents have access for filesystem only for manage memory, not for dev or complete tasks.
 - Agents can works autonomusly by cron scheduling.
 - If agent has memory or works autonomusly it logging consolidated activity.
-- MCP integration. supports only Stramable endpoints without auth
+- Has MCP integration. **Stramable http** and **stdio**. support env and token auth for http
 
---- 
+# Memory
+
+Divided into 2 parts:
+
+* **Activity Logs** — formatted into time blocks, continuously written, consolidated from raw transcripts.
+* **Persistent Memory** — consolidated and indexed knowledge written by another agent based on activity logs.
+
+Stored in agent folders:
+
+`/data/<agent_name>/activity/` — daily activity logs
+`/data/<agent_name>/memory/` — persistent knowledge
+
+> Persistent Memory is updated once every 24 hours.
+
+Memory is optional and can be enabled in `agent.md`:
+
+```yaml
+memory: true
+```
 
 # agent.md
 
@@ -51,7 +68,6 @@ Must be runned with `--config` flag and path to config file e.g. `config.toml`
 Example in `example.config.toml`
 
 ### ENV
-You must define secrects in envvars and leave references on it on config file
 Accepts unneccecary vars:
 LOG_PRETTY (true/false)
 LOG_LEVEL (debug/info/warn/error)
@@ -87,7 +103,7 @@ All memory stores in `/agent/data/...`
 - [ ] exclude telegram integration
 - [ ] runtime fallback models pool
 - [ ] runtime toolcall loop detection
-- [ ] a2a sub agent call stack limit
+- [X] a2a sub agent call stack limit
 
 **alpha v0.7**
 - [ ] skill provide tool servers
@@ -95,7 +111,7 @@ All memory stores in `/agent/data/...`
 - [ ] harness hooks (on complete, on done, on tool use, on sub agent call)
 
 **alpha v0.9**
-- [ ] view over file_read (files, images and docs)
+- [X] view over file_read (files, images and docs)
 - [ ] bm25 fileSearch
 - [ ] sqlite database
 
