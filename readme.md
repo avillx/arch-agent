@@ -79,45 +79,24 @@ All memory stores in `/agent/data/...`
 ---
 
 ### TODO
-
-**alpha v0.1**
-- [X] All services names to Service to svc 
-- [X] Polish telegram module
-- [X] Should compact refactor (systemPrompt and summarization dialog accounting and tools)
-- [X] preload last 50 lines of logs when option
-- [X] Refactor openAI adapter (settings map parsing)
-- [X] func (a *agent) HasMemory() bool
-- [X] AutoDream
-- [X] check depricated (before restruct) variable names
-- [X] agent fs as sandbox iface over fs
-- [X] Multimodal input
-- [X] processing interruption (edge case first user message concat with last sess user message)
-- [X] remove subsessions
-- [X] MCP Service and tools
-- [X] LOG_PRETTY, LOG_LEVEL should be flags-arg, not env 
+**alpha v0.7**
+- [X] sub agent call stack limit
+- [ ] search_files issue (glob/grep divide?)
+- [ ] runtime fallback models pool
+- [ ] runtime toolcall loop detection
+- [ ] runtime reorganize for simplicity and robustness
+- [ ] runtime observability issues
 - [ ] Services proto, services managing funcs 
   chat svc * session svc * agent repo * models svc * mcp svc * activity handling * tools svc * memory consolidator
 - [ ] API endpints
-
-**alpha v0.5**
+- [ ] API specefication (OpenAPI)
 - [ ] exclude telegram integration
-- [ ] runtime fallback models pool
-- [ ] runtime toolcall loop detection
-- [X] a2a sub agent call stack limit
 
-**alpha v0.7**
-- [ ] skill provide tool servers
-- [ ] observer before log, exclude all skills entry from context 
-- [ ] harness hooks (on complete, on done, on tool use, on sub agent call)
-
-**alpha v0.9**
-- [X] view over file_read (files, images and docs)
-- [ ] bm25 fileSearch
-- [ ] sqlite database
 
 **v1**
 - [ ] eliminate edge case vulnurabilities for every package
-- [ ] error system refactor
+- [ ] schemes on tasks,models,mcp_servers
+- [ ] add doc's
 - [ ] add tests
 - [ ] add validations
 - [ ] e2e tests 
