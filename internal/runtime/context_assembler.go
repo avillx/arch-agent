@@ -57,11 +57,32 @@ func (a *ContextAssembler) buildContext(
 		contextMessages = append(contextMessages, preContextMessages...)
 	}
 
-	distillMessages := eliminateOldImages(sess.Messages())
+	// optimize messsages
+	conversationMessages := sess.Messages()
+	if resolveImageOptimize(model) {
+		conversationMessages = eliminateOldImages(conversationMessages)
+	}
 
-	contextMessages = append(contextMessages, distillMessages...)
+	conversationMessages = excludeUnsupportedModalities(conversationMessages, model.SupportedModalities())
 
-	return excludeUnsupportedModalities(contextMessages, model.SupportedModalities())
+	contextMessages = append(contextMessages, conversationMessages...)
+
+	return contextMessages
+}
+
+func resolveImageOptimize(m agent.Model) bool {
+	if optimize, ok := m.Settings()["optimize_images"]; ok {
+		optimizeTyped, ok := optimize.(bool)
+		if ok {
+			return optimizeTyped
+		}
+		slog.Error(
+			"model has wrong 'image optimize' field.",
+			"error",
+			fmt.Errorf("want bool, has %T", optimizeTyped),
+		)
+	}
+	return false
 }
 
 func (a *ContextAssembler) assembeSystemMessage(agt agent.Agent, sess session.Session, toolKit []agent.Tool) *agent.SystemMessage {
