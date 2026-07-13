@@ -60,6 +60,7 @@ func run(ctx context.Context,
 		SearchHost:       cfg.SearchHost,
 		TelegramGroupID:  cfg.Telegram.GroupID,
 		BotConfigs:       botConf(cfg),
+		ShellEnv:         cfg.ShellEnv,
 	})
 	if err != nil {
 		return err

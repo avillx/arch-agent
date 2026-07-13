@@ -43,6 +43,7 @@ type Config struct {
 	Telegram         *Telegram `toml:"telegram"`
 	SearchHost       string    `toml:"search_host"`
 	SearchHostScheme string    `toml:"search_host_scheme"`
+	ShellEnv         []string  `toml:"shell_envs"`
 }
 
 func Load(configPath string) (Config, error) {

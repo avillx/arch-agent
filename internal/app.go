@@ -18,6 +18,7 @@ import (
 	"arch-agent/internal/tools"
 	"arch-agent/internal/tools/fetch"
 	fstools "arch-agent/internal/tools/fs"
+	"arch-agent/internal/tools/shell"
 	tasktools "arch-agent/internal/tools/task"
 	"arch-agent/internal/tools/todo"
 	"arch-agent/internal/uuid"
@@ -37,6 +38,7 @@ type AppConfig struct {
 	SearchHostScheme string
 	SearchHost       string
 	TelegramGroupID  int64
+	ShellEnv         []string
 	BotConfigs       []telegram.BotConfig
 }
 
@@ -210,6 +212,13 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 			tasktools.NewGetTasksTool(taskSvc),
 			tasktools.NewEditTaskTool(taskSvc),
 			tasktools.NewDeleteTasksTool(taskSvc),
+		),
+	)
+
+	toolSvc.Connect(
+		"shell",
+		tools.NewBuildInToolServer(
+			shell.NewShellTool(),
 		),
 	)
 
