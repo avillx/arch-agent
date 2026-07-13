@@ -46,7 +46,10 @@ var toolUsageGuidanceRaw string
 
 func ToolUsageGuide() string { return toolUsageGuidanceRaw }
 
-// templated prompts
+//go:embed templates/sub_agent_callstack_overflow.md
+var subAgentCallStackOverflowRaw string
+
+func SubAgentCallStackOverflowCaution() string { return subAgentCallStackOverflowRaw }
 
 //go:embed templates/consolidate_memory.md
 var consolidateMemoryRaw string

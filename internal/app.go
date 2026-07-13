@@ -1,7 +1,6 @@
 package app
 
 import (
-	"arch-agent/internal/a2a"
 	"arch-agent/internal/agent"
 	"arch-agent/internal/chat"
 	"arch-agent/internal/cron"
@@ -13,6 +12,7 @@ import (
 	"arch-agent/internal/openai"
 	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
+	"arch-agent/internal/subagent"
 	"arch-agent/internal/task"
 	"arch-agent/internal/telegram"
 	"arch-agent/internal/tools"
@@ -190,7 +190,7 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		return nil, err
 	}
 
-	a2aSvc := a2a.NewService(chatSvc, sessSvc)
+	subagentSvc := subagent.NewService(chatSvc, sessSvc)
 
 	toolSvc.Connect(
 		"filesystem",
@@ -232,7 +232,7 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 	toolSvc.Connect(
 		"agent",
 		tools.NewBuildInToolServer(
-			tools.NewCallAgentTool(a2aSvc, agentRepo),
+			tools.NewCallAgentTool(subagentSvc, agentRepo),
 		),
 	)
 

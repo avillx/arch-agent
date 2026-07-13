@@ -1,10 +1,11 @@
 package tools
 
 import (
-	"arch-agent/internal/a2a"
 	"arch-agent/internal/agent"
 	"arch-agent/internal/runtime"
+	"arch-agent/internal/subagent"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -14,20 +15,21 @@ import (
 var _ runtime.PerAgentInstructed = (*CallAgentTool)(nil)
 
 type CallAgentTool struct {
-	a2aService *a2a.Service
-	agentRepo  agent.Repo
+	subagentSvc *subagent.Service
+	agentRepo   agent.Repo
 }
 
-func NewCallAgentTool(s *a2a.Service, agentRepo agent.Repo) *CallAgentTool {
+func NewCallAgentTool(s *subagent.Service, agentRepo agent.Repo) *CallAgentTool {
 	return &CallAgentTool{
-		a2aService: s,
-		agentRepo:  agentRepo,
+		subagentSvc: s,
+		agentRepo:   agentRepo,
 	}
 }
 
 func (t *CallAgentTool) AgentInstruction(agt agent.Agent) string {
 	const instruction = `## Call Agents:
-You can delegate task to other agents with diffirent capabilities.
+You can call another agent as sub agent for delegateing task 
+to other agent with diffirent capabilities.
 Also can call another yourself instance for keep context clean,
 do it when operation too complex (5+ toolcalls).
 Request should be exhaustive: e.g. task, details, context and expected result.
@@ -49,10 +51,11 @@ then agent need full request with clarificaton again.
 
 		isYouLabel := ""
 		if a.ID() == agt.ID() {
-			isYouLabel = "(You)"
+			isYouLabel = " (You)"
 		}
 
-		fmt.Fprintf(&sb, "* %s%s - %s\n", string(a.ID()), isYouLabel, a.Description())
+		fmt.Fprintf(&sb, "%s%s - %s\n", string(a.ID()), isYouLabel, a.Description())
+		fmt.Fprintf(&sb, "tools: %s\n\n", strings.Join(a.ToolServers(), ", "))
 	}
 
 	return sb.String()
@@ -63,7 +66,7 @@ func (t *CallAgentTool) Name() agent.ToolName {
 }
 
 func (t *CallAgentTool) Description() string {
-	return "Delegate a task or question to another agent"
+	return "Ask question or delegate a task to another agent"
 }
 
 func (t *CallAgentTool) TimeOut() time.Duration {
@@ -82,7 +85,7 @@ func (t *CallAgentTool) Schema() any {
 			Name:        "request",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "Task or question to send to the agent",
+			Description: "Task or question for agent",
 		},
 	}
 }
@@ -99,7 +102,7 @@ func (t *CallAgentTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 	agentID := MustAgentID(ctx)
 	sessionID := MustSessionID(ctx)
 
-	res, err := t.a2aService.Call(
+	res, err := t.subagentSvc.Call(
 		ctx,
 		agentID,
 		args.Name,
@@ -108,6 +111,10 @@ func (t *CallAgentTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 	)
 
 	if err != nil {
+		if errors.Is(err, subagent.ErrCallStackOverflow) {
+			return Result(res), nil
+		}
+
 		res = fmt.Sprintf("%s. agent %s has errors when processing your request", res, args.Name)
 	} else {
 		res = fmt.Sprintf("# Agent %s respones:\n%s", args.Name, res)

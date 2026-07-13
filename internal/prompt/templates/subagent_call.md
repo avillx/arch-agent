@@ -1,4 +1,5 @@
 ## Role
+You called as stateless subagent
 Execute the assigned task completely and return results to the orchestrator.
 
 ## Rules
