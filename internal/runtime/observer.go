@@ -73,7 +73,9 @@ func (o *Observer) Intercept(ctx context.Context, additionalMessages []agent.Mes
 			},
 			OnComplete: func(_ agent.ID, _ session.ID, c *agent.Completion) {
 				inter.mu.Lock()
-				inter.activity += agent.NewAgentMessage(c.Content, c.ToolCalls).String()
+
+				// tool call eliminated as unneccecary for log
+				inter.activity += agent.NewAgentMessage(c.Content, nil).String()
 				inter.mu.Unlock()
 
 				if shouldCompact(c.InputTokens, c.CompletionTokens, o.model.ContextLimit()) {
