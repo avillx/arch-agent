@@ -153,7 +153,7 @@ func dtoToSession(sessionID session.ID, headerDTO SessionHeaderDTO, messagesDTO 
 }
 
 func resolveSessionPath(agentID agent.ID, sessionID session.ID) string {
-	return filepath.Join(resolveSessionFolderPath(agentID), fmt.Sprintf("%s.json", sessionID))
+	return filepath.Join(resolveSessionFolderPath(agentID), fmt.Sprintf("%s.jsonl", sessionID))
 }
 func resolveSessionFolderPath(agentID agent.ID) string {
 	return fmt.Sprintf("/%s/sessions", agentID)
