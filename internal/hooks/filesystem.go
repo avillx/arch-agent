@@ -288,3 +288,36 @@ func resolvePaths(tc *agent.ToolCall) ([]string, error) {
 		return nil, errIsNotFileTool
 	}
 }
+
+type OnlySupportedExtensionsHook struct{}
+
+func (h *OnlySupportedExtensionsHook) Apply(
+	_ session.ID,
+	_ agent.Agent,
+	tc *agent.ToolCall,
+) (*agent.ToolCall, error) {
+
+	paths, err := resolvePaths(tc)
+	if errors.Is(err, errIsNotFileTool) ||
+		tc.ToolName == listDirToolName ||
+		tc.ToolName == moveFileToolName ||
+		tc.ToolName == deleteToolName {
+
+		return tc, nil
+	}
+
+	// move for rename to supported case is allowed
+	// couse is soft harness, fast check for caution agent
+	// whenever agent should do this, it do this
+
+	for _, p := range paths {
+		if fstools.IsTextExt(p) || fstools.IsImageExt(p) {
+			continue
+		}
+
+		errMsg := fmt.Sprintf("You can read only text files and 'jpg,jpeg,png,webp,bmp', has: %s", path.Ext(p))
+		return nil, types.NewAgentMistakeError(errMsg)
+	}
+
+	return tc, nil
+}

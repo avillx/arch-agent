@@ -98,6 +98,11 @@ func collect(fs interface {
 		return results
 	}
 
+	// search only in text files
+	if !IsTextExt(dirPath) {
+		return nil
+	}
+
 	data, err := fs.ReadFile(dirPath)
 	if err != nil {
 		return nil

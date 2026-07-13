@@ -21,7 +21,7 @@ func NewReadFileTool(fs *files.FileSystem) *ReadFileTool {
 func (t *ReadFileTool) Name() agent.ToolName { return "read_file" }
 
 func (t *ReadFileTool) Description() string {
-	return "Read file content, optionally limited to a line range (1-indexed)"
+	return "Read text and image files content, text files optionally limited to a line range"
 }
 func (t *ReadFileTool) Schema() any {
 	return []agent.ToolProperty{
@@ -29,7 +29,7 @@ func (t *ReadFileTool) Schema() any {
 			Name:        "path",
 			Required:    true,
 			Type:        agent.TypeString,
-			Description: "File path, e.g. './shared/project-x/README.md'",
+			Description: "File path, e.g. './shared/project-x/README.md', './shared/img.png'",
 		},
 		{
 			Name:        "start_line",

@@ -96,3 +96,56 @@ func formatEntry(
 	}
 	return fmt.Sprintf("%s %s [%d lines]", label, size, lineCount)
 }
+
+func IsTextExt(p string) bool {
+	switch strings.ToLower(path.Ext(p)) {
+	case
+		// docs and markups
+		".txt", ".md", ".mdx", ".rst", ".tex", ".asciidoc", ".adoc",
+		".csv", ".tsv", ".log", ".org",
+
+		// data and conf's
+		".json", ".json5", ".jsonl", ".jsonc", ".xml", ".yaml", ".yml",
+		".toml", ".ini", ".cfg", ".conf", ".config", ".env",
+		".properties", ".plist", ".hcl", ".tf", ".tfvars",
+		".editorconfig", ".gitignore", ".gitattributes", ".dockerignore",
+
+		// Web
+		".html", ".htm", ".xhtml", ".css", ".scss", ".sass", ".less",
+		".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs",
+		".vue", ".svelte", ".astro", ".handlebars", ".hbs", ".ejs", ".pug",
+
+		// Backend langs
+		".go", ".py", ".rb", ".php", ".java", ".kt", ".kts",
+		".scala", ".groovy", ".cs", ".fs", ".vb",
+		".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hxx",
+		".rs", ".swift", ".m", ".mm", ".zig",
+		".ex", ".exs", ".erl", ".hrl", ".clj", ".cljs",
+		".hs", ".lhs", ".ml", ".mli", ".fsi",
+		".lua", ".r", ".jl", ".dart", ".d",
+
+		// scripts and shell
+		".sh", ".bash", ".zsh", ".fish", ".ps1", ".psm1", ".bat", ".cmd",
+
+		// request and schemes
+		".sql", ".graphql", ".gql", ".proto", ".thrift", ".avsc",
+
+		// infra and CI
+		".dockerfile", ".vagrantfile", ".makefile",
+		".gradle", ".cmake", ".bazel", ".bzl",
+
+		// other
+		".diff", ".patch", ".lock", ".sum", ".mod", ".csproj", ".sln":
+		return true
+	}
+
+	return false
+}
+
+func IsImageExt(p string) bool {
+	switch strings.ToLower(path.Ext(p)) {
+	case "jpg", "jpeg", "png", "webp", "bmp":
+		return true
+	}
+	return false
+}

@@ -3,8 +3,6 @@ package runtime
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/session"
-	"arch-agent/internal/types"
-	"errors"
 )
 
 type Hook[T any] interface {
@@ -18,23 +16,14 @@ func NewHookSet[T any](hooks ...Hook[T]) HookSet[T] {
 }
 
 func (s HookSet[T]) Apply(sessID session.ID, agentID agent.Agent, v T) (T, error) {
-	var (
-		res  = v
-		errs = []error{}
-	)
-
 	for _, h := range s {
-		new, err := h.Apply(sessID, agentID, res)
+		new, err := h.Apply(sessID, agentID, v)
 		if err != nil {
-			var agentMistake *types.AgentMistakeError
-			if !errors.As(err, &agentMistake) {
-				return new, err
-			}
-			errs = append(errs, err)
-			res = new
+			return new, err
 		}
+		v = new
 	}
-	return res, errors.Join(errs...)
+	return v, nil
 }
 
 type AfterToolCall struct {

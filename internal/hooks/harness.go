@@ -34,8 +34,8 @@ func NewAgentHarness(b cwdBearer, todoStorage todoStorage) (*runtime.Harness, er
 	undoneTasks := NewUndoneTodoHook(todoStorage)
 
 	return &runtime.Harness{
-		OnToolCall: runtime.NewHookSet(accessHook),
 		OnComplete: runtime.NewHookSet(undoneTasks, &EmptyAnswerHook{}),
+		OnToolCall: runtime.NewHookSet(&OnlySupportedExtensionsHook{}, accessHook),
 	}, nil
 }
 
