@@ -39,7 +39,7 @@ func (t *DeleteTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]a
 		return nil, err
 	}
 
-	if err := t.fs.Delete(args.Path); err != nil {
+	if err := t.fs.DeleteAll(args.Path); err != nil {
 		return nil, mapErrs(err)
 	}
 

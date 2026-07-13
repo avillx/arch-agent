@@ -80,6 +80,14 @@ func (fs *FileSystem) Delete(path string) error {
 	return toInternalNotExist(err)
 }
 
+func (fs *FileSystem) DeleteAll(path string) error {
+	unlock := fs.locks.Lock(path)
+	defer unlock()
+
+	err := os.RemoveAll(fs.resolveAbsolutePath(path))
+	return toInternalNotExist(err)
+}
+
 func (fs *FileSystem) Cwd() string {
 	return fs.dir
 }
