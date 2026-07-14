@@ -37,7 +37,14 @@ func doCompact(
 		return err
 	}
 
-	sess.AddSummary(completion.Content)
+	summary := prompt.SummaryExplanation(completion.Content)
+
+	// add message or concat with actual
+	if len(tail) > 0 && tail[0].Role() == agent.UserMessageRole {
+		tail[0].SetContent(append(tail[0].Content(), agent.NewContent(summary)...))
+	} else {
+		tail = append([]agent.Message{agent.NewUserMessage(summary)}, tail...)
+	}
 
 	var estimateTokens int64 = 0
 	for _, m := range tail {
@@ -48,7 +55,7 @@ func doCompact(
 	evCh <- NewCompactionEvent(
 		agt.ID(),
 		sess.ID(),
-		sess.Summary(),
+		completion.Content,
 	)
 
 	return nil

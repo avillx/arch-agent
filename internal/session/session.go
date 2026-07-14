@@ -2,7 +2,6 @@ package session
 
 import (
 	"arch-agent/internal/agent"
-	"fmt"
 	"reflect"
 	"slices"
 	"time"
@@ -28,9 +27,6 @@ type Session interface {
 	InputTokens() int64
 	OutputTokens() int64
 
-	AddSummary(string)
-	Summary() string
-
 	OverwriteMessages(int64, []agent.Message)
 
 	CreatedAt() time.Time
@@ -45,7 +41,6 @@ type session struct {
 	title        string
 	inputTokens  int64
 	outputTokens int64
-	summary      string
 	messages     []agent.Message
 	createdAt    time.Time
 	updatedAt    time.Time
@@ -69,7 +64,6 @@ func NewRestoredSession(
 	messages []agent.Message,
 	inputTokens int64,
 	outputTokens int64,
-	summary string,
 	createdAt time.Time,
 	extras map[string]any,
 ) *session {
@@ -81,7 +75,6 @@ func NewRestoredSession(
 	return &session{
 		id:        id,
 		messages:  messages,
-		summary:   summary,
 		createdAt: createdAt,
 		updatedAt: time.Now(),
 
@@ -162,15 +155,6 @@ func (s *session) ApplyCompletion(completion *agent.Completion) {
 	s.inputTokens = completion.InputTokens
 	s.outputTokens = completion.CompletionTokens
 	s.messages = append(s.messages, agent.NewAgentMessage(completion.Content, completion.ToolCalls))
-}
-
-func (s *session) AddSummary(summary string) {
-	content := fmt.Sprintf("%s/n/n", summary)
-	s.summary += content
-}
-
-func (s *session) Summary() string {
-	return s.summary
 }
 
 func (s *session) OverwriteMessages(inputTokens int64, new []agent.Message) {

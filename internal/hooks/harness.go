@@ -33,12 +33,12 @@ func NewAgentHarness(b cwdBearer, todoStorage todoStorage) (*runtime.Harness, er
 
 	undoneTasks := NewUndoneTodoHook(todoStorage)
 
-	const _10kb = 10
+	const _24kb = 24
 
 	return &runtime.Harness{
 		OnComplete:              runtime.NewHookSet(undoneTasks, &EmptyAnswerHook{}),
 		OnToolCall:              runtime.NewHookSet(&OnlySupportedExtensionsHook{}, accessHook),
-		OnToolCallResultMessage: runtime.NewHookSet(NewContentSizeLimitHook(_10kb)),
+		OnToolCallResultMessage: runtime.NewHookSet(NewContentSizeLimitHook(_24kb)),
 	}, nil
 }
 

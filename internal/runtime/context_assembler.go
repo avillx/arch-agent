@@ -51,12 +51,6 @@ func (a *ContextAssembler) buildContext(
 		a.assembeSystemMessage(agt, sess, tools),
 	}
 
-	// resolve precontext hooks
-	preContextMessages := a.resolvePreContextMessages(agt, sess)
-	if len(preContextMessages) > 0 {
-		contextMessages = append(contextMessages, preContextMessages...)
-	}
-
 	// optimize messsages
 	conversationMessages := sess.Messages()
 	if resolveImageOptimize(model) {
@@ -128,19 +122,6 @@ func (a *ContextAssembler) assembeSystemMessage(agt agent.Agent, sess session.Se
 
 	assembled := strings.Join(completionContext, "\n\n")
 	return agent.NewSystemMessage(assembled)
-}
-
-func (a *ContextAssembler) resolvePreContextMessages(_ agent.Agent, sess session.Session) []agent.Message {
-
-	summary := sess.Summary()
-	if summary == "" {
-		return nil
-	}
-
-	return []agent.Message{
-		agent.NewUserMessage(prompt.SummaryExplanation(summary)),
-		agent.NewAgentMessage("okay i will account it", nil),
-	}
 }
 
 const activityStorageKey = "activity"

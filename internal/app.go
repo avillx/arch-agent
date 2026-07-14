@@ -220,7 +220,7 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 	toolSvc.Connect(
 		"shell",
 		tools.NewBuildInToolServer(
-			shell.NewShellTool(),
+			shell.NewShellTool(fs.Cwd(), cfg.ShellEnv...),
 		),
 	)
 

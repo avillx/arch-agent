@@ -22,17 +22,24 @@ var _ agent.Tool = (*ShellTool)(nil)
 var _ runtime.Instructed = (*ShellTool)(nil)
 
 type ShellTool struct {
-	env []string
+	env        []string
+	defaultCWD string
 }
 
-func NewShellTool(env ...string) *ShellTool {
+func NewShellTool(defaultCWD string, env ...string) *ShellTool {
 	return &ShellTool{
-		env: env,
+		env:        env,
+		defaultCWD: defaultCWD,
 	}
 }
 
 func (t *ShellTool) Name() agent.ToolName {
 	return "shell"
+}
+
+// this is edge timeout, sets in runtime
+func (t *ShellTool) TimeOut() time.Duration {
+	return 15 * time.Minute
 }
 
 func (t *ShellTool) Description() string {
@@ -48,7 +55,8 @@ func (t *ShellTool) Instruction() string {
 - Default timeout: 30s. Set "timeout" for longer operations (builds, tests)
 - Use "cwd" parameter instead of cd within commands
 - Combine operations with pipes, redirections, and heredocs
-- Non-zero exit codes return error info with output; timed-out commands are terminated`
+- Non-zero exit codes return error info with output; timed-out commands are terminated
+- NEVER try to read env directly, just ask user env name if you need one.`
 }
 
 func (t *ShellTool) Schema() any {
@@ -88,9 +96,13 @@ func (t *ShellTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]ag
 
 	cmd := exec.Command(shell, append(shellAttributes, args.Command)...)
 	cmd.Env = append(os.Environ(), t.env...)
-	cmd.Dir = args.Cwd
+	cmd.Dir = t.defaultCWD
 	cmd.SysProcAttr = platformSpecificSysProcAttr()
 	cmd.WaitDelay = waitDelayAfterShellExit
+
+	if args.Cwd != "" {
+		cmd.Dir = args.Cwd
+	}
 
 	var output bytes.Buffer
 	cmd.Stdout = &output

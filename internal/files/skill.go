@@ -5,14 +5,10 @@ import (
 	"arch-agent/internal/runtime"
 	"arch-agent/internal/types"
 	"errors"
-	"fmt"
 	"log/slog"
 	"path"
 	"path/filepath"
-	"strings"
 	"sync"
-
-	"gopkg.in/yaml.v3"
 )
 
 const skillsFolder = "/skills"
@@ -63,6 +59,12 @@ func (f *SkillFiles) GetSkills(agentID agent.ID) ([]agent.SkillFrontmatter, erro
 
 func (f *SkillFiles) loadSkills(p string) ([]agent.SkillFrontmatter, error) {
 
+	type skillFrontmatterDTO struct {
+		ID          string           `yaml:"name"`
+		Description string           `yaml:"description,omitempty"`
+		Tools       []agent.ToolName `yaml:"allowed-tools,omitempty"`
+	}
+
 	entries, err := f.fs.ReadDir(p)
 	if err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
@@ -73,50 +75,25 @@ func (f *SkillFiles) loadSkills(p string) ([]agent.SkillFrontmatter, error) {
 
 	skills := []agent.SkillFrontmatter{}
 	for _, entry := range entries {
-		data, err := f.fs.ReadFile(path.Join(p, entry.Name(), skillFile))
+		skillFilePath := path.Join(p, entry.Name(), skillFile)
+
+		data, err := f.fs.ReadFile(skillFilePath)
 		if err != nil {
 			return nil, err
 		}
 
-		skill, err := resolveSkillFrontmatter(path.Join(p, entry.Name(), skillFile), data)
+		dto, err := resolveFrontmatter[skillFrontmatterDTO](data)
 		if err != nil {
 			slog.Error("loading skills", "error", err, "skill folder", entry)
 			continue
 		}
-		skills = append(skills, skill)
+
+		skills = append(skills, agent.SkillFrontmatter{
+			ID:          dto.ID,
+			Description: dto.Description,
+			StoreHint:   path.Join("./", skillFilePath),
+		})
 	}
 
 	return skills, nil
-}
-
-type skillFrontmatterDTO struct {
-	ID          string           `yaml:"name"`
-	Description string           `yaml:"description,omitempty"`
-	Tools       []agent.ToolName `yaml:"allowed-tools,omitempty"`
-}
-
-func resolveSkillFrontmatter(p string, data []byte) (agent.SkillFrontmatter, error) {
-	const delim = "---"
-	s := strings.ReplaceAll(string(data), "\r\n", "\n")
-
-	after, ok := strings.CutPrefix(s, delim+"\n")
-	if !ok {
-		return agent.SkillFrontmatter{}, fmt.Errorf("skill file must start with ---")
-	}
-
-	fmEnd := strings.Index(after, "\n"+delim)
-	if fmEnd == -1 {
-		return agent.SkillFrontmatter{}, fmt.Errorf("unclosed frontmatter")
-	}
-
-	var dto skillFrontmatterDTO
-	if err := yaml.Unmarshal([]byte(after[:fmEnd]), &dto); err != nil {
-		return agent.SkillFrontmatter{}, err
-	}
-
-	return agent.SkillFrontmatter{
-		ID:          dto.ID,
-		Description: dto.Description,
-		StoreHint:   p,
-	}, nil
 }

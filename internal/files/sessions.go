@@ -82,7 +82,6 @@ type SessionHeaderDTO struct {
 	OutputTokens int64          `json:"output_tokens"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
-	Summary      string         `json:"summary"`
 	Extras       map[string]any `json:"extras"`
 }
 
@@ -96,7 +95,6 @@ func marshalSession(s session.Session) ([]byte, error) {
 		OutputTokens: s.OutputTokens(),
 		CreatedAt:    s.CreatedAt(),
 		UpdatedAt:    s.UpdatedAt(),
-		Summary:      s.Summary(),
 		Extras:       s.Extras(),
 	}); err != nil {
 		return nil, err
@@ -146,7 +144,6 @@ func dtoToSession(sessionID session.ID, headerDTO SessionHeaderDTO, messagesDTO 
 		msgs,
 		headerDTO.InputTokens,
 		headerDTO.OutputTokens,
-		headerDTO.Summary,
 		headerDTO.CreatedAt,
 		headerDTO.Extras,
 	), nil
