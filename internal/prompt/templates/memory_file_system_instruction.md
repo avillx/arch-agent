@@ -1,2 +1,1 @@
-[Memory index](./{{ .Agent }}/memory/INDEX.md) - already loaded, no need to read (access denied)
-[Memory](./{{ .Agent }}/memory/) - your actual memory files, load when referenced (read-only)
+[Memory](./{{ .Agent }}/memory/) - Your actual memory files, no need to read this directory, index is already loaded

@@ -81,6 +81,7 @@ All memory stores in `/agent/data/...`
 ### TODO
 **alpha v0.7**
 - [X] sub agent call stack limit
+- [ ] summary as first message
 - [ ] search_files issue (glob/grep divide?)
 - [ ] runtime fallback models pool
 - [ ] runtime toolcall loop detection

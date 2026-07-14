@@ -100,6 +100,7 @@ func BuildMemoryConsolidator(
 	modelRepo agent.ModelRepository,
 	agentRepo agent.Repo,
 	additionalTools []agent.Tool,
+	indexer runtime.MemoryIndexer,
 ) (*memory.Memory, error) {
 
 	fsTools := []agent.Tool{
@@ -122,7 +123,7 @@ func BuildMemoryConsolidator(
 		rt,
 		append(fsTools, additionalTools...),
 		consolidatorModel,
-		hooks.NewMemoryHarness(fs, todoStorage),
+		hooks.NewMemoryHarness(fs, todoStorage, indexer),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("memory consolidator: %w", err)
@@ -159,7 +160,8 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 	observer := runtime.NewObserver(observerModel, activityRepo)
 
 	skillFiles := files.NewSkillFiles(fs)
-	contextAssembler := runtime.NewContextAssembler(skillFiles, activityRepo, files.NewMemoryFiles(fs))
+	memoryFiles := files.NewMemoryFiles(fs)
+	contextAssembler := runtime.NewContextAssembler(skillFiles, activityRepo, memoryFiles)
 	rt := runtime.NewAgentRuntime(observer, contextAssembler)
 
 	toolSvc := tools.NewService()
@@ -249,7 +251,15 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		return nil, err
 	}
 
-	memoryConsolidator, err := BuildMemoryConsolidator(fs, rt, todoStorage, modelRepo, agentRepo, todoTools.Tools())
+	memoryConsolidator, err := BuildMemoryConsolidator(
+		fs,
+		rt,
+		todoStorage,
+		modelRepo,
+		agentRepo,
+		todoTools.Tools(),
+		memoryFiles,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -2,6 +2,7 @@ package hooks
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"arch-agent/internal/tools"
 	fstools "arch-agent/internal/tools/fs"
@@ -320,4 +321,32 @@ func (h *OnlySupportedExtensionsHook) Apply(
 	}
 
 	return tc, nil
+}
+
+type OnlyValidMemoryFrontmatterHook struct {
+	indexer runtime.MemoryIndexer
+}
+
+func (h *OnlyValidMemoryFrontmatterHook) Apply(
+	_ session.ID,
+	agt agent.Agent,
+	c *agent.Completion,
+) (*agent.Completion, error) {
+
+	if !c.Done {
+		return c, nil
+	}
+
+	if _, err := h.indexer.MemoryIndex(agt.ID()); err != nil {
+		if joinedErrs, ok := err.(interface{ Unwrap() []error }); ok {
+			var sb strings.Builder
+			for _, e := range joinedErrs.Unwrap() {
+				sb.WriteString(e.Error())
+			}
+			c.Done = false
+			return c, types.NewAgentMistakeError(sb.String())
+		}
+	}
+
+	return c, nil
 }

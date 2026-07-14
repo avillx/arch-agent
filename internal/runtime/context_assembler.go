@@ -18,7 +18,7 @@ type SkillRepo interface {
 }
 
 type MemoryIndexer interface {
-	GetMemoryIndex(agent.ID) (string, error)
+	MemoryIndex(agent.ID) (string, error)
 }
 
 type ContextAssembler struct {
@@ -106,17 +106,24 @@ func (a *ContextAssembler) assembeSystemMessage(agt agent.Agent, sess session.Se
 	// Memory
 	if agt.HasMemory() {
 		// load persistent memory prompt
-		idx, err := a.memoryIndexer.GetMemoryIndex(agt.ID())
+		idx, err := a.memoryIndexer.MemoryIndex(agt.ID())
 		if err != nil {
-			slog.Error("memory index is not reached", "error", err)
-		} else {
-			activity := a.resolveActivity(agt, sess)
-			if activity == "" {
-				activity = "you has no activity at last 24h"
+			if joinedErrs, ok := err.(interface{ Unwrap() []error }); ok {
+				errs := joinedErrs.Unwrap()
+				for _, e := range errs {
+					slog.Error("memory index", "agent", agt.ID(), "error", e)
+				}
+			} else {
+				slog.Error("memory index is not reached", "agent", agt.ID(), "error", err)
 			}
-			activity = strings.TrimSuffix(activity, "\n")
-			completionContext = append(completionContext, prompt.PersistentMemory(agt.ID(), idx, activity))
 		}
+
+		activity := a.resolveActivity(agt, sess)
+		if activity == "" {
+			activity = "you has no activity at last 24h"
+		}
+		activity = strings.TrimSuffix(activity, "\n")
+		completionContext = append(completionContext, prompt.PersistentMemory(agt.ID(), idx, activity))
 	}
 
 	assembled := strings.Join(completionContext, "\n\n")
