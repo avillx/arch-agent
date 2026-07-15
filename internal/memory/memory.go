@@ -69,13 +69,20 @@ func (m *Memory) consolidateMemoryFor(ctx context.Context, agt agent.Agent) erro
 
 	return m.runtime.RunStream(
 		ctx,
-		m.model,
-		m.buildConsolidationAgent(agt),
-		m.tools,
-		m.createMemorizationSession(agt.ID()),
-		evCh,
-		false,
-		m.harness,
+		runtime.RunStramRequest{
+			Model:   m.model,
+			Tools:   m.tools,
+			Sess:    m.createMemorizationSession(agt.ID()),
+			Agent:   resolveConsolidationAgent(agt),
+			EvCh:    evCh,
+			Harness: m.harness,
+			BuildContextRequest: runtime.BuildContextRequest{
+				IncludeMemory:       true,
+				IncludeSkills:       false,
+				AllowOptimizeImages: false,
+				AddInstuctions:      true,
+			},
+		},
 	)
 }
 
@@ -128,7 +135,7 @@ func (m *Memory) Run(ctx context.Context) {
 	}
 }
 
-func (m *Memory) buildConsolidationAgent(agt agent.Agent) agent.Agent {
+func resolveConsolidationAgent(agt agent.Agent) agent.Agent {
 	return agent.NewAgent(
 		agt.ID(),
 		"",
@@ -136,7 +143,7 @@ func (m *Memory) buildConsolidationAgent(agt agent.Agent) agent.Agent {
 		agt.Model(),
 		[]agent.ToolName{},
 		nil,
-		false,
+		true,
 	)
 }
 
