@@ -83,7 +83,7 @@ func (s *Service) Call(
 	}
 
 	// tools
-	tools, err := s.toolRepo.GetServerTools(agt.ToolServers())
+	toolServers, err := s.toolRepo.ToolServers(agt.ToolServers()...)
 	if err != nil {
 		if err := types.DistillErrNotExist(fmt.Sprintf("subagent %s", subAgentID), err); err != nil {
 			return "", err
@@ -104,12 +104,12 @@ func (s *Service) Call(
 	err = s.rt.RunStream(
 		ctx,
 		runtime.RunStramRequest{
-			Model:   model,
-			Tools:   tools,
-			Sess:    sess,
-			Agent:   agt,
-			EvCh:    evCh,
-			Harness: s.harness,
+			Model:       model,
+			ToolServers: toolServers,
+			Sess:        sess,
+			Agent:       agt,
+			EvCh:        evCh,
+			Harness:     s.harness,
 			BuildContextRequest: runtime.BuildContextRequest{
 				IncludeMemory:       true,
 				IncludeSkills:       true,

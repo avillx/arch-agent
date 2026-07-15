@@ -213,11 +213,11 @@ func unmarshalArgs(data agent.ToolArguments, v interface{}) error {
 	return nil
 }
 
-func mcpListRepr(servers []*mcp.MCPServer) string {
+func mcpListRepr(servers []mcp.MCPServer) string {
 	var sb strings.Builder
 
 	for _, s := range servers {
-		fmt.Fprintf(&sb, "Server: %s\n\n", s.ID)
+		fmt.Fprintf(&sb, "Server: %s\n\n", s.ID())
 	}
 	return sb.String()
 }

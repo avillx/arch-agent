@@ -5,6 +5,7 @@ import (
 	"arch-agent/internal/chat"
 	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
+	"arch-agent/internal/tools"
 	"context"
 	"errors"
 	"fmt"
@@ -129,21 +130,22 @@ func (b *Bot) handleMessage(ctx context.Context, message *tgbotapi.Message) erro
 	}
 
 	// add provided sticker tools
-	tools := []agent.Tool{}
+	provdedToolServers := []agent.ToolServer{}
 	if len(b.stickerMap) > 0 {
-		tools = append(tools, NewSendStickerTool(b, message.From.ID))
+		toolServer := tools.NewBuildInToolServer(&SendStickerTool{bot: b, chatID: message.From.ID})
+		provdedToolServers = append(provdedToolServers, toolServer)
 	}
 
 	// Process message through chat service
 	err := b.chatSvc.Chat(
 		ctx,
 		chat.Request{
-			AgentID:       b.agentID,
-			SessionID:     b.sessionID,
-			UserMessage:   toMessage(b, message),
-			Reader:        eventReader,
-			ProvidedTools: tools,
-			Logging:       true,
+			AgentID:             b.agentID,
+			SessionID:           b.sessionID,
+			UserMessage:         toMessage(b, message),
+			Reader:              eventReader,
+			ProvidedToolServers: provdedToolServers,
+			Logging:             true,
 		},
 	)
 

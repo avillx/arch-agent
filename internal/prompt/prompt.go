@@ -16,11 +16,6 @@ var summarizationAgentRaw string
 
 func SummarizationAgent() string { return summarizationAgentRaw }
 
-//go:embed templates/consolidation.md
-var consolidationRaw string
-
-func Consolidation() string { return consolidationRaw }
-
 //go:embed templates/report_system.md
 var reportSystemRaw string
 
@@ -51,7 +46,21 @@ var subAgentCallStackOverflowRaw string
 
 func SubAgentCallStackOverflowCaution() string { return subAgentCallStackOverflowRaw }
 
-//go:embed templates/consolidate_memory.md
+//go:embed templates/consolidation_fs_instruction.md
+var consolidationFSinstructionRaw string
+var consolidationFSinstructionTempl = template.Must(template.New("consolidate_fs_inst").Parse(consolidationFSinstructionRaw))
+
+func ConsolidationFSInstruction(cwd string, agentID agent.ID) string {
+
+	vars := map[string]any{
+		"Agent": agentID,
+		"Cwd":   cwd,
+	}
+
+	return mustExecute(consolidateMemoryTmpl, vars)
+}
+
+//go:embed templates/consolidator.md
 var consolidateMemoryRaw string
 var consolidateMemoryTmpl = template.Must(template.New("consolidate_memory").Parse(consolidateMemoryRaw))
 

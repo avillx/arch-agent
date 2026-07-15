@@ -13,13 +13,6 @@ type SendStickerTool struct {
 	chatID int64
 }
 
-func NewSendStickerTool(b *Bot, chatID int64) *SendStickerTool {
-	return &SendStickerTool{
-		bot:    b,
-		chatID: chatID,
-	}
-}
-
 func (t *SendStickerTool) Instruction() string {
 	return `## Stickers:
 - Use stickers for immersive, expressive chatting.

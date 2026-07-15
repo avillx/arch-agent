@@ -12,23 +12,39 @@ import (
 	"time"
 )
 
+type InstructedFSServer struct {
+	agent.ToolServer
+	cwd string
+}
+
+func NewInstuctFS(cwd string, srv agent.ToolServer) *InstructedFSServer {
+	return &InstructedFSServer{
+		ToolServer: srv,
+		cwd:        cwd,
+	}
+}
+
+func (r *InstructedFSServer) AgentInstruction(agt agent.Agent) string {
+	return prompt.ConsolidationFSInstruction(r.cwd, agt.ID())
+}
+
 type Memory struct {
-	agentRepo agent.Repo
-	runtime   *runtime.AgentRuntime
-	tools     []agent.Tool
-	model     agent.Model
-	harness   *runtime.Harness
+	agentRepo  agent.Repo
+	runtime    *runtime.AgentRuntime
+	toolServer []agent.ToolServer
+	model      agent.Model
+	harness    *runtime.Harness
 }
 
 func NewMemory(
 	agentRepo agent.Repo,
 	runtime *runtime.AgentRuntime,
-	tools []agent.Tool,
+	toolServer []agent.ToolServer,
 	model agent.Model,
 	harness *runtime.Harness,
 ) (*Memory, error) {
 
-	if !(len(tools) > 0) {
+	if !(len(toolServer) > 0) {
 		return nil, fmt.Errorf("no tools for managing memory")
 	}
 
@@ -45,11 +61,11 @@ func NewMemory(
 	}
 
 	return &Memory{
-		model:     model,
-		agentRepo: agentRepo,
-		runtime:   runtime,
-		tools:     tools,
-		harness:   harness,
+		model:      model,
+		agentRepo:  agentRepo,
+		runtime:    runtime,
+		toolServer: toolServer,
+		harness:    harness,
 	}, nil
 }
 
@@ -70,12 +86,12 @@ func (m *Memory) consolidateMemoryFor(ctx context.Context, agt agent.Agent) erro
 	return m.runtime.RunStream(
 		ctx,
 		runtime.RunStramRequest{
-			Model:   m.model,
-			Tools:   m.tools,
-			Sess:    m.createMemorizationSession(agt.ID()),
-			Agent:   resolveConsolidationAgent(agt),
-			EvCh:    evCh,
-			Harness: m.harness,
+			Model:       m.model,
+			ToolServers: m.toolServer,
+			Sess:        m.createMemorizationSession(agt.ID()),
+			Agent:       resolveConsolidationAgent(agt),
+			EvCh:        evCh,
+			Harness:     m.harness,
 			BuildContextRequest: runtime.BuildContextRequest{
 				IncludeMemory:       true,
 				IncludeSkills:       false,
