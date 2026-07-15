@@ -11,13 +11,13 @@ import (
 )
 
 type Request struct {
-	AgentID       agent.ID
-	SessionID     session.ID
-	UserMessage   *agent.UserMessage
-	Reader        runtime.EventReader
-	ProvidedTools []agent.Tool
-	Logging       bool
-	Additional    string
+	AgentID             agent.ID
+	SessionID           session.ID
+	UserMessage         *agent.UserMessage
+	Reader              runtime.EventReader
+	ProvidedToolServers []agent.ToolServer
+	Logging             bool
+	Additional          string
 }
 
 // request executor
@@ -74,15 +74,15 @@ func (s *executor) chat(
 	}
 
 	// tools
-	tools, err := s.toolRegistry.GetServerTools(agt.ToolServers())
+	toolServers, err := s.toolRegistry.ToolServers(agt.ToolServers()...)
 	if err != nil {
 		if err := types.DistillErrNotExist(fmt.Sprintf("agent %s", err), err); err != nil {
 			return err
 		}
 	}
 
-	if r.ProvidedTools != nil {
-		tools = append(tools, r.ProvidedTools...)
+	if r.ProvidedToolServers != nil {
+		toolServers = append(toolServers, r.ProvidedToolServers...)
 	}
 	// sink
 	evCh := make(chan runtime.Event, 16)
@@ -92,7 +92,7 @@ func (s *executor) chat(
 		ctx,
 		runtime.RunStramRequest{
 			Model:       model,
-			Tools:       tools,
+			ToolServers: toolServers,
 			Sess:        sess,
 			Agent:       agt,
 			EvCh:        evCh,
