@@ -159,8 +159,6 @@ func (e toolCallResultEvent) Result() *agent.ToolResult {
 	return e.result
 }
 
-//
-
 type ErrToolCallEvent struct {
 	baseEvent
 	err error

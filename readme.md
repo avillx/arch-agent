@@ -81,22 +81,27 @@ All memory stores in `/agent/data/...`
 ### TODO
 **alpha v0.7**
 - [X] sub agent call stack limit
-- [ ] summary as first message
+- [X] summary as first message
 - [ ] search_files issue (glob/grep divide?)
 - [ ] runtime fallback models pool
 - [ ] runtime toolcall loop detection
 - [ ] runtime reorganize for simplicity and robustness
 - [ ] runtime observability issues
-- [ ] Services proto, services managing funcs 
-  chat svc * session svc * agent repo * models svc * mcp svc * activity handling * tools svc * memory consolidator
-- [ ] API endpints
+- [X] (API) chat svc 
+- [X] (API) session svc 
+- [-] (API) agent repo 
+- [-] (API) models svc 
+- [ ] (API) mcp svc 
+- [-] (API) activity handling  
+- [-] (API) tools svc 
+- [ ] (API) memory consolidator
 - [ ] API specefication (OpenAPI)
 - [ ] exclude telegram integration
 
-
 **v1**
+- [ ] advanced error handling and messages
 - [ ] eliminate edge case vulnurabilities for every package
-- [ ] schemes on tasks,models,mcp_servers
+- [ ] schemes on tasks, models, mcp_servers
 - [ ] add doc's
 - [ ] add tests
 - [ ] add validations

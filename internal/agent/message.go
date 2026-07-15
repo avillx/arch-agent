@@ -24,8 +24,8 @@ type Message interface {
 }
 
 type ContentPart struct {
-	Text     string
-	ImageURL string
+	Text     string `json:"text"`
+	ImageURL string `json:"image_url"`
 	// InputAudio
 	// File
 }
