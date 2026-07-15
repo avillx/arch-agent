@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-var _ ToolServer = (*BuildInToolServer)(nil)
+var _ agent.ToolServer = (*BuildInToolServer)(nil)
 
 type BuildInToolServer struct {
 	tools []agent.Tool

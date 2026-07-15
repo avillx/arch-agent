@@ -8,25 +8,32 @@ import (
 	"sync"
 )
 
-type ToolServer interface {
-	Tools() []agent.Tool
-}
-
-type DynamicToolServer interface {
-	OnToolsChanged(func() error)
-	OnDisconnect(func())
-}
-
 type Service struct {
-	servers map[string]ToolServer
+	servers map[string]agent.ToolServer
 
 	mu sync.RWMutex
 }
 
 func NewService() *Service {
 	return &Service{
-		servers: make(map[string]ToolServer),
+		servers: make(map[string]agent.ToolServer),
 	}
+}
+
+func (s *Service) ToolServers(names ...string) ([]agent.ToolServer, error) {
+
+	// validate exisntence
+	errs := []error{}
+	servers := []agent.ToolServer{}
+	for _, n := range names {
+		if srv, ok := s.servers[n]; ok {
+			servers = append(servers, srv)
+			continue
+		}
+		errs = append(errs, fmt.Errorf("tool service: %s : %w", n, types.ErrIsNotExist))
+	}
+
+	return servers, errors.Join(errs...)
 }
 
 func (s *Service) GetServerTools(servers []string) ([]agent.Tool, error) {
@@ -46,7 +53,7 @@ func (s *Service) GetServerTools(servers []string) ([]agent.Tool, error) {
 	return tools, errors.Join(errs...)
 }
 
-func (s *Service) Connect(serverName string, server ToolServer) error {
+func (s *Service) Connect(serverName string, server agent.ToolServer) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -62,13 +69,9 @@ func (s *Service) Disconnect(serverName string) error {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	srv, ok := s.servers[serverName]
+	_, ok := s.servers[serverName]
 	if !ok {
 		return fmt.Errorf("server %s not connected", serverName)
-	}
-
-	if _, ok := srv.(DynamicToolServer); !ok {
-		return fmt.Errorf("server `%s` can't be disconnected", serverName)
 	}
 
 	delete(s.servers, serverName)

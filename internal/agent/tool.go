@@ -16,6 +16,11 @@ const (
 
 type ToolRegistry interface {
 	GetServerTools([]string) ([]Tool, error)
+	ToolServers(...string) ([]ToolServer, error)
+}
+
+type ToolServer interface {
+	Tools() []Tool
 }
 
 type ToolProperty struct {
