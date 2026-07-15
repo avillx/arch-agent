@@ -22,7 +22,7 @@ type ConfigRepo interface {
 type Service struct {
 	toolSvc    *tools.Service
 	configRepo ConfigRepo
-	servers    map[MCPServerID]*MCPServer
+	servers    map[MCPServerID]MCPServer
 	mu         sync.RWMutex
 }
 
@@ -30,7 +30,7 @@ func NewService(ctx context.Context, toolSvc *tools.Service, repo ConfigRepo) (*
 	s := &Service{
 		toolSvc:    toolSvc,
 		configRepo: repo,
-		servers:    make(map[MCPServerID]*MCPServer),
+		servers:    make(map[MCPServerID]MCPServer),
 	}
 
 	cfgs, err := s.configRepo.Load()
@@ -99,7 +99,7 @@ func (s *Service) loadServers(ctx context.Context, cfgs []ServerGatewayConfig) e
 	return errors.Join(errs...)
 }
 
-func (s *Service) List() []*MCPServer {
+func (s *Service) List() []MCPServer {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -112,22 +112,22 @@ func (s *Service) Connect(ctx context.Context, cfg ServerGatewayConfig) (MCPServ
 		return "", fmt.Errorf("mcp: server initialization: %w", err)
 	}
 
-	if err := s.ensureServerUnique(srv.ID); err != nil {
+	if err := s.ensureServerUnique(srv.ID()); err != nil {
 		return "", err
 	}
 
-	if err := s.configRepo.Save(srv.ID, gatewayToConfig(srv.gateway)); err != nil {
+	if err := s.configRepo.Save(srv.ID(), gatewayToConfig(srv.Gateway())); err != nil {
 		return "", err
 	}
 
 	// connect to tool service
-	if err := s.toolSvc.Connect(string(srv.ID), srv); err != nil {
+	if err := s.toolSvc.Connect(string(srv.ID()), srv); err != nil {
 		return "", fmt.Errorf("mcp: register tools: %w", err)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.servers[srv.ID] = srv
+	s.servers[srv.ID()] = srv
 
 	go func() {
 		// blocking
@@ -136,19 +136,19 @@ func (s *Service) Connect(ctx context.Context, cfg ServerGatewayConfig) (MCPServ
 		}
 		slog.Info("mcp server disconnected", "server", srv.ID, "error", err)
 
-		if err := s.toolSvc.Disconnect(string(srv.ID)); err != nil {
+		if err := s.toolSvc.Disconnect(string(srv.ID())); err != nil {
 			slog.Error("mcp disconnection", "error", err)
 		}
 
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
-		if storedSrv, ok := s.servers[srv.ID]; ok && storedSrv == srv {
-			delete(s.servers, srv.ID)
+		if storedSrv, ok := s.servers[srv.ID()]; ok && storedSrv == srv {
+			delete(s.servers, srv.ID())
 		}
 	}()
 
-	return srv.ID, nil
+	return srv.ID(), nil
 }
 
 func (s *Service) Disconnect(id MCPServerID) error {
@@ -172,7 +172,7 @@ func (s *Service) ensureServerUnique(id MCPServerID) error {
 	defer s.mu.RUnlock()
 
 	for _, srv := range s.servers {
-		if srv.ID == id {
+		if srv.ID() == id {
 			return fmt.Errorf("mcp: server %s: %w", id, types.ErrAlreadyExist)
 		}
 	}

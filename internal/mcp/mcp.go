@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/tools"
 	"arch-agent/internal/types"
 	"context"
 	"fmt"
@@ -17,7 +16,7 @@ const healthInterval = 30 * time.Second
 
 type MCPServerID string
 
-var _ tools.ToolServer = (*MCPServer)(nil)
+var _ agent.ToolServer = (MCPServer)(nil)
 
 type ServerGatewayConfig struct {
 	HTTPGateway    *HTTPGatewayConfig    `json:"http_gateway,omitempty"`
@@ -62,8 +61,25 @@ type gateway interface {
 	createSession(context.Context) (*mcp.ClientSession, error)
 }
 
-type MCPServer struct {
-	ID          MCPServerID
+type MCPServer interface {
+	ID() MCPServerID
+	Gateway() gateway
+	Run(ctx context.Context) error
+	Shutdown()
+	agent.ToolServer
+}
+
+type mcpServerInstructed struct {
+	*mcpServer
+	instruction string
+}
+
+func (t *mcpServerInstructed) Instruction() string {
+	return fmt.Sprintf("## %s\n%s", t.id, t.instruction)
+}
+
+type mcpServer struct {
+	id          MCPServerID
 	Instruction string
 
 	tools      []agent.Tool
@@ -73,7 +89,10 @@ type MCPServer struct {
 	mu sync.Mutex
 }
 
-func NewMCPServer(ctx context.Context, cfg ServerGatewayConfig) (*MCPServer, error) {
+func (s *mcpServer) ID() MCPServerID  { return s.id }
+func (s *mcpServer) Gateway() gateway { return s.gateway }
+
+func NewMCPServer(ctx context.Context, cfg ServerGatewayConfig) (MCPServer, error) {
 
 	if err := validateConfig(cfg); err != nil {
 		return nil, err
@@ -101,17 +120,27 @@ func NewMCPServer(ctx context.Context, cfg ServerGatewayConfig) (*MCPServer, err
 		return nil, fmt.Errorf("has no server info")
 	}
 
-	return &MCPServer{
-		ID: MCPServerID(serverInfo.Name),
+	if initResult.Instructions != "" {
+		return &mcpServerInstructed{
+			mcpServer: &mcpServer{
+				id:      MCPServerID(serverInfo.Name),
+				gateway: g,
+			},
+			instruction: initResult.Instructions,
+		}, nil
+	}
+
+	return &mcpServer{
+		id: MCPServerID(serverInfo.Name),
 		// Instruction: initResult.Instructions,
 		gateway: g,
 	}, nil
 }
 
-func (s *MCPServer) Tools() []agent.Tool { return s.tools }
+func (s *mcpServer) Tools() []agent.Tool { return s.tools }
 
 // blocking
-func (s *MCPServer) Run(ctx context.Context) error {
+func (s *mcpServer) Run(ctx context.Context) error {
 
 	sess, err := s.gateway.createSession(ctx)
 	if err != nil {
@@ -138,7 +167,7 @@ func (s *MCPServer) Run(ctx context.Context) error {
 	return sess.Wait()
 }
 
-func (s *MCPServer) Shutdown() {
+func (s *mcpServer) Shutdown() {
 	close(s.shutdownCh)
 }
 
