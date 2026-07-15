@@ -23,10 +23,12 @@ const (
 	PageCharsHardLimit = 32_000
 )
 
+func NewFetchToolServer() *tools.BuildInToolServer {
+	return tools.NewBuildInToolServer(&FetchTool{})
+}
+
 // getAgents
 type FetchTool struct{}
-
-func NewFetchTool() *FetchTool { return &FetchTool{} }
 
 func (t *FetchTool) Name() agent.ToolName {
 	return "fetch"

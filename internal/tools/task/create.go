@@ -12,12 +12,6 @@ type AddTaskTool struct {
 	taskSvc *task.Service
 }
 
-func NewAddTaskTool(s *task.Service) *AddTaskTool {
-	return &AddTaskTool{
-		taskSvc: s,
-	}
-}
-
 func (t *AddTaskTool) Name() agent.ToolName {
 	return "create_task"
 }

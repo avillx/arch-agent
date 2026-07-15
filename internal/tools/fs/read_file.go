@@ -14,10 +14,6 @@ type ReadFileTool struct {
 	fs *files.FileSystem
 }
 
-func NewReadFileTool(fs *files.FileSystem) *ReadFileTool {
-	return &ReadFileTool{fs: fs}
-}
-
 func (t *ReadFileTool) Name() agent.ToolName { return "read_file" }
 
 func (t *ReadFileTool) Description() string {

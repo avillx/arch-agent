@@ -8,6 +8,27 @@ import (
 	"strings"
 )
 
+type TodoToolServer struct {
+	*tools.BuildInToolServer
+}
+
+func NewTodoToolServer(todoStorage Store) *TodoToolServer {
+	return &TodoToolServer{
+		BuildInToolServer: tools.NewBuildInToolServer(
+			&CreateTodoTool{Store: todoStorage},
+			&ListTodoTool{Store: todoStorage},
+			&UpdateTodoTool{Store: todoStorage},
+		),
+	}
+}
+
+func (t *TodoToolServer) Instruction() string {
+	return `## Todo managment:
+When your task is too complex create a plan with todo list and follow it step by step
+Use create_todo to plan steps before starting a multistep task.
+Keep titles short and action-oriented.`
+}
+
 type Status string
 
 const (
@@ -39,13 +60,6 @@ type CreateTodoTool struct{ Store Store }
 
 func (t *CreateTodoTool) Name() agent.ToolName { return "create_todo" }
 func (t *CreateTodoTool) Description() string  { return "Create one or more todos" }
-
-func (t *CreateTodoTool) Instruction() string {
-	return `## Todo managment:
-When your task is too complex create a plan with todo list and follow it step by step
-Use create_todo to plan steps before starting a multistep task.
-Keep titles short and action-oriented.`
-}
 
 func (t *CreateTodoTool) Schema() any {
 	return []agent.ToolProperty{

@@ -4,6 +4,7 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/files"
 	"arch-agent/internal/prompt"
+	"arch-agent/internal/tools"
 	"arch-agent/internal/types"
 	"errors"
 	"fmt"
@@ -12,16 +13,40 @@ import (
 	"strings"
 )
 
-type instrucredRead struct {
-	*ReadFileTool
+type FileSystemToolServer struct {
+	*tools.BuildInToolServer
+	fs *files.FileSystem
 }
 
-func (r *instrucredRead) AgentInstruction(agt agent.Agent) string {
+func NewFileSystemToolServer(fs *files.FileSystem) *FileSystemToolServer {
+	return &FileSystemToolServer{
+		fs: fs,
+		BuildInToolServer: tools.NewBuildInToolServer(
+			&DeleteTool{fs: fs},
+			&EditFileTool{fs: fs},
+			&MoveFileTool{fs: fs},
+			&ListDirTool{fs: fs},
+			&ReadFileTool{fs: fs},
+			&SearchFilesTool{fs: fs},
+			&WriteFileTool{fs: fs},
+		),
+	}
+}
+
+func NewRawFileSystemToolServer(fs *files.FileSystem) *tools.BuildInToolServer {
+	return tools.NewBuildInToolServer(
+		&DeleteTool{fs: fs},
+		&EditFileTool{fs: fs},
+		&MoveFileTool{fs: fs},
+		&ListDirTool{fs: fs},
+		&ReadFileTool{fs: fs},
+		&SearchFilesTool{fs: fs},
+		&WriteFileTool{fs: fs},
+	)
+}
+
+func (r *FileSystemToolServer) AgentInstruction(agt agent.Agent) string {
 	return prompt.FileSystemInstruction(r.fs.Cwd(), agt.ID(), agt.HasMemory())
-}
-
-func WithInstruction(t *ReadFileTool) *instrucredRead {
-	return &instrucredRead{ReadFileTool: t}
 }
 
 func matchLines(agentPath, content, query string, limit int) []string {

@@ -12,12 +12,6 @@ type DeleteTasksTool struct {
 	taskSvc *task.Service
 }
 
-func NewDeleteTasksTool(s *task.Service) *DeleteTasksTool {
-	return &DeleteTasksTool{
-		taskSvc: s,
-	}
-}
-
 func (t *DeleteTasksTool) Name() agent.ToolName {
 	return "delete_task"
 }

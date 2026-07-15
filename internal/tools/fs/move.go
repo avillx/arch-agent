@@ -12,10 +12,6 @@ type MoveFileTool struct {
 	fs *files.FileSystem
 }
 
-func NewMoveFileTool(fs *files.FileSystem) *MoveFileTool {
-	return &MoveFileTool{fs: fs}
-}
-
 func (t *MoveFileTool) Name() agent.ToolName { return "move_file" }
 func (t *MoveFileTool) Description() string {
 	return "move or rename a file from src to dst"

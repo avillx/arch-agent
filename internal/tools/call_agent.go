@@ -2,7 +2,6 @@ package tools
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/runtime"
 	"arch-agent/internal/subagent"
 	"arch-agent/internal/types"
 	"context"
@@ -13,21 +12,23 @@ import (
 	"time"
 )
 
-var _ runtime.PerAgentInstructed = (*CallAgentTool)(nil)
-
-type CallAgentTool struct {
-	subagentSvc *subagent.Service
-	agentRepo   agent.Repo
+type CallAgentToolServer struct {
+	*BuildInToolServer
+	agentRepo agent.Repo
 }
 
-func NewCallAgentTool(s *subagent.Service, agentRepo agent.Repo) *CallAgentTool {
-	return &CallAgentTool{
-		subagentSvc: s,
-		agentRepo:   agentRepo,
+func NewCallAgentToolServer(s *subagent.Service, agentRepo agent.Repo) *CallAgentToolServer {
+	return &CallAgentToolServer{
+		agentRepo: agentRepo,
+		BuildInToolServer: NewBuildInToolServer(
+			&CallAgentTool{
+				subagentSvc: s,
+			},
+		),
 	}
 }
 
-func (t *CallAgentTool) AgentInstruction(agt agent.Agent) string {
+func (t *CallAgentToolServer) AgentInstruction(agt agent.Agent) string {
 	const instruction = `## Call Agents:
 You can call another agent as sub agent for delegateing task 
 to other agent with diffirent capabilities.
@@ -60,6 +61,10 @@ then agent need full request with clarificaton again.
 	}
 
 	return sb.String()
+}
+
+type CallAgentTool struct {
+	subagentSvc *subagent.Service
 }
 
 func (t *CallAgentTool) Name() agent.ToolName {

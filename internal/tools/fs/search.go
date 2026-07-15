@@ -15,10 +15,6 @@ type SearchFilesTool struct {
 	fs *files.FileSystem
 }
 
-func NewSearchFilesTool(fs *files.FileSystem) *SearchFilesTool {
-	return &SearchFilesTool{fs: fs}
-}
-
 func (t *SearchFilesTool) Instruction() string {
 	return `## Search files:
 - Use short, specific terms — function names, identifiers, keywords.

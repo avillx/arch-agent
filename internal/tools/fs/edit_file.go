@@ -11,16 +11,7 @@ import (
 )
 
 type EditFileTool struct {
-	fs   *files.FileSystem
-	repo agent.Repo
-}
-
-func NewEditFileTool(
-	fs *files.FileSystem,
-) *EditFileTool {
-	return &EditFileTool{
-		fs: fs,
-	}
+	fs *files.FileSystem
 }
 
 func (t *EditFileTool) Name() agent.ToolName { return "edit_file" }

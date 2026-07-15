@@ -15,12 +15,6 @@ type GetTasksTool struct {
 	taskSvc *task.Service
 }
 
-func NewGetTasksTool(s *task.Service) *GetTasksTool {
-	return &GetTasksTool{
-		taskSvc: s,
-	}
-}
-
 func (t *GetTasksTool) Name() agent.ToolName {
 	return "get_tasks"
 }

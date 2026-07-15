@@ -12,14 +12,6 @@ type ListDirTool struct {
 	fs *files.FileSystem
 }
 
-func NewListDirTool(
-	fs *files.FileSystem,
-) *ListDirTool {
-	return &ListDirTool{
-		fs: fs,
-	}
-}
-
 func (t *ListDirTool) Name() agent.ToolName { return "read_dir" }
 
 func (t *ListDirTool) Description() string {

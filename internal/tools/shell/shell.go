@@ -2,7 +2,6 @@ package shell
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/runtime"
 	"arch-agent/internal/tools"
 	"bytes"
 	"cmp"
@@ -18,19 +17,39 @@ import (
 
 var defaultTimeout = 30 * time.Second
 
+type ShellToolServer struct {
+	*tools.BuildInToolServer
+}
+
+func NewShellToolServer(defaultCWD string, env ...string) *ShellToolServer {
+	return &ShellToolServer{
+		BuildInToolServer: tools.NewBuildInToolServer(
+			&ShellTool{
+				env:        env,
+				defaultCWD: defaultCWD,
+			},
+		),
+	}
+}
+
+func (t *ShellToolServer) Instruction() string {
+	return `## Shell Tool
+
+- Current OS is "` + rt.GOOS + `." 
+- Your shell is "` + shell + `"
+- Each call runs in a fresh shell session — no state persists between calls
+- Default timeout: 30s. Set "timeout" for longer operations (builds, tests)
+- Use "cwd" parameter instead of cd within commands
+- Combine operations with pipes, redirections, and heredocs
+- Non-zero exit codes return error info with output; timed-out commands are terminated
+- NEVER try to read env directly, just ask user env name if you need one.`
+}
+
 var _ agent.Tool = (*ShellTool)(nil)
-var _ runtime.Instructed = (*ShellTool)(nil)
 
 type ShellTool struct {
 	env        []string
 	defaultCWD string
-}
-
-func NewShellTool(defaultCWD string, env ...string) *ShellTool {
-	return &ShellTool{
-		env:        env,
-		defaultCWD: defaultCWD,
-	}
 }
 
 func (t *ShellTool) Name() agent.ToolName {
@@ -44,19 +63,6 @@ func (t *ShellTool) TimeOut() time.Duration {
 
 func (t *ShellTool) Description() string {
 	return "access to shell"
-}
-
-func (t *ShellTool) Instruction() string {
-	return `## Shell Tool
-
-- Current OS is "` + rt.GOOS + `." 
-- Your shell is "` + shell + `"
-- Each call runs in a fresh shell session — no state persists between calls
-- Default timeout: 30s. Set "timeout" for longer operations (builds, tests)
-- Use "cwd" parameter instead of cd within commands
-- Combine operations with pipes, redirections, and heredocs
-- Non-zero exit codes return error info with output; timed-out commands are terminated
-- NEVER try to read env directly, just ask user env name if you need one.`
 }
 
 func (t *ShellTool) Schema() any {

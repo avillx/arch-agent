@@ -12,12 +12,6 @@ type EditTaskTool struct {
 	taskSvc *task.Service
 }
 
-func NewEditTaskTool(s *task.Service) *EditTaskTool {
-	return &EditTaskTool{
-		taskSvc: s,
-	}
-}
-
 func (t *EditTaskTool) Name() agent.ToolName {
 	return "edit_task"
 }
