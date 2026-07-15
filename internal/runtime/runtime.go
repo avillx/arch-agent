@@ -35,7 +35,7 @@ func NewAgentRuntime(
 type RunStramRequest struct {
 	Model       agent.Model
 	Agent       agent.Agent
-	Tools       []agent.Tool
+	ToolServers []agent.ToolServer
 	Sess        session.Session
 	EvCh        chan Event
 	LogActivity bool
@@ -100,7 +100,7 @@ func (r *AgentRuntime) RunStream(
 			ctx,
 			req.Model,
 			req.Agent,
-			req.Tools,
+			req.ToolServers,
 			req.Sess,
 			req.Harness,
 			req.BuildContextRequest,
@@ -155,7 +155,7 @@ func (r *AgentRuntime) runTurn(
 	ctx context.Context,
 	model agent.Model,
 	agt agent.Agent,
-	tools []agent.Tool,
+	toolServers []agent.ToolServer,
 	sess session.Session,
 	harness *Harness,
 	req BuildContextRequest,
@@ -167,7 +167,8 @@ func (r *AgentRuntime) runTurn(
 	}
 
 	// context
-	agentContext := r.contextAssembler.buildContext(sess, agt, tools, model, req)
+	agentContext := r.contextAssembler.buildContext(sess, agt, toolServers, model, req)
+	tools := extractTools(toolServers)
 
 	// run completion
 	completion, err := r.processCompletion(ctx, agentContext, agt, model, tools, sess, harness, evCh)
@@ -404,4 +405,14 @@ func toolsToMap(tools []agent.Tool) map[agent.ToolName]agent.Tool {
 	}
 
 	return toolMap
+}
+
+func extractTools(toolServers []agent.ToolServer) []agent.Tool {
+
+	extractedTools := []agent.Tool{}
+	for _, srv := range toolServers {
+		extractedTools = append(extractedTools, srv.Tools()...)
+	}
+	return extractedTools
+
 }

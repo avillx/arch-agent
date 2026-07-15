@@ -50,7 +50,7 @@ type BuildContextRequest struct {
 func (a *ContextAssembler) buildContext(
 	sess session.Session,
 	agt agent.Agent,
-	tools []agent.Tool,
+	toolServers []agent.ToolServer,
 	model agent.Model,
 	req BuildContextRequest,
 ) []agent.Message {
@@ -60,7 +60,7 @@ func (a *ContextAssembler) buildContext(
 
 	// instructions
 	if req.AddInstuctions {
-		if instructions := toolInstructions(agt, tools); len(instructions) > 0 {
+		if instructions := toolInstructions(agt, toolServers); len(instructions) > 0 {
 			completionContext = append(completionContext, instructions...)
 		}
 	}
@@ -84,6 +84,8 @@ func (a *ContextAssembler) buildContext(
 	contextMessages := []agent.Message{
 		agent.NewSystemMessage(strings.Join(completionContext, "\n\n")),
 	}
+
+	slog.Debug("system message", "message", contextMessages)
 
 	conversationMessages := sess.Messages()
 
@@ -181,15 +183,15 @@ type PerAgentInstructed interface {
 	AgentInstruction(agent.Agent) string
 }
 
-func toolInstructions(agt agent.Agent, toolKit []agent.Tool) []string {
+func toolInstructions(agt agent.Agent, toolServers []agent.ToolServer) []string {
 
 	instructions := []string{}
 
-	if len(toolKit) > 0 {
+	if len(toolServers) > 0 {
 		instructions = append(instructions, prompt.ToolUsageGuide())
 	}
 
-	for _, t := range toolKit {
+	for _, t := range toolServers {
 		if instructedTool, ok := t.(Instructed); ok {
 			instructions = append(instructions, instructedTool.Instruction())
 		}
