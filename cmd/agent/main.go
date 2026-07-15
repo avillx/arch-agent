@@ -8,6 +8,7 @@ import (
 	"arch-agent/internal/telegram"
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -69,10 +70,10 @@ func run(ctx context.Context,
 	app.TelegramOrchestra.Run(ctx)
 
 	// server
-	svc := api.NewServer(app.TaskSvc)
+	svc := api.NewServer(app.TaskSvc, app.ChatSvc, app.SessionSvc)
 
 	httpServer := &http.Server{
-		Addr:    "",
+		Addr:    fmt.Sprintf(":%d", cfg.Port),
 		Handler: svc,
 	}
 

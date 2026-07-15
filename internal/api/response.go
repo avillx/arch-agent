@@ -109,8 +109,8 @@ func decodeValid[T types.Validator](r *http.Request) (T, error) {
 }
 
 func respond[T any](w http.ResponseWriter, status int, v T) error {
-	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
 		return err
 	}
@@ -120,5 +120,50 @@ func respond[T any](w http.ResponseWriter, status int, v T) error {
 func message(content string) map[string]string {
 	return map[string]string{
 		"message": content,
+	}
+}
+
+type Stream struct {
+	w http.ResponseWriter
+}
+
+func newStream(w http.ResponseWriter) *Stream {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+	return &Stream{w: w}
+}
+
+func (s *Stream) send(v any) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return
+	}
+	_, _ = fmt.Fprintf(s.w, "data: %s\n\n", data)
+	if f, ok := s.w.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (s *Stream) done() {
+	_, _ = fmt.Fprint(s.w, "data: [DONE]\n\n")
+	if f, ok := s.w.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+type ErrorDTO struct {
+	Message string `json:"msg"`
+}
+
+func (s *Stream) sendError(err error) {
+	data, marshalErr := json.Marshal(ErrorDTO{Message: err.Error()})
+	if marshalErr != nil {
+		return
+	}
+	_, _ = fmt.Fprintf(s.w, "data: %s\n\n", data)
+	if f, ok := s.w.(http.Flusher); ok {
+		f.Flush()
 	}
 }

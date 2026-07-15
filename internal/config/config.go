@@ -44,6 +44,7 @@ type Config struct {
 	SearchHost       string    `toml:"search_host"`
 	SearchHostScheme string    `toml:"search_host_scheme"`
 	ShellEnv         []string  `toml:"shell_envs"`
+	Port             int64     `toml:"port"`
 }
 
 func Load(configPath string) (Config, error) {

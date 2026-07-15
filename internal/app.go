@@ -48,6 +48,8 @@ type App struct {
 	TaskSvc           *task.Service
 	Memory            *memory.Memory
 	MCPSvc            *mcp.Service
+	ChatSvc           *chat.Service
+	SessionSvc        *session.Service
 }
 
 func BuildModelsRepo(fs *files.FileSystem) (agent.ModelRepository, error) {
@@ -146,7 +148,6 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 	sessSvc := session.NewService(
 		files.NewSessionFiles(fs),
 		uuid.NewUUIDGenerator(),
-		activityRepo,
 	)
 
 	observer := runtime.NewObserver(observerModel, activityRepo)
@@ -226,5 +227,7 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		TaskSvc:           taskSvc,
 		Memory:            memoryConsolidator,
 		MCPSvc:            mcpSvc,
+		ChatSvc:           chatSvc,
+		SessionSvc:        sessSvc,
 	}, nil
 }
