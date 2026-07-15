@@ -50,6 +50,7 @@ Save only important memory. Avoid noise.
 - Small talk
 - Temporal data, current dates, when it's not touches user regime (e.g. frequently user wake's up at 4 AM)
 - Current tool or skill usage
+- Current tool or skill exisntence, whenever agent already know
 - Current actions e.g. "I'm doing X", "user said..."
 - Episodic data e.g. "We talked about project X"
 - Never mention `./{{ .Agent }}/activity`, `./{{ .Agent }}/memory`, `./{{ .Agent }}/skills` — use only as link targets
@@ -113,6 +114,17 @@ Examples:
 - Ivan's profile. Read whenever mentioned or interacting with him.
 - Ivan's pet project. read when mentioned
 - My responsibility for git repos. read before act
+
+---
+
+# Folders access
+
+`./` <- (CWD) access denied
+`./{{ .Agent }}/` - Read only, You exactly not needed, only for notes 
+`./{{ .Agent }}/memory/` - Write access (You work here)
+`./{{ .Agent }}/sessions/` - Access denied, do not try to read
+`./{{ .Agent }}/agent.md` - Access denied, do not try to read
+`./{{ .Agent }}/activity/` - Read only, for context gathering 
 
 ---
 

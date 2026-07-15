@@ -13,3 +13,5 @@ is your local filesystem
 [Shared skills](./skills/) - shared skills (read-only)
 [Activity](./{{ .Agent }}/activity/) - your activity logs (read-only)
 {{ .Additional }}</cwd-index>
+
+> Access to the cwd itself (./) is denied, as is access to anything outside it. Only the subdirectories explicitly listed in the index are accessible.
