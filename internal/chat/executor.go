@@ -7,7 +7,7 @@ import (
 	"arch-agent/internal/types"
 	"context"
 	"errors"
-	"log/slog"
+	"fmt"
 )
 
 type Request struct {
@@ -17,6 +17,7 @@ type Request struct {
 	Reader        runtime.EventReader
 	ProvidedTools []agent.Tool
 	Logging       bool
+	Additional    string
 }
 
 // request executor
@@ -75,7 +76,7 @@ func (s *executor) chat(
 	// tools
 	tools, err := s.toolRegistry.GetServerTools(agt.ToolServers())
 	if err != nil {
-		if err := distillErrNotExist(agt.ID(), err); err != nil {
+		if err := types.DistillErrNotExist(fmt.Sprintf("agent %s", err), err); err != nil {
 			return err
 		}
 	}
@@ -89,36 +90,23 @@ func (s *executor) chat(
 
 	err = s.runtime.RunStream(
 		ctx,
-		model,
-		agt,
-		tools,
-		sess,
-		evCh,
-		r.Logging,
-		s.harness,
+		runtime.RunStramRequest{
+			Model:       model,
+			Tools:       tools,
+			Sess:        sess,
+			Agent:       agt,
+			EvCh:        evCh,
+			LogActivity: r.Logging,
+			Harness:     s.harness,
+			BuildContextRequest: runtime.BuildContextRequest{
+				IncludeMemory:       true,
+				IncludeSkills:       true,
+				AllowOptimizeImages: true,
+				AddInstuctions:      true,
+				Additional:          r.Additional,
+			},
+		},
 	)
 
 	return errors.Join(err, s.sessionSvc.Save(agt.ID(), sess))
-}
-
-func distillErrNotExist(agentId agent.ID, err error) error {
-	errWrapper, ok := err.(interface{ Unwrap() []error })
-	if !ok {
-		if errors.Is(err, types.ErrIsNotExist) {
-			slog.Warn("chat process", "agent", agentId, "error", err)
-			return nil
-		}
-		return err
-	}
-
-	var unExpectedErrs []error
-	for _, werr := range errWrapper.Unwrap() {
-		if errors.Is(werr, types.ErrIsNotExist) {
-			slog.Warn("chat process", "agent", agentId, "error", werr)
-			continue
-		}
-
-		unExpectedErrs = append(unExpectedErrs, err)
-	}
-	return errors.Join(unExpectedErrs...)
 }

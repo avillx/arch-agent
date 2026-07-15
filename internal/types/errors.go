@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 )
 
@@ -55,4 +56,26 @@ func (e *ValidationError) Message() string {
 
 	return sb.String()
 
+}
+
+func DistillErrNotExist(msg string, err error) error {
+	errWrapper, ok := err.(interface{ Unwrap() []error })
+	if !ok {
+		if errors.Is(err, ErrIsNotExist) {
+			slog.Warn(msg, "error", err)
+			return nil
+		}
+		return err
+	}
+
+	var unExpectedErrs []error
+	for _, werr := range errWrapper.Unwrap() {
+		if errors.Is(werr, ErrIsNotExist) {
+			slog.Warn(msg, "error", werr)
+			continue
+		}
+
+		unExpectedErrs = append(unExpectedErrs, err)
+	}
+	return errors.Join(unExpectedErrs...)
 }
