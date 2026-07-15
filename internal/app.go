@@ -192,7 +192,7 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		return nil, err
 	}
 
-	subagentSvc := subagent.NewService(chatSvc, sessSvc)
+	subagentSvc := subagent.NewService(agentHarness, rt, toolSvc, agentRepo, modelRepo)
 
 	toolSvc.Connect(
 		"filesystem",

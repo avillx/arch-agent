@@ -4,6 +4,7 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/runtime"
 	"arch-agent/internal/subagent"
+	"arch-agent/internal/types"
 	"context"
 	"errors"
 	"fmt"
@@ -99,20 +100,19 @@ func (t *CallAgentTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 		return nil, err
 	}
 
-	agentID := MustAgentID(ctx)
-	sessionID := MustSessionID(ctx)
-
 	res, err := t.subagentSvc.Call(
 		ctx,
-		agentID,
 		args.Name,
-		sessionID,
 		args.Request,
 	)
 
 	if err != nil {
 		if errors.Is(err, subagent.ErrCallStackOverflow) {
 			return Result(res), nil
+		}
+
+		if errors.Is(err, types.ErrIsNotExist) {
+			return nil, types.NewAgentMistakeError(err.Error())
 		}
 
 		res = fmt.Sprintf("%s. agent %s has errors when processing your request", res, args.Name)

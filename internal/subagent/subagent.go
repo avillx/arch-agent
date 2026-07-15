@@ -2,10 +2,11 @@ package subagent
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/chat"
 	"arch-agent/internal/prompt"
 	"arch-agent/internal/session"
+	"arch-agent/internal/types"
 	"errors"
+	"fmt"
 
 	"arch-agent/internal/runtime"
 
@@ -15,8 +16,7 @@ import (
 type ctxKey struct{}
 
 type subAgentCall struct {
-	callerAgentID   agent.ID
-	recivierAgentID agent.ID
+	subagent agent.ID
 }
 
 const maxSubAgentDepth = 3
@@ -31,17 +31,26 @@ func subAgentCallStack(ctx context.Context, s subAgentCall) (context.Context, bo
 }
 
 type Service struct {
-	sessionSvc *session.Service
-	chatSvc    *chat.Service
+	harness   *runtime.Harness
+	rt        *runtime.AgentRuntime
+	toolRepo  agent.ToolRegistry
+	agentRepo agent.Repo
+	modelRepo agent.ModelRepository
 }
 
 func NewService(
-	chatSvc *chat.Service,
-	sessionSvc *session.Service,
+	harness *runtime.Harness,
+	rt *runtime.AgentRuntime,
+	toolRepo agent.ToolRegistry,
+	agentRepo agent.Repo,
+	modelRepo agent.ModelRepository,
 ) *Service {
 	return &Service{
-		chatSvc:    chatSvc,
-		sessionSvc: sessionSvc,
+		harness:   harness,
+		rt:        rt,
+		toolRepo:  toolRepo,
+		agentRepo: agentRepo,
+		modelRepo: modelRepo,
 	}
 }
 
@@ -49,38 +58,64 @@ var ErrCallStackOverflow = errors.New("sub agent call is overflow")
 
 func (s *Service) Call(
 	ctx context.Context,
-	callerAgentID agent.ID,
-	recivierAgentID agent.ID,
-	sessionID session.ID,
+	subAgentID agent.ID,
 	request string,
 ) (string, error) {
 
-	ctx, isOverflow := subAgentCallStack(ctx, subAgentCall{callerAgentID: callerAgentID, recivierAgentID: recivierAgentID})
+	ctx, isOverflow := subAgentCallStack(ctx, subAgentCall{subagent: subAgentID})
 	if isOverflow {
-		return prompt.SubAgentCallStackOverflowCaution(), ErrCallStackOverflow
+		return "", ErrCallStackOverflow
 	}
 
-	subSessID, err := s.sessionSvc.Create(recivierAgentID)
+	sess := session.NewSession("")
+	sess.AddMessages(agent.NewUserMessage(prompt.SubAgentGuidance(request)))
+
+	//agent
+	agt, err := s.agentRepo.Get(subAgentID)
 	if err != nil {
 		return "", err
 	}
 
+	// model
+	model, err := s.modelRepo.Get(agt.Model())
+	if err != nil {
+		return "", err
+	}
+
+	// tools
+	tools, err := s.toolRepo.GetServerTools(agt.ToolServers())
+	if err != nil {
+		if err := types.DistillErrNotExist(fmt.Sprintf("subagent %s", subAgentID), err); err != nil {
+			return "", err
+		}
+	}
+
+	// sink
 	lastAgentMessageContent := ""
 	evReader := runtime.EventReader{
-		OnComplete: func(i1 agent.ID, i2 session.ID, c *agent.Completion) {
+		OnComplete: func(_ agent.ID, _ session.ID, c *agent.Completion) {
 			lastAgentMessageContent = c.Content
 		},
 	}
 
-	request = prompt.SubAgentGuidance(request)
+	evCh := make(chan runtime.Event, 16)
+	go evReader.Read(evCh)
 
-	err = s.chatSvc.Chat(
+	err = s.rt.RunStream(
 		ctx,
-		chat.Request{
-			AgentID:     recivierAgentID,
-			SessionID:   subSessID,
-			UserMessage: agent.NewUserMessage(request),
-			Reader:      evReader,
+		runtime.RunStramRequest{
+			Model:   model,
+			Tools:   tools,
+			Sess:    sess,
+			Agent:   agt,
+			EvCh:    evCh,
+			Harness: s.harness,
+			BuildContextRequest: runtime.BuildContextRequest{
+				IncludeMemory:       true,
+				IncludeSkills:       true,
+				AllowOptimizeImages: true,
+				AddInstuctions:      true,
+			},
 		},
 	)
 
