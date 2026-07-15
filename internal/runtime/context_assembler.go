@@ -39,21 +39,56 @@ func NewContextAssembler(
 	}
 }
 
+type BuildContextRequest struct {
+	IncludeMemory       bool
+	IncludeSkills       bool
+	AddInstuctions      bool
+	AllowOptimizeImages bool
+	Additional          string
+}
+
 func (a *ContextAssembler) buildContext(
 	sess session.Session,
 	agt agent.Agent,
 	tools []agent.Tool,
 	model agent.Model,
+	req BuildContextRequest,
 ) []agent.Message {
 
-	// build system message
-	contextMessages := []agent.Message{
-		a.assembeSystemMessage(agt, sess, tools),
+	// system prompt
+	completionContext := []string{agt.SystemPrompt()}
+
+	// instructions
+	if req.AddInstuctions {
+		if instructions := toolInstructions(agt, tools); len(instructions) > 0 {
+			completionContext = append(completionContext, instructions...)
+		}
 	}
 
-	// optimize messsages
+	// Skills
+	if req.IncludeSkills {
+		completionContext = append(completionContext, a.buildSkillGuidance(agt.ID()))
+	}
+
+	// Memory
+	if req.IncludeMemory && agt.HasMemory() {
+		completionContext = append(completionContext, a.buildMemory(agt.ID(), sess))
+	}
+
+	// Additional
+	if req.Additional != "" {
+		completionContext = append(completionContext, req.Additional)
+	}
+
+	// Context
+	contextMessages := []agent.Message{
+		agent.NewSystemMessage(strings.Join(completionContext, "\n\n")),
+	}
+
 	conversationMessages := sess.Messages()
-	if resolveImageOptimize(model) {
+
+	// optimize messsages
+	if req.AllowOptimizeImages && resolveImageOptimize(model) {
 		conversationMessages = eliminateOldImages(conversationMessages)
 	}
 
@@ -64,69 +99,43 @@ func (a *ContextAssembler) buildContext(
 	return contextMessages
 }
 
-func resolveImageOptimize(m agent.Model) bool {
-	if optimize, ok := m.Settings()["optimize_images"]; ok {
-		optimizeTyped, ok := optimize.(bool)
-		if ok {
-			return optimizeTyped
-		}
-		slog.Error(
-			"model has wrong 'image optimize' field.",
-			"error",
-			fmt.Errorf("want bool, has %T", optimizeTyped),
-		)
-	}
-	return false
-}
-
-func (a *ContextAssembler) assembeSystemMessage(agt agent.Agent, sess session.Session, toolKit []agent.Tool) *agent.SystemMessage {
-
-	completionContext := []string{agt.SystemPrompt()}
-
-	// instructions
-	if instructions := toolInstructions(agt, toolKit); len(instructions) > 0 {
-		completionContext = append(completionContext, instructions...)
-	}
-
-	// Skills
-	skills, err := a.indexer.GetSkills(agt.ID())
+func (a *ContextAssembler) buildSkillGuidance(agentID agent.ID) string {
+	skills, err := a.indexer.GetSkills(agentID)
 	if err != nil {
 		slog.Error("skill load", "error", err)
 	}
-	if len(skills) > 0 {
-		completionContext = append(completionContext, prompt.SkillGuidance(buildSkillIndex(skills)))
+	if !(len(skills) > 0) {
+		return ""
 	}
 
-	// Memory
-	if agt.HasMemory() {
-		// load persistent memory prompt
-		idx, err := a.memoryIndexer.MemoryIndex(agt.ID())
-		if err != nil {
-			if joinedErrs, ok := err.(interface{ Unwrap() []error }); ok {
-				errs := joinedErrs.Unwrap()
-				for _, e := range errs {
-					slog.Error("memory index", "agent", agt.ID(), "error", e)
-				}
-			} else {
-				slog.Error("memory index is not reached", "agent", agt.ID(), "error", err)
+	return prompt.SkillGuidance(buildSkillIndex(skills))
+}
+
+func (a *ContextAssembler) buildMemory(agentID agent.ID, sess session.Session) string {
+	// load persistent memory prompt
+	idx, err := a.memoryIndexer.MemoryIndex(agentID)
+	if err != nil {
+		if joinedErrs, ok := err.(interface{ Unwrap() []error }); ok {
+			errs := joinedErrs.Unwrap()
+			for _, e := range errs {
+				slog.Error("memory index", "agent", agentID, "error", e)
 			}
+		} else {
+			slog.Error("memory index is not reached", "agent", agentID, "error", err)
 		}
-
-		activity := a.resolveActivity(agt, sess)
-		if activity == "" {
-			activity = "you has no activity at last 24h"
-		}
-		activity = strings.TrimSuffix(activity, "\n")
-		completionContext = append(completionContext, prompt.PersistentMemory(agt.ID(), idx, activity))
 	}
 
-	assembled := strings.Join(completionContext, "\n\n")
-	return agent.NewSystemMessage(assembled)
+	activity := a.resolveActivity(agentID, sess)
+	if activity == "" {
+		activity = "you has no activity at last 24h"
+	}
+	activity = strings.TrimSuffix(activity, "\n")
+	return prompt.PersistentMemory(agentID, idx, activity)
 }
 
 const activityStorageKey = "activity"
 
-func (a *ContextAssembler) resolveActivity(agt agent.Agent, sess session.Session) string {
+func (a *ContextAssembler) resolveActivity(agentID agent.ID, sess session.Session) string {
 	extras := sess.Extras()
 	if extras == nil {
 		return ""
@@ -138,10 +147,10 @@ func (a *ContextAssembler) resolveActivity(agt agent.Agent, sess session.Session
 	}
 
 	// cache miss
-	activity, err := a.activityRepo.GetActivity(agt.ID(), time.Now())
+	activity, err := a.activityRepo.GetActivity(agentID, time.Now())
 	if err != nil {
 		if !errors.Is(err, types.ErrIsNotExist) {
-			slog.Error("failed to get activity", "error", err, "agent", agt.ID())
+			slog.Error("failed to get activity", "error", err, "agent", agentID)
 		}
 		return ""
 	}
@@ -245,4 +254,36 @@ func excludeUnsupportedModalities(msgs []agent.Message, mdls []agent.Modality) [
 	}
 
 	return distill
+}
+
+func eliminateOldImages(messages []agent.Message) []agent.Message {
+	result := make([]agent.Message, len(messages))
+	copy(result, messages)
+
+	cutoff := len(messages) - 10
+	for i := 0; i < cutoff; i++ {
+		content := result[i].Content()
+		newContent := make([]agent.ContentPart, len(content))
+		copy(newContent, content)
+		for j := range newContent {
+			newContent[j].ImageURL = ""
+		}
+		result[i].SetContent(newContent)
+	}
+	return result
+}
+
+func resolveImageOptimize(m agent.Model) bool {
+	if optimize, ok := m.Settings()["optimize_images"]; ok {
+		optimizeTyped, ok := optimize.(bool)
+		if ok {
+			return optimizeTyped
+		}
+		slog.Error(
+			"model has wrong 'image optimize' field.",
+			"error",
+			fmt.Errorf("want bool, has %T", optimizeTyped),
+		)
+	}
+	return false
 }

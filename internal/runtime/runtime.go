@@ -32,31 +32,62 @@ func NewAgentRuntime(
 	}
 }
 
+type RunStramRequest struct {
+	Model       agent.Model
+	Agent       agent.Agent
+	Tools       []agent.Tool
+	Sess        session.Session
+	EvCh        chan Event
+	LogActivity bool
+	Harness     *Harness
+	BuildContextRequest
+}
+
+func (t RunStramRequest) validate() error {
+	if t.Model == nil {
+		return fmt.Errorf("model must be non nil")
+	}
+	if t.Agent == nil {
+		return fmt.Errorf("agent must be non nil")
+	}
+	if t.Sess == nil {
+		return fmt.Errorf("session must be non nil")
+	}
+	if t.EvCh == nil {
+		return fmt.Errorf("event channel must be non nil")
+	}
+	return nil
+}
+
 // blocking
 func (r *AgentRuntime) RunStream(
 	ctx context.Context,
-	model agent.Model,
-	agt agent.Agent,
-	tools []agent.Tool,
-	sess session.Session,
-	evCh chan Event,
-	logActivity bool,
-	harness *Harness,
+	req RunStramRequest,
 ) error {
 
-	ctx = withAgentID(ctx, agt.ID())
-	ctx = withSessionID(ctx, sess.ID())
-
-	// wraps event channel for observing aсtivity
-	if logActivity {
-		evCh = r.observer.Intercept(ctx, []agent.Message{sess.GetLastUserMessage()}, agt.ID(), sess.ID(), evCh)
+	if err := req.validate(); err != nil {
+		return fmt.Errorf("run stream request: %w", err)
 	}
 
-	defer close(evCh)
+	ctx = withAgentID(ctx, req.Agent.ID())
+	ctx = withSessionID(ctx, req.Sess.ID())
+
+	// wraps event channel for observing aсtivity
+	if req.LogActivity {
+		req.EvCh = r.observer.Intercept(
+			ctx,
+			[]agent.Message{req.Sess.GetLastUserMessage()},
+			req.Agent.ID(),
+			req.Sess.ID(),
+			req.EvCh,
+		)
+	}
+
+	defer close(req.EvCh)
 
 	compactAttempts := 0
 
-	maxTurns := resolveMaxTurns(model.Settings())
+	maxTurns := resolveMaxTurns(req.Model.Settings())
 
 	for i := 0; i < maxTurns; i++ {
 		select {
@@ -65,7 +96,16 @@ func (r *AgentRuntime) RunStream(
 		default:
 		}
 
-		done, err := r.runTurn(ctx, model, agt, tools, sess, harness, evCh)
+		done, err := r.runTurn(
+			ctx,
+			req.Model,
+			req.Agent,
+			req.Tools,
+			req.Sess,
+			req.Harness,
+			req.BuildContextRequest,
+			req.EvCh,
+		)
 		if err != nil {
 
 			// compact session
@@ -79,16 +119,16 @@ func (r *AgentRuntime) RunStream(
 
 				compactAttempts++
 				if compactAttempts > maxCompactApptempts {
-					return NewRuntimeError(sess.ID(), agt.ID(), fmt.Errorf("compaction limit exceeded"))
+					return NewRuntimeError(req.Sess.ID(), req.Agent.ID(), fmt.Errorf("compaction limit exceeded"))
 				}
 
-				if err := doCompact(ctx, sess, agt, model, evCh); err != nil {
-					return NewRuntimeError(sess.ID(), agt.ID(), fmt.Errorf("session compaction: %w", err))
+				if err := doCompact(ctx, req.Sess, req.Agent, req.Model, req.EvCh); err != nil {
+					return NewRuntimeError(req.Sess.ID(), req.Agent.ID(), fmt.Errorf("session compaction: %w", err))
 				}
 				continue
 			}
 
-			evCh <- NewErrEvent(agt.ID(), sess.ID(), err)
+			req.EvCh <- NewErrEvent(req.Agent.ID(), req.Sess.ID(), err)
 
 			// if problem is in tool call, interruption of loop is not needed
 			// agent and user is notified about internal error
@@ -100,7 +140,7 @@ func (r *AgentRuntime) RunStream(
 			}
 			// unknown problem expecting as a completion problem when model can't
 			// complete a request
-			return NewRuntimeError(sess.ID(), agt.ID(), err)
+			return NewRuntimeError(req.Sess.ID(), req.Agent.ID(), err)
 		}
 
 		if done {
@@ -108,24 +148,7 @@ func (r *AgentRuntime) RunStream(
 		}
 	}
 
-	return NewRuntimeError(sess.ID(), agt.ID(), fmt.Errorf("max turns limit exceed"))
-}
-
-func eliminateOldImages(messages []agent.Message) []agent.Message {
-	result := make([]agent.Message, len(messages))
-	copy(result, messages)
-
-	cutoff := len(messages) - 10
-	for i := 0; i < cutoff; i++ {
-		content := result[i].Content()
-		newContent := make([]agent.ContentPart, len(content))
-		copy(newContent, content)
-		for j := range newContent {
-			newContent[j].ImageURL = ""
-		}
-		result[i].SetContent(newContent)
-	}
-	return result
+	return NewRuntimeError(req.Sess.ID(), req.Agent.ID(), fmt.Errorf("max turns limit exceed"))
 }
 
 func (r *AgentRuntime) runTurn(
@@ -135,6 +158,7 @@ func (r *AgentRuntime) runTurn(
 	tools []agent.Tool,
 	sess session.Session,
 	harness *Harness,
+	req BuildContextRequest,
 	evCh chan Event,
 ) (bool, error) {
 	// check compaction
@@ -143,7 +167,7 @@ func (r *AgentRuntime) runTurn(
 	}
 
 	// context
-	agentContext := r.contextAssembler.buildContext(sess, agt, tools, model)
+	agentContext := r.contextAssembler.buildContext(sess, agt, tools, model, req)
 
 	// run completion
 	completion, err := r.processCompletion(ctx, agentContext, agt, model, tools, sess, harness, evCh)
