@@ -88,13 +88,13 @@ All memory stores in `/agent/data/...`
 - [ ] runtime reorganize for simplicity and robustness
 - [ ] runtime observability issues
 - [X] (API) chat svc 
-- [X] (API) session svc 
-- [-] (API) agent repo 
+- [X] (API) session svc  
+- [X] (API) mcp svc  
+- [X] (API) tools svc 
+- [X] (API) memory consolidator
 - [-] (API) models svc 
-- [ ] (API) mcp svc 
-- [-] (API) activity handling  
-- [-] (API) tools svc 
-- [ ] (API) memory consolidator
+- [-] (API) activity handling
+- [-] (API) agent repo 
 - [ ] API specefication (OpenAPI)
 - [ ] exclude telegram integration
 
