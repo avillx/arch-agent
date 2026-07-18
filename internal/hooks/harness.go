@@ -42,7 +42,7 @@ func NewAgentHarness(b cwdBearer, todoStorage todoStorage) (*runtime.Harness, er
 	}, nil
 }
 
-func NewMemoryHarness(b cwdBearer, todoStorage todoStorage, indexer runtime.MemoryIndexer) *runtime.Harness {
+func NewMemoryHarness(b cwdBearer, todoStorage todoStorage, indexer agent.MemoryIndexer) *runtime.Harness {
 
 	accessHook, _ := NewFileAccessHook(
 		b.Cwd(),

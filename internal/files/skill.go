@@ -2,7 +2,6 @@ package files
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/runtime"
 	"arch-agent/internal/types"
 	"errors"
 	"log/slog"
@@ -14,7 +13,7 @@ import (
 const skillsFolder = "/skills"
 const skillFile = "SKILL.md"
 
-var _ runtime.SkillRepo = (*SkillFiles)(nil)
+var _ agent.SkillRepo = (*SkillFiles)(nil)
 
 type SkillFiles struct {
 	fs *FileSystem

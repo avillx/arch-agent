@@ -5,3 +5,7 @@ type SkillFrontmatter struct {
 	Description string
 	StoreHint   string
 }
+
+type SkillRepo interface {
+	GetSkills(ID) ([]SkillFrontmatter, error)
+}

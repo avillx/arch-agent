@@ -31,6 +31,8 @@ func newHTTPGateway(url string, authToken string) *httpGateway {
 	}
 }
 
+func (g *httpGateway) Type() string { return "http" }
+
 // gateway implementation
 func (g *httpGateway) createSession(ctx context.Context) (*mcp.ClientSession, error) {
 
@@ -71,7 +73,7 @@ type processGateway struct {
 	mu sync.Mutex
 }
 
-func newBinaryProcessGateway(command string, args []string, env map[string]string) (*processGateway, error) {
+func newProcessGateway(command string, args []string, env map[string]string) (*processGateway, error) {
 
 	_, err := exec.LookPath(command)
 	if err != nil {
@@ -87,6 +89,8 @@ func newBinaryProcessGateway(command string, args []string, env map[string]strin
 		env:     env,
 	}, nil
 }
+
+func (g *processGateway) Type() string { return "process" }
 
 // gateway implementation
 func (g *processGateway) createSession(ctx context.Context) (*mcp.ClientSession, error) {

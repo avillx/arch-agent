@@ -2,7 +2,6 @@ package files
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/runtime"
 	"arch-agent/internal/types"
 	"errors"
 	"fmt"
@@ -13,7 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var _ runtime.MemoryIndexer = (*MemoryFiles)(nil)
+var _ agent.MemoryIndexer = (*MemoryFiles)(nil)
 
 type MemoryFiles struct {
 	fs *FileSystem
@@ -23,26 +22,27 @@ func NewMemoryFiles(fs *FileSystem) *MemoryFiles {
 	return &MemoryFiles{fs: fs}
 }
 
-func (f *MemoryFiles) MemoryIndex(agentID agent.ID) (string, error) {
+func (f *MemoryFiles) MemoryIndex(agentID agent.ID) (map[string]string, error) {
 
 	memoryPath := resolveMemoryPath(agentID)
 
 	enties, err := f.fs.ReadDir(memoryPath)
 	if err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
-			return "", nil
+			return nil, nil
 		}
-		return "", err
+		return nil, err
 	}
 
 	var errs []error
-	var sb strings.Builder
+	index := map[string]string{}
 	for _, e := range enties {
 		if e.IsDir() {
 			continue
 		}
 
-		data, err := f.fs.ReadFile(path.Join(memoryPath, e.Name()))
+		currentMemoryPath := path.Join(memoryPath, e.Name())
+		data, err := f.fs.ReadFile(currentMemoryPath)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -55,12 +55,34 @@ func (f *MemoryFiles) MemoryIndex(agentID agent.ID) (string, error) {
 			errs = append(errs, err)
 		}
 
-		fileName := e.Name()
-		noExtName := strings.TrimSuffix(fileName, path.Ext(fileName))
-		fmt.Fprintf(&sb, "(%s)[%s] - %s\n", noExtName, path.Join("./", memoryPath, fileName), hook.Hook)
+		index[path.Join("./", currentMemoryPath)] = hook.Hook
 	}
 
-	return sb.String(), errors.Join(errs...)
+	return index, errors.Join(errs...)
+}
+
+func (f *MemoryFiles) GetMemory(agentID agent.ID, name string) (string, error) {
+	memoryPath := resolveMemoryPath(agentID)
+
+	enties, err := f.fs.ReadDir(memoryPath)
+	if err != nil {
+		if errors.Is(err, types.ErrIsNotExist) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	for _, e := range enties {
+		if strings.TrimSuffix(e.Name(), path.Ext(e.Name())) == name {
+			data, err := f.fs.ReadFile(path.Join(memoryPath, e.Name()))
+			if err != nil {
+				return "", err
+			}
+			return string(data), nil
+		}
+	}
+
+	return "", fmt.Errorf("agent %s has no memory %s : %w", agentID, name, types.ErrIsNotExist)
 }
 
 func resolveMemoryPath(agentID agent.ID) string {

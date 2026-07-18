@@ -2,7 +2,6 @@ package hooks
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"arch-agent/internal/tools"
 	fstools "arch-agent/internal/tools/fs"
@@ -324,7 +323,7 @@ func (h *OnlySupportedExtensionsHook) Apply(
 }
 
 type OnlyValidMemoryFrontmatterHook struct {
-	indexer runtime.MemoryIndexer
+	indexer agent.MemoryIndexer
 }
 
 func (h *OnlyValidMemoryFrontmatterHook) Apply(

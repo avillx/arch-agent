@@ -208,7 +208,21 @@ func (b *Bot) handleCommand(ctx context.Context, update tgbotapi.Update) error {
 			return err
 		}
 
-		if err := b.d.DreamImmidate(ctx, b.agentID); err != nil {
+		evCh := make(chan runtime.Event, 16)
+		evReader := runtime.EventReader{
+			OnComplete: func(agentID agent.ID, _ session.ID, c *agent.Completion) {
+				if c.Content == "" {
+					return
+				}
+
+				if _, err := b.SendMessage(update.Message.From.ID, c.Content, 0); err != nil {
+					slog.Error("telegram", "agent", agentID, "cause", err)
+				}
+			},
+		}
+		go evReader.Read(evCh)
+
+		if err := b.d.DreamImmidate(ctx, b.agentID, evCh); err != nil {
 			return err
 		}
 

@@ -8,29 +8,22 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path"
 	"slices"
 	"strings"
 	"time"
 )
 
-type SkillRepo interface {
-	GetSkills(agentID agent.ID) ([]agent.SkillFrontmatter, error)
-}
-
-type MemoryIndexer interface {
-	MemoryIndex(agent.ID) (string, error)
-}
-
 type ContextAssembler struct {
-	indexer       SkillRepo
+	indexer       agent.SkillRepo
 	activityRepo  agent.ActivityRepo
-	memoryIndexer MemoryIndexer
+	memoryIndexer agent.MemoryIndexer
 }
 
 func NewContextAssembler(
-	indexer SkillRepo,
+	indexer agent.SkillRepo,
 	activityRepo agent.ActivityRepo,
-	memoryIndexer MemoryIndexer,
+	memoryIndexer agent.MemoryIndexer,
 ) *ContextAssembler {
 	return &ContextAssembler{
 		indexer:       indexer,
@@ -85,7 +78,7 @@ func (a *ContextAssembler) buildContext(
 		agent.NewSystemMessage(strings.Join(completionContext, "\n\n")),
 	}
 
-	slog.Debug("system message", "message", contextMessages)
+	// slog.Debug("system message", "message", contextMessages)
 
 	conversationMessages := sess.Messages()
 
@@ -127,12 +120,17 @@ func (a *ContextAssembler) buildMemory(agentID agent.ID, sess session.Session) s
 		}
 	}
 
+	var sb strings.Builder
+	for k, v := range idx {
+		fmt.Fprintf(&sb, "(%s)[%s] - %s\n", strings.TrimSuffix(path.Base(k), path.Ext(k)), k, v)
+	}
+
 	activity := a.resolveActivity(agentID, sess)
 	if activity == "" {
 		activity = "you has no activity at last 24h"
 	}
 	activity = strings.TrimSuffix(activity, "\n")
-	return prompt.PersistentMemory(agentID, idx, activity)
+	return prompt.PersistentMemory(agentID, sb.String(), activity)
 }
 
 const activityStorageKey = "activity"

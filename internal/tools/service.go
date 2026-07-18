@@ -20,6 +20,13 @@ func NewService() *Service {
 	}
 }
 
+func (s *Service) AllToolServers(names ...string) map[string]agent.ToolServer {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.servers
+}
+
 func (s *Service) ToolServers(names ...string) ([]agent.ToolServer, error) {
 
 	// validate exisntence
@@ -34,23 +41,6 @@ func (s *Service) ToolServers(names ...string) ([]agent.ToolServer, error) {
 	}
 
 	return servers, errors.Join(errs...)
-}
-
-func (s *Service) GetServerTools(servers []string) ([]agent.Tool, error) {
-
-	var errs []error
-	tools := []agent.Tool{}
-	for _, srv := range servers {
-		toolServer, ok := s.servers[srv]
-		if ok {
-			tools = append(tools, toolServer.Tools()...)
-			continue
-		}
-
-		errs = append(errs, fmt.Errorf("tool server %s: %w", srv, types.ErrIsNotExist))
-	}
-
-	return tools, errors.Join(errs...)
 }
 
 func (s *Service) Connect(serverName string, server agent.ToolServer) error {

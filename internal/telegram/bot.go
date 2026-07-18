@@ -4,6 +4,7 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/chat"
 	"arch-agent/internal/mcp"
+	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"context"
 	"errors"
@@ -19,7 +20,7 @@ import (
 )
 
 type Dreamer interface {
-	DreamImmidate(context.Context, agent.ID) error
+	DreamImmidate(context.Context, agent.ID, chan runtime.Event) error
 }
 
 const (

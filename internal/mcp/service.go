@@ -136,14 +136,14 @@ func (s *Service) Connect(ctx context.Context, cfg ServerGatewayConfig) (MCPServ
 		}
 		slog.Info("mcp server disconnected", "server", srv.ID, "error", err)
 
-		if err := s.toolSvc.Disconnect(string(srv.ID())); err != nil {
-			slog.Error("mcp disconnection", "error", err)
+		if terr := s.toolSvc.Disconnect(string(srv.ID())); terr != nil {
+			slog.Error("mcp disconnection", "error", terr)
 		}
 
-		s.mu.Lock()
-		defer s.mu.Unlock()
-
 		if storedSrv, ok := s.servers[srv.ID()]; ok && storedSrv == srv {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+
 			delete(s.servers, srv.ID())
 		}
 	}()

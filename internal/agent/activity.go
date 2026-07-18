@@ -28,3 +28,11 @@ func (r ActivityRecord) String() string {
 	timeHeader := time.Now().Format(TimeFormat)
 	return fmt.Sprintf("## %s\n%s\n\n", timeHeader, r.Content)
 }
+
+type MemoryRepo interface {
+	GetMemory(ID, string) (string, error)
+}
+
+type MemoryIndexer interface {
+	MemoryIndex(ID) (map[string]string, error)
+}

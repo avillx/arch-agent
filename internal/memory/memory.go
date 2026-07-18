@@ -69,20 +69,16 @@ func NewMemory(
 	}, nil
 }
 
-func (m *Memory) DreamImmidate(ctx context.Context, agentID agent.ID) error {
+func (m *Memory) DreamImmidate(ctx context.Context, agentID agent.ID, evCh chan runtime.Event) error {
 	agt, err := m.agentRepo.Get(agentID)
 	if err != nil {
 		return nil
 	}
 
-	return m.consolidateMemoryFor(ctx, agt)
+	return m.consolidateMemoryFor(ctx, agt, evCh)
 }
 
-func (m *Memory) consolidateMemoryFor(ctx context.Context, agt agent.Agent) error {
-	evCh := make(chan runtime.Event, 16)
-	evReader := runtime.EventReader{}
-	go evReader.Read(evCh)
-
+func (m *Memory) consolidateMemoryFor(ctx context.Context, agt agent.Agent, evCh chan runtime.Event) error {
 	return m.runtime.RunStream(
 		ctx,
 		runtime.RunStramRequest{
@@ -124,7 +120,11 @@ func (m *Memory) consolidateMemory(ctx context.Context) error {
 			continue
 		}
 
-		if err := m.consolidateMemoryFor(ctx, agt); err != nil {
+		evCh := make(chan runtime.Event, 16)
+		evReader := runtime.EventReader{}
+		go evReader.Read(evCh)
+
+		if err := m.consolidateMemoryFor(ctx, agt, evCh); err != nil {
 			errc = errors.Join(errc, err)
 		}
 	}

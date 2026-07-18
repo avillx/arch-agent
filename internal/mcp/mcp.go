@@ -58,6 +58,7 @@ func validateConfig(cfg ServerGatewayConfig) error {
 }
 
 type gateway interface {
+	Type() string
 	createSession(context.Context) (*mcp.ClientSession, error)
 }
 
@@ -131,8 +132,7 @@ func NewMCPServer(ctx context.Context, cfg ServerGatewayConfig) (MCPServer, erro
 	}
 
 	return &mcpServer{
-		id: MCPServerID(serverInfo.Name),
-		// Instruction: initResult.Instructions,
+		id:      MCPServerID(serverInfo.Name),
 		gateway: g,
 	}, nil
 }
@@ -215,7 +215,7 @@ func createGateway(cfg ServerGatewayConfig) (gateway, error) {
 			cfg.HTTPGateway.Token,
 		), nil
 	case cfg.CommandGateway != nil:
-		return newBinaryProcessGateway(
+		return newProcessGateway(
 			cfg.CommandGateway.Command,
 			cfg.CommandGateway.Args,
 			cfg.CommandGateway.Env,
