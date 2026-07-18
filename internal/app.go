@@ -34,12 +34,14 @@ import (
 // api.NewServer responsobility is assemble a server not services
 
 type AppConfig struct {
-	DataPath         string
-	SearchHostScheme string
-	SearchHost       string
-	TelegramGroupID  int64
-	ShellEnv         []string
-	BotConfigs       []telegram.BotConfig
+	DataPath           string
+	SearchHostScheme   string
+	SearchHost         string
+	TelegramGroupID    int64
+	ConsolidationModel agent.ModelName
+	ObserverModel      agent.ModelName
+	ShellEnv           []string
+	BotConfigs         []telegram.BotConfig
 }
 
 type App struct {
@@ -47,6 +49,10 @@ type App struct {
 	TelegramOrchestra *telegram.BotOrchestrator
 	TaskSvc           *task.Service
 	Memory            *memory.Memory
+	ToolsSvc          *tools.Service
+	MemoryRepo        agent.MemoryRepo
+	MemoryIndexer     agent.MemoryIndexer
+	MemorySvc         *memory.Memory
 	MCPSvc            *mcp.Service
 	ChatSvc           *chat.Service
 	SessionSvc        *session.Service
@@ -99,24 +105,19 @@ func BuildMemoryConsolidator(
 	fs *files.FileSystem,
 	rt *runtime.AgentRuntime,
 	todoStorage todo.Store,
-	modelRepo agent.ModelRepository,
+	model agent.Model,
 	agentRepo agent.Repo,
 	additionalTools []agent.ToolServer,
-	indexer runtime.MemoryIndexer,
+	indexer agent.MemoryIndexer,
 ) (*memory.Memory, error) {
 
 	fsToolsSrv := memory.NewInstuctFS(fs.Cwd(), fstools.NewRawFileSystemToolServer(fs))
-
-	consolidatorModel, err := modelRepo.Get("consolidator")
-	if err != nil {
-		return nil, fmt.Errorf("'consolidator' model: %w", err)
-	}
 
 	memory, err := memory.NewMemory(
 		agentRepo,
 		rt,
 		append(additionalTools, fsToolsSrv),
-		consolidatorModel,
+		model,
 		hooks.NewMemoryHarness(fs, todoStorage, indexer),
 	)
 	if err != nil {
@@ -137,7 +138,8 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	observerModel, err := modelRepo.Get("observer")
+
+	observerModel, err := modelRepo.Get(cfg.ObserverModel)
 	if err != nil {
 		return nil, errors.New("has no observer model")
 	}
@@ -201,11 +203,16 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		return nil, err
 	}
 
+	consolidatorModel, err := modelRepo.Get(cfg.ConsolidationModel)
+	if err != nil {
+		return nil, fmt.Errorf("'consolidator' model: %w", err)
+	}
+
 	memoryConsolidator, err := BuildMemoryConsolidator(
 		fs,
 		rt,
 		todoStorage,
-		modelRepo,
+		consolidatorModel,
 		agentRepo,
 		[]agent.ToolServer{todoToolSrv},
 		memoryFiles,
@@ -229,5 +236,9 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		MCPSvc:            mcpSvc,
 		ChatSvc:           chatSvc,
 		SessionSvc:        sessSvc,
+		ToolsSvc:          toolSvc,
+		MemoryRepo:        memoryFiles,
+		MemoryIndexer:     memoryFiles,
+		MemorySvc:         memoryConsolidator,
 	}, nil
 }

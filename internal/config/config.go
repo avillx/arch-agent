@@ -1,6 +1,7 @@
 package config
 
 import (
+	"arch-agent/internal/agent"
 	"fmt"
 	"os"
 
@@ -40,11 +41,13 @@ func (c *Telegram) InjectKeys() error {
 }
 
 type Config struct {
-	Telegram         *Telegram `toml:"telegram"`
-	SearchHost       string    `toml:"search_host"`
-	SearchHostScheme string    `toml:"search_host_scheme"`
-	ShellEnv         []string  `toml:"shell_envs"`
-	Port             int64     `toml:"port"`
+	Telegram           *Telegram       `toml:"telegram"`
+	SearchHost         string          `toml:"search_host"`
+	SearchHostScheme   string          `toml:"search_host_scheme"`
+	ShellEnv           []string        `toml:"shell_envs"`
+	Port               int64           `toml:"port"`
+	ConsolidationModel agent.ModelName `toml:"consolidation_model"`
+	ObserverModel      agent.ModelName `toml:"observer_model"`
 }
 
 func Load(configPath string) (Config, error) {
