@@ -56,12 +56,14 @@ func run(ctx context.Context,
 
 	// App composing
 	app, err := app.BuildApp(ctx, app.AppConfig{
-		DataPath:         dataPath,
-		SearchHostScheme: cfg.SearchHostScheme,
-		SearchHost:       cfg.SearchHost,
-		TelegramGroupID:  cfg.Telegram.GroupID,
-		BotConfigs:       botConf(cfg),
-		ShellEnv:         cfg.ShellEnv,
+		DataPath:           dataPath,
+		SearchHostScheme:   cfg.SearchHostScheme,
+		SearchHost:         cfg.SearchHost,
+		TelegramGroupID:    cfg.Telegram.GroupID,
+		BotConfigs:         botConf(cfg),
+		ShellEnv:           cfg.ShellEnv,
+		ConsolidationModel: cfg.ConsolidationModel,
+		ObserverModel:      cfg.ObserverModel,
 	})
 	if err != nil {
 		return err
@@ -70,7 +72,16 @@ func run(ctx context.Context,
 	app.TelegramOrchestra.Run(ctx)
 
 	// server
-	svc := api.NewServer(app.TaskSvc, app.ChatSvc, app.SessionSvc)
+	svc := api.NewServer(
+		app.TaskSvc,
+		app.ChatSvc,
+		app.SessionSvc,
+		app.ToolsSvc,
+		app.MCPSvc,
+		app.MemoryRepo,
+		app.MemoryIndexer,
+		app.Memory,
+	)
 
 	httpServer := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),

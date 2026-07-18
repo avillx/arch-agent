@@ -3,6 +3,8 @@ package api
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/session"
+	"arch-agent/internal/types"
+	"errors"
 	"net/http"
 	"time"
 )
@@ -26,7 +28,7 @@ type sessionHandler struct {
 }
 
 func (h *sessionHandler) Get(w http.ResponseWriter, r *http.Request) error {
-	agentID := r.PathValue("name")
+	agentID := r.PathValue("agent")
 	sessID := r.PathValue("session_id")
 
 	sess, err := h.sessSvc.Get(agent.ID(agentID), session.ID(sessID))
@@ -38,11 +40,14 @@ func (h *sessionHandler) Get(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (h *sessionHandler) List(w http.ResponseWriter, r *http.Request) error {
-	agentID := r.PathValue("name")
+	agentID := r.PathValue("agent")
 
 	sessions, err := h.sessSvc.List(agent.ID(agentID))
 	if err != nil {
-		return nil
+		if errors.Is(err, types.ErrIsNotExist) {
+			return badRequest("is not exist")
+		}
+		return err
 	}
 
 	return respond(w, http.StatusOK, map[string]any{
@@ -51,11 +56,14 @@ func (h *sessionHandler) List(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (h *sessionHandler) Create(w http.ResponseWriter, r *http.Request) error {
-	agentID := r.PathValue("name")
+	agentID := r.PathValue("agent")
 
 	sessID, err := h.sessSvc.Create(agent.ID(agentID))
 	if err != nil {
-		return nil
+		if errors.Is(err, types.ErrIsNotExist) {
+			return badRequest("is not exist")
+		}
+		return err
 	}
 
 	return respond(w, http.StatusCreated, map[string]any{

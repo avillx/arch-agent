@@ -15,27 +15,19 @@ type apiError interface {
 	Body() any
 }
 
-type validationError struct {
-	body any
-}
-
-func (e *validationError) Error() string { return "validation failed" }
-func (e *validationError) Body() any     { return e.body }
-func (e *validationError) Status() int   { return http.StatusBadRequest }
-
 type errStatus struct {
 	status int
-	msg    string
+	msg    map[string]any
 	err    error
 }
 
-func (e *errStatus) Error() string { return e.msg }
+func (e *errStatus) Error() string { return e.Error() }
 func (e *errStatus) Unwrap() error { return e.err }
 
 func internal(cause error) *errStatus {
 	return &errStatus{
 		status: http.StatusInternalServerError,
-		msg:    "internal error",
+		msg:    map[string]any{"error": "internal error"},
 		err:    cause,
 	}
 }
@@ -43,20 +35,22 @@ func internal(cause error) *errStatus {
 func badRequest(msg string) *errStatus {
 	return &errStatus{
 		status: http.StatusBadRequest,
-		msg:    msg,
+		msg:    map[string]any{"error": msg},
 	}
 }
 
-func invalidRequest(problems map[string]string) *validationError {
-	return &validationError{
-		body: problems,
+// validation failed
+func invalidRequest(problems map[string]string) *errStatus {
+	return &errStatus{
+		status: http.StatusNotFound,
+		msg:    map[string]any{"problems": problems},
 	}
 }
 
 func notFound(msg string) *errStatus {
 	return &errStatus{
 		status: http.StatusNotFound,
-		msg:    msg,
+		msg:    map[string]any{"error": msg},
 	}
 }
 
@@ -76,7 +70,7 @@ func wrap(h func(w http.ResponseWriter, r *http.Request) error) http.HandlerFunc
 			slog.Error("unhandled", "error", err)
 		}
 
-		if err := respond(w, es.status, map[string]string{"error": es.msg}); err != nil {
+		if err := respond(w, es.status, es.msg); err != nil {
 			slog.Error("response error", "error", err)
 		}
 	}

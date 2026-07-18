@@ -1,20 +1,33 @@
 package api
 
 import (
+	"arch-agent/internal/agent"
 	"arch-agent/internal/chat"
+	"arch-agent/internal/mcp"
+	"arch-agent/internal/memory"
 	"arch-agent/internal/session"
 	"arch-agent/internal/task"
+	"arch-agent/internal/tools"
 	"net/http"
 )
 
-func NewServer(taskSvc *task.Service, chatSvc *chat.Service, sessSvc *session.Service) http.Handler {
+func NewServer(
+	taskSvc *task.Service,
+	chatSvc *chat.Service,
+	sessSvc *session.Service,
+	toolsSvc *tools.Service,
+	mcpSvc *mcp.Service,
+	memoryRepo agent.MemoryRepo,
+	memoryIndexer agent.MemoryIndexer,
+	memorySvc *memory.Memory,
+) http.Handler {
 	h := http.NewServeMux()
 
-	// tasks
 	taskHandler := &TaskHandler{taskSvc: taskSvc}
 	h.HandleFunc("GET /task/all", wrap(taskHandler.List))
 	h.HandleFunc("POST /task/{name}", wrap(taskHandler.Create))
 	h.HandleFunc("DELETE /task/{name}", wrap(taskHandler.Delete))
+	h.HandleFunc("PATCH /task/{name}", wrap(taskHandler.Patch))
 
 	chatHandler := &chatHandler{chatSvc: chatSvc}
 	h.HandleFunc("POST /chat", wrap(chatHandler.Chat))
@@ -24,6 +37,20 @@ func NewServer(taskSvc *task.Service, chatSvc *chat.Service, sessSvc *session.Se
 	h.HandleFunc("GET /session/{agent}", wrap(sessHandler.List))
 	h.HandleFunc("GET /session/{agent}/{session_id}", wrap(sessHandler.Get))
 	h.HandleFunc("DELETE /session/{agent}/{session_id}", wrap(sessHandler.Delete))
+
+	toolsHandler := &toolsHandler{toolSvc: toolsSvc}
+	h.HandleFunc("GET /tools", wrap(toolsHandler.List))
+
+	mcpHandler := &mcpHandler{mcpSvc: mcpSvc}
+	h.HandleFunc("PATCH /mcp/reload", wrap(mcpHandler.Reload))
+	h.HandleFunc("POST /mcp/disconnect/{id}", wrap(mcpHandler.Disconnect))
+	h.HandleFunc("POST /mcp/connect", wrap(mcpHandler.Connect))
+	h.HandleFunc("GET /mcp/list", wrap(mcpHandler.List))
+
+	memoryHandler := &memoryHandler{memorySvc: memorySvc, memoryIndexer: memoryIndexer, memoryRepo: memoryRepo}
+	h.HandleFunc("POST /memory/{agent}/consolidate", wrap(memoryHandler.Consolidate))
+	h.HandleFunc("GET /memory/{agent}/{memory_name}", wrap(memoryHandler.Get))
+	h.HandleFunc("GET /memory/{agent}", wrap(memoryHandler.List))
 
 	// api v1 route
 	v1 := http.NewServeMux()

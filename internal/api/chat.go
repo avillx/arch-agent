@@ -10,23 +10,23 @@ import (
 	"net/http"
 )
 
-type ProvidedToolDTO struct {
-	Name string         `json:"name"`
-	Args map[string]any `json:"args,omitempty"`
-}
+// type ProvidedToolDTO struct {
+// 	Name string         `json:"name"`
+// 	Args map[string]any `json:"args,omitempty"`
+// }
 
-type ProvidedToolServerDTO struct {
-	ProvidedTools []ProvidedToolDTO `json:"tools"`
-	Instruction   string            `json:"instruction,omitempty"`
-}
+// type ProvidedToolServerDTO struct {
+// 	ProvidedTools []ProvidedToolDTO `json:"tools"`
+// 	Instruction   string            `json:"instruction,omitempty"`
+// }
 
 type RequestDTO struct {
-	AgentID             agent.ID                `json:"agent_id"`
-	SessionID           session.ID              `json:"session_id"`
-	UserRequest         []agent.ContentPart     `json:"user_request"`
-	ProvidedToolServers []ProvidedToolServerDTO `json:"tool_servers,omitempty"`
-	Logging             bool                    `json:"logging,omitempty"`
-	AdditionalPrompt    string                  `json:"additional_prompt,omitempty"`
+	AgentID          agent.ID            `json:"agent_id"`
+	SessionID        session.ID          `json:"session_id"`
+	UserRequest      []agent.ContentPart `json:"user_request"`
+	Logging          bool                `json:"logging,omitempty"`
+	AdditionalPrompt string              `json:"additional_prompt,omitempty"`
+	// ProvidedToolServers []ProvidedToolServerDTO `json:"tool_servers,omitempty"`
 }
 
 type ToolCallDTO struct {
