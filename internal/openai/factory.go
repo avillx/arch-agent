@@ -29,13 +29,13 @@ func (f *OpenAIModelFactory) APIType() model.APIType {
 }
 
 func (f *OpenAIModelFactory) CreateModel(
-	provider model.ProviderDTO,
-	modelID agent.ModelID,
-	modelSettings any,
+	provider model.ProviderConfig,
+	modelName agent.ModelName,
+	modelSettings agent.ModelSettings,
 ) (agent.Model, error) {
 	settings, err := f.parseSettings(modelSettings)
 	if err != nil {
-		return nil, fmt.Errorf("parse model settings for %s: %w", modelID, err)
+		return nil, fmt.Errorf("parse model settings for %s: %w", modelName, err)
 	}
 
 	client, err := f.getOrCreateClient(provider)
@@ -43,7 +43,7 @@ func (f *OpenAIModelFactory) CreateModel(
 		return nil, fmt.Errorf("get client for provider %s: %w", provider.BaseURL, err)
 	}
 
-	return NewOpenAIReasoner(client, settings), nil
+	return NewOpenAIReasoner(client, modelName, settings), nil
 }
 
 type clientKey struct {
@@ -51,7 +51,7 @@ type clientKey struct {
 	KeyRef string
 }
 
-func (f *OpenAIModelFactory) getOrCreateClient(provider model.ProviderDTO) (*openai.Client, error) {
+func (f *OpenAIModelFactory) getOrCreateClient(provider model.ProviderConfig) (*openai.Client, error) {
 	f.clientsMu.Lock()
 	defer f.clientsMu.Unlock()
 
@@ -79,7 +79,7 @@ func (f *OpenAIModelFactory) parseSettings(raw any) (OpenAIModelSettings, error)
 	switch s := raw.(type) {
 	case OpenAIModelSettings:
 		return s, nil
-	case map[string]any:
+	case agent.ModelSettings:
 		data, err := json.Marshal(s)
 		if err != nil {
 			return OpenAIModelSettings{}, err

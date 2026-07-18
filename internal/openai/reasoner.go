@@ -16,15 +16,17 @@ const defaultContextLimit = 100_000
 
 type OpenAIReasoner struct {
 	client     *openai.Client
+	modelName  agent.ModelName
 	settings   OpenAIModelSettings
 	settingsMu sync.RWMutex
 }
 
-func NewOpenAIReasoner(client *openai.Client, settings OpenAIModelSettings) *OpenAIReasoner {
+func NewOpenAIReasoner(client *openai.Client, modelName agent.ModelName, settings OpenAIModelSettings) *OpenAIReasoner {
 
 	return &OpenAIReasoner{
-		client:   client,
-		settings: settings,
+		client:    client,
+		modelName: modelName,
+		settings:  settings,
 	}
 }
 
@@ -40,7 +42,6 @@ func (r *OpenAIReasoner) Settings() agent.ModelSettings {
 	defer r.settingsMu.RUnlock()
 
 	return agent.ModelSettings{
-		"model":                 r.settings.Model,
 		"context_limit":         r.settings.ContextLimit,
 		"tool_choice":           r.settings.ToolChoice,
 		"reasoning_effort":      r.settings.ReasoningEffort,
@@ -95,9 +96,7 @@ func (r *OpenAIReasoner) buildCompletionParams(
 		Messages: messages,
 	}
 
-	if s.Model != nil {
-		completionParams.Model = *s.Model
-	}
+	completionParams.Model = shared.ChatModel(r.modelName)
 
 	if agentTools != nil {
 		completionParams.Tools = agentTools

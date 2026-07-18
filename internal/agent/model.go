@@ -4,7 +4,7 @@ import (
 	"context"
 )
 
-type ModelID string
+type ModelName string
 
 type ModelSettings map[string]any
 
@@ -23,9 +23,9 @@ type Model interface {
 }
 
 type ModelRepository interface {
-	Get(ModelID) (Model, error)
-	Delete(ModelID) error
-	Save(ModelID, Model) error
+	Get(ModelName) (Model, error)
+	Delete(ModelName) error
+	Save(ModelName, Model) error
 }
 
 type Completion struct {

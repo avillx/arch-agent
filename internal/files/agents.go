@@ -153,7 +153,7 @@ func (s *AgentFiles) fromDTO(dtos ...AgentDTO) ([]agent.Agent, error) {
 type AgentDTO struct {
 	ID           agent.ID         `yaml:"id"`
 	Description  string           `yaml:"description,omitempty"`
-	Model        agent.ModelID    `yaml:"model"`
+	Model        agent.ModelName  `yaml:"model"`
 	SystemPrompt string           `yaml:"omitempty"`
 	Tools        []agent.ToolName `yaml:"tools,omitempty"`
 	ToolServers  []string         `yaml:"tool_servers,omitempty"`
