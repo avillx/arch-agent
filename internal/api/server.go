@@ -12,6 +12,7 @@ import (
 )
 
 func NewServer(
+	addr string,
 	taskSvc *task.Service,
 	chatSvc *chat.Service,
 	sessSvc *session.Service,
@@ -20,17 +21,14 @@ func NewServer(
 	memoryRepo agent.MemoryRepo,
 	memoryIndexer agent.MemoryIndexer,
 	memorySvc *memory.Memory,
-) http.Handler {
+) *http.Server {
 	h := http.NewServeMux()
 
-	taskHandler := &TaskHandler{taskSvc: taskSvc}
+	taskHandler := &taskHandler{taskSvc: taskSvc}
 	h.HandleFunc("GET /task/all", wrap(taskHandler.List))
 	h.HandleFunc("POST /task/{name}", wrap(taskHandler.Create))
 	h.HandleFunc("DELETE /task/{name}", wrap(taskHandler.Delete))
 	h.HandleFunc("PATCH /task/{name}", wrap(taskHandler.Patch))
-
-	chatHandler := &chatHandler{chatSvc: chatSvc}
-	h.HandleFunc("POST /chat", wrap(chatHandler.Chat))
 
 	sessHandler := &sessionHandler{sessSvc: sessSvc}
 	h.HandleFunc("POST /session/{agent}", wrap(sessHandler.Create))
@@ -52,9 +50,15 @@ func NewServer(
 	h.HandleFunc("GET /memory/{agent}/{memory_name}", wrap(memoryHandler.Get))
 	h.HandleFunc("GET /memory/{agent}", wrap(memoryHandler.List))
 
+	chatHandler := &chatHandler{addr: addr, chatSvc: chatSvc}
+	h.HandleFunc("POST /chat", wrap(chatHandler.Chat))
+
 	// api v1 route
 	v1 := http.NewServeMux()
 	v1.Handle("/api/v1/", http.StripPrefix("/api/v1", h))
 
-	return v1
+	return &http.Server{
+		Addr:    addr,
+		Handler: v1,
+	}
 }

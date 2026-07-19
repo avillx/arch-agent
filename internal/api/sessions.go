@@ -9,18 +9,25 @@ import (
 	"time"
 )
 
-type SessionDTO struct {
-	ID           string          `json:"session_id"`
-	Messages     []agent.Message `json:"messages"`
-	InputTokens  int64           `json:"input_tokens"`
-	OutputTokens int64           `json:"output_tokens"`
-	CreatedAt    time.Time       `json:"created_at"`
-	UpdatedAt    time.Time       `json:"updated_at"`
-	Extras       map[string]any  `json:"extras,omitempty"`
+type MessageDTO struct {
+	Role      string              `json:"role"`
+	Content   []agent.ContentPart `json:"content"`
+	ToolCalls []ToolCallDTO       `json:"tool_calls,omitempty"`
 }
 
-func sessionToDTO() {
-
+func messagesToDTO(msgs []agent.Message) []MessageDTO {
+	dtos := []MessageDTO{}
+	for _, m := range msgs {
+		dto := MessageDTO{
+			Role:    string(m.Role()),
+			Content: m.Content(),
+		}
+		if agentMessage, ok := m.(*agent.AgentMessage); ok {
+			dto.ToolCalls = toolCallsToDTO(agentMessage.ToolCalls())
+		}
+		dtos = append(dtos, dto)
+	}
+	return dtos
 }
 
 type sessionHandler struct {
@@ -28,15 +35,36 @@ type sessionHandler struct {
 }
 
 func (h *sessionHandler) Get(w http.ResponseWriter, r *http.Request) error {
-	agentID := r.PathValue("agent")
-	sessID := r.PathValue("session_id")
 
-	sess, err := h.sessSvc.Get(agent.ID(agentID), session.ID(sessID))
+	type SessionDTO struct {
+		ID           session.ID     `json:"session_id"`
+		Messages     []MessageDTO   `json:"messages"`
+		InputTokens  int64          `json:"input_tokens"`
+		OutputTokens int64          `json:"output_tokens"`
+		CreatedAt    time.Time      `json:"created_at"`
+		UpdatedAt    time.Time      `json:"updated_at"`
+		Extras       map[string]any `json:"extras,omitempty"`
+	}
+
+	agentID := agent.ID(r.PathValue("agent"))
+	sessID := session.ID(r.PathValue("session_id"))
+
+	sess, err := h.sessSvc.Get(agentID, sessID)
 	if err != nil {
 		return err
 	}
 
-	return respond(w, http.StatusOK, sess)
+	dto := SessionDTO{
+		ID:           sess.ID(),
+		InputTokens:  sess.InputTokens(),
+		OutputTokens: sess.OutputTokens(),
+		CreatedAt:    sess.CreatedAt(),
+		UpdatedAt:    sess.UpdatedAt(),
+		Extras:       sess.Extras(),
+		Messages:     messagesToDTO(sess.Messages()),
+	}
+
+	return respond(w, http.StatusOK, dto)
 }
 
 func (h *sessionHandler) List(w http.ResponseWriter, r *http.Request) error {

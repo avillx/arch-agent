@@ -21,36 +21,63 @@ type memoryHandler struct {
 // GET /memory/{agent}
 func (h *memoryHandler) List(w http.ResponseWriter, r *http.Request) error {
 
-	agentID := r.PathValue("agent")
+	type MemoryRecordDTO struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
 
-	idx, err := h.memoryIndexer.MemoryIndex(agent.ID(agentID))
+	type MemoryIndexDTO struct {
+		Agent   agent.ID          `json:"agent"`
+		Records []MemoryRecordDTO `json:"memory_records"`
+	}
+
+	agentID := agent.ID(r.PathValue("agent"))
+
+	idx, err := h.memoryIndexer.MemoryIndex(agentID)
 	if err != nil {
 		return internal(err)
 	}
 
-	memories := map[string]string{}
+	memories := []MemoryRecordDTO{}
 	for k, v := range idx {
-		memories[strings.TrimSuffix(path.Base(k), path.Ext(k))] = v
+		memories = append(memories, MemoryRecordDTO{
+			Name:        strings.TrimSuffix(path.Base(k), path.Ext(k)),
+			Description: v,
+		})
 	}
 
-	return respond(w, http.StatusOK, memories)
+	dto := MemoryIndexDTO{
+		Agent:   agentID,
+		Records: memories,
+	}
+
+	return respond(w, http.StatusOK, dto)
 }
 
 // GET /memory/{agent}/{memory_name}
 func (h *memoryHandler) Get(w http.ResponseWriter, r *http.Request) error {
-	agentID := r.PathValue("agent")
+
+	type MemoryDTO struct {
+		Agent   agent.ID `json:"agent"`
+		Name    string   `json:"memory_name"`
+		Content string   `json:"content"`
+	}
+
+	agentID := agent.ID(r.PathValue("agent"))
 	memoryName := r.PathValue("memory_name")
 
-	content, err := h.memoryRepo.GetMemory(agent.ID(agentID), memoryName)
+	content, err := h.memoryRepo.GetMemory(agentID, memoryName)
 	if err != nil {
 		return internal(err)
 	}
 
-	return respond(w, http.StatusOK, map[string]any{
-		"agent":       agentID,
-		"memory_name": memoryName,
-		"content":     content,
-	})
+	dto := MemoryDTO{
+		Agent:   agentID,
+		Name:    memoryName,
+		Content: content,
+	}
+
+	return respond(w, http.StatusOK, dto)
 }
 
 // POST /memory/{agent}/consolidate

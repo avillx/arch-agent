@@ -8,23 +8,31 @@ import (
 )
 
 // handler
-type TaskHandler struct {
+type taskHandler struct {
 	taskSvc *task.Service
 }
 
 // GET /task/all
-func (s *TaskHandler) List(w http.ResponseWriter, _ *http.Request) error {
+func (s *taskHandler) List(w http.ResponseWriter, _ *http.Request) error {
+
+	type taskListDTO struct {
+		Tasks []task.TaskConfig `json:"tasks"`
+	}
 
 	tasks, err := s.taskSvc.List()
 	if err != nil {
 		return internal(err)
 	}
 
-	return respond(w, http.StatusOK, tasks)
+	dto := taskListDTO{
+		Tasks: tasks,
+	}
+
+	return respond(w, http.StatusOK, dto)
 }
 
 // POST /task/{name}
-func (s *TaskHandler) Create(w http.ResponseWriter, r *http.Request) error {
+func (s *taskHandler) Create(w http.ResponseWriter, r *http.Request) error {
 	cfg, err := decode[task.TaskConfig](r)
 	if err != nil {
 		return err
@@ -43,7 +51,7 @@ func (s *TaskHandler) Create(w http.ResponseWriter, r *http.Request) error {
 }
 
 // PATCH /task/{name}
-func (s *TaskHandler) Patch(w http.ResponseWriter, r *http.Request) error {
+func (s *taskHandler) Patch(w http.ResponseWriter, r *http.Request) error {
 	taskName := r.PathValue("name")
 
 	patch, err := decode[task.TaskPatch](r)
@@ -55,11 +63,11 @@ func (s *TaskHandler) Patch(w http.ResponseWriter, r *http.Request) error {
 		return mapTaskServiceErr(err)
 	}
 
-	return respond(w, http.StatusOK, message("task started"))
+	return respond(w, http.StatusOK, message("task patched"))
 }
 
 // DELETE /task/{name}
-func (s *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) error {
+func (s *taskHandler) Delete(w http.ResponseWriter, r *http.Request) error {
 	taskName := r.PathValue("name")
 	if err := s.taskSvc.Delete(taskName); err != nil {
 		return mapTaskServiceErr(err)

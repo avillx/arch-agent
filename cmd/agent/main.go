@@ -72,7 +72,8 @@ func run(ctx context.Context,
 	app.TelegramOrchestra.Run(ctx)
 
 	// server
-	svc := api.NewServer(
+	httpServer := api.NewServer(
+		fmt.Sprintf(":%d", cfg.Port),
 		app.TaskSvc,
 		app.ChatSvc,
 		app.SessionSvc,
@@ -82,11 +83,6 @@ func run(ctx context.Context,
 		app.MemoryIndexer,
 		app.Memory,
 	)
-
-	httpServer := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.Port),
-		Handler: svc,
-	}
 
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err

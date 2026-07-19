@@ -15,22 +15,42 @@ type mcpHandler struct {
 // GET /api/v1/mcp/list
 func (h *mcpHandler) List(w http.ResponseWriter, _ *http.Request) error {
 
-	dto := map[string]any{}
-
-	for _, mcpServers := range h.mcpSvc.List() {
-
-		toolList := []string{}
-		for _, t := range mcpServers.Tools() {
-			toolList = append(toolList, string(t.Name()))
-		}
-
-		dto[string(mcpServers.ID())] = map[string]any{
-			"transport": mcpServers.Gateway().Type(),
-			"tools":     toolList,
-		}
+	type MCPToolServerReprDTO struct {
+		Transport string `json:"transport"`
+		ToolServerReprDTO
 	}
 
-	return respond(w, http.StatusOK, map[string]any{"mcp_servers": dto})
+	type MCPListResponseDTO struct {
+		Servers []MCPToolServerReprDTO `json:"mcp_servers"`
+	}
+
+	toolServers := []MCPToolServerReprDTO{}
+	for _, mcpServers := range h.mcpSvc.List() {
+
+		toolList := []ToolReprDTO{}
+		for _, t := range mcpServers.Tools() {
+			toolList = append(toolList, ToolReprDTO{
+				Name:        string(t.Name()),
+				Description: t.Description(),
+			})
+		}
+
+		serverRepr := MCPToolServerReprDTO{
+			Transport: mcpServers.Gateway().Type(),
+			ToolServerReprDTO: ToolServerReprDTO{
+				Name:  string(mcpServers.ID()),
+				Tools: toolList,
+			},
+		}
+
+		toolServers = append(toolServers, serverRepr)
+	}
+
+	dto := MCPListResponseDTO{
+		Servers: toolServers,
+	}
+
+	return respond(w, http.StatusOK, dto)
 }
 
 // POST /api/v1/mcp/connect
@@ -70,7 +90,7 @@ func (h *mcpHandler) Disconnect(w http.ResponseWriter, r *http.Request) error {
 		}
 		return internal(err)
 	}
-	return respond(w, http.StatusOK, map[string]string{"msg": "success"})
+	return respond(w, http.StatusOK, message("disconnected"))
 }
 
 // POST /api/v1/reload
@@ -78,5 +98,5 @@ func (h *mcpHandler) Reload(w http.ResponseWriter, r *http.Request) error {
 	if err := h.mcpSvc.Reload(r.Context()); err != nil {
 		return internal(err)
 	}
-	return respond(w, http.StatusOK, map[string]string{"msg": "success"})
+	return respond(w, http.StatusOK, message("reloaded"))
 }
