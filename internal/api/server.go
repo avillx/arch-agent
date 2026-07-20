@@ -25,6 +25,7 @@ func NewServer(
 	memoryRepo agent.MemoryRepo,
 	memoryIndexer agent.MemoryIndexer,
 	memorySvc *memory.Memory,
+	activityStore activityStore,
 ) *http.Server {
 	h := http.NewServeMux()
 
@@ -59,6 +60,9 @@ func NewServer(
 
 	chatHandler := &chatHandler{provToolRegister: provToolHandler, chatSvc: chatSvc}
 	h.HandleFunc("POST /chat", wrap(chatHandler.Chat))
+
+	activityHandler := &activityHandler{store: activityStore}
+	h.HandleFunc("GET /activity", wrap(activityHandler.Activity))
 
 	// api v1 route
 	v1 := http.NewServeMux()

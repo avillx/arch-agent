@@ -82,23 +82,24 @@ All memory stores in `/agent/data/...`
 **alpha v0.7**
 - [X] sub agent call stack limit
 - [X] summary as first message
-- [ ] search_files issue (glob/grep divide?)
-- [ ] runtime fallback models pool
-- [ ] runtime toolcall loop detection
-- [ ] runtime reorganize for simplicity and robustness
-- [ ] runtime observability issues
 - [X] (API) chat svc 
 - [X] (API) session svc  
 - [X] (API) mcp svc  
 - [X] (API) tools svc 
 - [X] (API) memory consolidator
 - [-] (API) models svc 
-- [-] (API) activity handling
+- [X] (API) activity handling
 - [-] (API) agent repo 
-- [ ] API specefication (OpenAPI)
+- [X] API specefication (OpenAPI)
 - [ ] exclude telegram integration
 
 **v1**
+- [ ] search_files issue (glob/grep divide?)
+- [ ] runtime fallback models pool
+- [ ] runtime toolcall loop detection
+- [ ] runtime reorganize for simplicity and robustness
+- [ ] runtime observability issues
+- [ ] agent can't handle on completion harness detection (for avoid loop)
 - [ ] advanced error handling and messages
 - [ ] eliminate edge case vulnurabilities for every package
 - [ ] schemes on tasks, models, mcp_servers

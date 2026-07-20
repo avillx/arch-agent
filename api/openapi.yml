@@ -46,7 +46,9 @@ paths:
                   description: Additional prompt text appended to the system prompt.
                 tool_servers:
                   type: array
-                  description: External tool servers the agent can use for this call.
+                  description: |
+                    External client-side tool servers the agent can use for this call.
+                    client guarantee of execution and return result for it on intoduced link
                   items:
                     $ref: "#/components/schemas/ProvidedToolServer"
       responses:

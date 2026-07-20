@@ -2,8 +2,10 @@ package files
 
 import (
 	"arch-agent/internal/types"
+	"errors"
 	"os"
 	"path/filepath"
+	"syscall"
 )
 
 const FileMode = 0644
@@ -97,8 +99,11 @@ func (fs *FileSystem) resolveAbsolutePath(relativePath string) string {
 }
 
 func toInternalNotExist(err error) error {
-	if os.IsNotExist(err) {
+	if errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
 		return types.ErrIsNotExist
+	}
+	if errors.Is(err, os.ErrExist) {
+		return types.ErrAlreadyExist
 	}
 	return err
 }

@@ -3,6 +3,7 @@ package files
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/types"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -35,10 +36,38 @@ func (f *ActivityFiles) GetActivity(id agent.ID, date time.Time) (string, error)
 	return string(data), nil
 }
 
+func (f *ActivityFiles) GetRange(
+	agentID agent.ID,
+	from time.Time,
+	to time.Time,
+) ([]agent.ActivityLog, error) {
+	logs := []agent.ActivityLog{}
+
+	for i := from; !i.After(to); i = i.AddDate(0, 0, 1) {
+
+		p := resolveActivityFilePath(agentID, i)
+		data, err := f.fs.ReadFile(p)
+		if err != nil && !errors.Is(err, types.ErrIsNotExist) {
+			return nil, err
+		}
+		if data != nil {
+			logs = append(logs, agent.ActivityLog{
+				Date:    i,
+				Content: string(data),
+			})
+		}
+	}
+
+	return logs, nil
+}
+
 func resolveActivityFilePath(agentID agent.ID, t time.Time) string {
+	d := t.UTC().Truncate(24 * time.Hour)
 	return filepath.Join(
 		fmt.Sprintf("/%s/activity", agentID),
-		t.Format("2006/01/02/"),
-		fmt.Sprintf("%s.md", t.Format("2006-01-02")),
+		d.Format("2006"),
+		d.Format("01"),
+		d.Format("02"),
+		fmt.Sprintf("%s.md", d.Format("2006-01-02")),
 	)
 }

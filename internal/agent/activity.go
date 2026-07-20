@@ -5,12 +5,27 @@ import (
 	"time"
 )
 
+const TimeFormat = "15:04"
+
+type ActivityLog struct {
+	// at first is a date. current time is not provided
+	Date    time.Time
+	Content string
+}
+
 type ActivityRepo interface {
 	Log(ID, ActivityRecord) error
 	GetActivity(ID, time.Time) (string, error)
+	GetRange(ID, time.Time, time.Time) ([]ActivityLog, error)
 }
 
-const TimeFormat = "15:04"
+type MemoryRepo interface {
+	GetMemory(ID, string) (string, error)
+}
+
+type MemoryIndexer interface {
+	MemoryIndex(ID) (map[string]string, error)
+}
 
 type ActivityRecord struct {
 	Stamp   time.Time
@@ -27,12 +42,4 @@ func NewRecord(content string) ActivityRecord {
 func (r ActivityRecord) String() string {
 	timeHeader := time.Now().Format(TimeFormat)
 	return fmt.Sprintf("## %s\n%s\n\n", timeHeader, r.Content)
-}
-
-type MemoryRepo interface {
-	GetMemory(ID, string) (string, error)
-}
-
-type MemoryIndexer interface {
-	MemoryIndex(ID) (map[string]string, error)
 }
