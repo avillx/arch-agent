@@ -114,7 +114,7 @@ func fetchURL(ctx context.Context, client *http.Client, urlStr string, formatter
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Sprintf("can't fetch page: status - %d", resp.StatusCode), nil
+		return "can't fetch page", nil
 	}
 	defer resp.Body.Close()
 
@@ -142,7 +142,7 @@ func fetchURL(ctx context.Context, client *http.Client, urlStr string, formatter
 
 	content, err := formatter(body)
 	if err != nil {
-		content += fmt.Sprintf("\n\n formatting error %e", err)
+		content += fmt.Sprintf("\n\n formatting error %v", err)
 	}
 
 	// hard guardRail
