@@ -15,6 +15,8 @@ type APIType string
 
 const APITypeOpenAI APIType = "openai"
 
+var ErrShortName = errors.New("short name is not allowed for this operation")
+
 type ProviderConfig struct {
 	BaseURL      string                         `json:"base_url"`
 	KeyReference string                         `json:"key_reference"`
@@ -74,8 +76,9 @@ func NewService(configRepo ConfigRepo, factories ...ModelFactory) (*Service, err
 	return svc, nil
 }
 
-var ErrShotName = errors.New("short name is not allowed for this operation")
+// models
 
+// get model
 func (s *Service) Get(name agent.ModelName) (agent.Model, error) {
 
 	if isShortName(name) {
@@ -92,10 +95,11 @@ func (s *Service) Get(name agent.ModelName) (agent.Model, error) {
 	return m, nil
 }
 
+// delete model
 func (s *Service) Delete(modelName agent.ModelName) error {
 
 	if isShortName(modelName) {
-		return ErrShotName
+		return ErrShortName
 	}
 
 	cfg, err := s.configRepo.Load()
@@ -122,10 +126,11 @@ func (s *Service) Delete(modelName agent.ModelName) error {
 	return nil
 }
 
+// save model
 func (s *Service) Save(modelName agent.ModelName, model agent.Model) error {
 
 	if isShortName(modelName) {
-		return ErrShotName
+		return ErrShortName
 	}
 
 	modelSettings := model.Settings()
@@ -167,6 +172,23 @@ func (s *Service) Save(modelName agent.ModelName, model agent.Model) error {
 
 	return nil
 }
+
+// // update model (full name only)
+// func (s *Service) Update(modelName agent.ModelName, settings agent.ModelSettings) error
+
+// // providers
+
+// // get provider
+// func (s *Service) GetProvider(name string) (ProviderConfig, error)
+
+// // save provider
+// func (s *Service) SaveProvider(name string, cfg ProviderConfig) error
+
+// // update provider
+// func (s *Service) UpdateProvider(name string) error
+
+// // delete provider
+// func (s *Service) DeleteProvider(name string) error
 
 func loadConfig(facrotries map[APIType]ModelFactory, cfg Config) (map[agent.ModelName]agent.Model, error) {
 
