@@ -29,6 +29,9 @@ func (s *Service) AllToolServers(names ...string) map[string]agent.ToolServer {
 
 func (s *Service) ToolServers(names ...string) ([]agent.ToolServer, error) {
 
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	// validate exisntence
 	errs := []error{}
 	servers := []agent.ToolServer{}
