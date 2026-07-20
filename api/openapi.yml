@@ -1,0 +1,691 @@
+openapi: "3.0.3"
+info:
+  title: Arch Agent API
+  description: REST API for managing autonomous agents, sessions, tasks, tools, MCP servers, and chat completions.
+  version: "1.0.0"
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+
+paths:
+  # ── Chat ──────────────────────────────────────────────────────────────
+  /chat:
+    post:
+      summary: Start a chat completion
+      description: |
+        Initiates an agent chat completion and streams events via Server-Sent Events (SSE).
+        The response is a stream of JSON envelopes, one per line, prefixed with `data: `.
+        The stream ends with `data: [DONE]`.
+      operationId: chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agent_id, session_id, user_request]
+              properties:
+                agent_id:
+                  type: string
+                  description: Agent identifier.
+                session_id:
+                  type: string
+                  description: Session identifier.
+                user_request:
+                  type: array
+                  description: User message content as an array of content parts.
+                  items:
+                    $ref: "#/components/schemas/ContentPart"
+                logging:
+                  type: boolean
+                  description: Enable logging for this chat invocation.
+                  default: false
+                additional_prompt:
+                  type: string
+                  description: Additional prompt text appended to the system prompt.
+                tool_servers:
+                  type: array
+                  description: External tool servers the agent can use for this call.
+                  items:
+                    $ref: "#/components/schemas/ProvidedToolServer"
+      responses:
+        "200":
+          description: SSE stream of completion events.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Each event is a JSON object wrapped as `data: <json>\n\n`.
+                  Possible event types: `error`, `complete`, `tool_result`, `compaction`, `provided_toolcall`.
+              examples:
+                complete:
+                  value: |
+                    data: {"type":"complete","payload":{"done":false,"completion":"Hello!","tool_calls":[]}}
+                tool_result:
+                  value: |
+                    data: {"type":"tool_result","payload":{"id":"call_abc","result":[{"text":"File contents"}]}}
+                error:
+                  value: |
+                    data: {"type":"error","payload":{"cause":"something went wrong","session":"sess_1","agent":"agent_1"}}
+                compaction:
+                  value: |
+                    data: {"type":"compaction","payload":{"message":"compaction has been proceed","result":"summary text"}}
+                provided_toolcall:
+                  value: |
+                    data: {"type":"provided_toolcall","payload":{"tool":"my_tool","args":{},"result_link":"http://host/api/v1/toolresult/abc","agent_id":"agent_1","session_id":"sess_1"}}
+
+  # ── Sessions ──────────────────────────────────────────────────────────
+  /session/{agent}:
+    post:
+      summary: Create a new session
+      operationId: createSession
+      parameters:
+        - $ref: "#/components/parameters/AgentID"
+      responses:
+        "201":
+          description: Session created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: The created session ID.
+    get:
+      summary: List sessions for an agent
+      operationId: listSessions
+      parameters:
+        - $ref: "#/components/parameters/AgentID"
+      responses:
+        "200":
+          description: Array of session summaries.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      type: object
+
+  /session/{agent}/{session_id}:
+    get:
+      summary: Get a session by ID
+      operationId: getSession
+      parameters:
+        - $ref: "#/components/parameters/AgentID"
+        - $ref: "#/components/parameters/SessionID"
+      responses:
+        "200":
+          description: Full session data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+    delete:
+      summary: Delete a session
+      operationId: deleteSession
+      parameters:
+        - $ref: "#/components/parameters/AgentID"
+        - $ref: "#/components/parameters/SessionID"
+      responses:
+        "200":
+          description: Session deleted.
+
+  # ── Tasks ─────────────────────────────────────────────────────────────
+  /task/all:
+    get:
+      summary: List all tasks
+      operationId: listTasks
+      responses:
+        "200":
+          description: All registered tasks.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tasks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TaskConfig"
+
+  /task/{name}:
+    post:
+      summary: Create a task
+      operationId: createTask
+      parameters:
+        - $ref: "#/components/parameters/TaskName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskConfig"
+      responses:
+        "200":
+          description: Task created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "400":
+          description: Validation error or duplicate task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      summary: Delete a task
+      operationId: deleteTask
+      parameters:
+        - $ref: "#/components/parameters/TaskName"
+      responses:
+        "200":
+          description: Task deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "404":
+          description: Task not found.
+    patch:
+      summary: Patch a task
+      operationId: patchTask
+      parameters:
+        - $ref: "#/components/parameters/TaskName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskPatch"
+      responses:
+        "200":
+          description: Task patched.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "400":
+          description: Invalid cron expression or missing recipients.
+        "404":
+          description: Task not found.
+
+  # ── Tools ─────────────────────────────────────────────────────────────
+  /tools:
+    get:
+      summary: List all registered tool servers and their tools
+      operationId: listTools
+      responses:
+        "200":
+          description: Tool servers with their tools.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tool_servers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ToolServerRepr"
+
+  # ── MCP ───────────────────────────────────────────────────────────────
+  /mcp/list:
+    get:
+      summary: List connected MCP servers
+      operationId: listMCPServers
+      responses:
+        "200":
+          description: MCP servers with their tools and transport information.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mcp_servers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MCPServerRepr"
+
+  /mcp/connect:
+    post:
+      summary: Connect an MCP server
+      operationId: connectMCP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServerGatewayConfig"
+      responses:
+        "200":
+          description: MCP server connected.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  msg:
+                    type: string
+                    example: success
+                  created_id:
+                    type: string
+        "400":
+          description: Validation error or server already exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /mcp/disconnect/{id}:
+    post:
+      summary: Disconnect an MCP server
+      operationId: disconnectMCP
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: MCP server ID.
+      responses:
+        "200":
+          description: MCP server disconnected.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "400":
+          description: Server not found.
+
+  /mcp/reload:
+    patch:
+      summary: Reload all MCP servers
+      operationId: reloadMCP
+      responses:
+        "200":
+          description: MCP servers reloaded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+
+  # ── Memory ────────────────────────────────────────────────────────────
+  /memory/{agent}:
+    get:
+      summary: List memory records for an agent
+      operationId: listMemories
+      parameters:
+        - $ref: "#/components/parameters/AgentID"
+      responses:
+        "200":
+          description: Memory index for the agent.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent:
+                    type: string
+                  memory_records:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        description:
+                          type: string
+
+  /memory/{agent}/{memory_name}:
+    get:
+      summary: Get a specific memory record
+      operationId: getMemory
+      parameters:
+        - $ref: "#/components/parameters/AgentID"
+        - name: memory_name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Memory record name.
+      responses:
+        "200":
+          description: Memory record content.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent:
+                    type: string
+                  memory_name:
+                    type: string
+                  content:
+                    type: string
+
+  /memory/{agent}/consolidate:
+    post:
+      summary: Consolidate memory for an agent
+      description: |
+        Triggers memory consolidation as an SSE stream.
+        Returns completion events as the consolidation agent runs.
+      operationId: consolidateMemory
+      parameters:
+        - $ref: "#/components/parameters/AgentID"
+      responses:
+        "200":
+          description: SSE stream of consolidation progress.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          description: Agent not found.
+
+  # ── Provided Tool Result ──────────────────────────────────────────────
+  /toolresult/{id}:
+    post:
+      summary: Resolve a provided tool call result
+      description: |
+        Called by the external tool server to provide the result of a tool call
+        that was previously emitted via `provided_toolcall` event during a chat stream.
+      operationId: resolveToolCall
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Tool call ID received in the `provided_toolcall` event.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                result:
+                  type: array
+                  description: Tool call result content.
+                  items:
+                    $ref: "#/components/schemas/ContentPart"
+                error_message:
+                  type: string
+                  description: Error message to relay to the agent if the tool call failed.
+      responses:
+        "200":
+          description: Result accepted.
+        "400":
+          description: Invalid JSON or unknown tool call ID.
+
+# ── Components ──────────────────────────────────────────────────────────
+components:
+  parameters:
+    AgentID:
+      name: agent
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Agent identifier.
+    SessionID:
+      name: session_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Session identifier.
+    TaskName:
+      name: name
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Task name.
+
+  schemas:
+    # ── Generic ─────────────────────────────────────────────────────────
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+
+    Message:
+      type: object
+      properties:
+        message:
+          type: string
+
+    ContentPart:
+      type: object
+      properties:
+        text:
+          type: string
+          description: Plain text content.
+        image_url:
+          type: string
+          description: Base64-encoded image data URL (e.g. `data:image/png;base64,...`).
+      description: A part of message content. Either `text` or `image_url` is present.
+
+    ToolCall:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Tool call ID assigned by the model provider.
+        tool:
+          type: string
+          description: Tool name.
+        args:
+          type: object
+          additionalProperties: true
+          description: Tool arguments as a JSON object.
+
+    ToolRepr:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    ToolServerRepr:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Tool server name.
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolRepr"
+
+    # ── Session ─────────────────────────────────────────────────────────
+    Session:
+      type: object
+      properties:
+        session_id:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageDTO"
+        input_tokens:
+          type: integer
+          format: int64
+        output_tokens:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        extras:
+          type: object
+          additionalProperties: true
+
+    MessageDTO:
+      type: object
+      properties:
+        role:
+          type: string 
+          enum: [agent, user, tool, system]
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContentPart"
+        tool_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCall"
+
+    # ── Task ────────────────────────────────────────────────────────────
+    TaskConfig:
+      type: object
+      required: [name, description, recipients, schedule, request]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        recipients:
+          type: array
+          description: Agent IDs that receive the task.
+          items:
+            type: string
+        schedule:
+          type: string
+          description: "Cron expression (5-field: minute hour day month weekday)."
+          example: "0 9 * * 1"
+        request:
+          type: string
+          description: The task request text.
+        active:
+          type: boolean
+          description: Whether the task is active.
+          default: false
+        oneshot:
+          type: boolean
+          description: Whether the task runs only once.
+          default: false
+
+    TaskPatch:
+      type: object
+      properties:
+        active:
+          type: boolean
+        name:
+          type: string
+        description:
+          type: string
+        recipients:
+          type: array
+          items:
+            type: string
+        schedule:
+          type: string
+        request:
+          type: string
+        oneshot:
+          type: boolean
+      description: Partial update for a task. Only supplied fields are updated.
+
+    # ── Chat ────────────────────────────────────────────────────────────
+    ProvidedToolServer:
+      type: object
+      required: [tools]
+      properties:
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProvidedTool"
+        instruction:
+          type: string
+          description: Optional instruction for the agent about how to use these tools.
+
+    ProvidedTool:
+      type: object
+      required: [name, description]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        schema:
+          type: object
+          description: Optional JSON Schema for the tool's parameters.
+
+    # ── MCP ─────────────────────────────────────────────────────────────
+    ServerGatewayConfig:
+      type: object
+      properties:
+        http_gateway:
+          type: object
+          properties:
+            url:
+              type: string
+            token:
+              type: string
+        command_gateway:
+          type: object
+          properties:
+            command:
+              type: string
+            args:
+              type: array
+              items:
+                type: string
+            env:
+              type: object
+              additionalProperties:
+                type: string
+      description: |
+        Exactly one of `http_gateway` or `command_gateway` must be provided.
+
+    MCPServerRepr:
+      type: object
+      properties:
+        transport:
+          type: string
+          description: Transport type (e.g. `sse`, `stdio`).
+        name:
+          type: string
+          description: MCP server ID/name.
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolRepr"
+
+  responses:
+    BadRequest:
+      description: Bad request.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    InternalError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: internal error
