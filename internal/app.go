@@ -35,8 +35,6 @@ import (
 
 type AppConfig struct {
 	DataPath           string
-	SearchHostScheme   string
-	SearchHost         string
 	TelegramGroupID    int64
 	ConsolidationModel agent.ModelName
 	ObserverModel      agent.ModelName
@@ -191,7 +189,7 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 
 	toolSvc.Connect("filesystem", fstools.NewFileSystemToolServer(fs))
 	toolSvc.Connect("tasks", tasktools.NewTasksToolServer(taskSvc))
-	toolSvc.Connect("shell", shell.NewShellToolServer(fs.Cwd(), cfg.ShellEnv...))
+	toolSvc.Connect("shell", shell.NewShellToolServer(fs.Cwd()))
 	toolSvc.Connect("web", fetch.NewFetchToolServer())
 	toolSvc.Connect("agent", tools.NewCallAgentToolServer(subagentSvc, agentRepo))
 	todoToolSrv := todo.NewTodoToolServer(todoStorage)

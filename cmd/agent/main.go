@@ -2,6 +2,7 @@ package main
 
 import (
 	app "arch-agent/internal"
+	"arch-agent/internal/agent"
 	"arch-agent/internal/api"
 	"arch-agent/internal/config"
 	"arch-agent/internal/logging"
@@ -13,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 )
 
@@ -32,10 +34,7 @@ func botConf(cfg config.Config) []telegram.BotConfig {
 
 func run(ctx context.Context,
 	configPath string,
-	dataPath string,
-	logLevel slog.Level,
-	logPretty bool,
-
+	getENV func(key string) (string, bool),
 ) error {
 	ctx, stop := signal.NotifyContext(
 		ctx,
@@ -45,25 +44,70 @@ func run(ctx context.Context,
 
 	defer stop()
 
-	// logging
-	logging.Set(logPretty, slog.Level(logLevel))
-
 	// cfg
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return err
 	}
 
+	dataPath, ok := getENV("DATA_PATH")
+	if !ok {
+		dataPath = "."
+	}
+
+	consolidationModel, ok := getENV("CONSOLIDATION_MODEL")
+	if !ok {
+		return fmt.Errorf("env 'CONSOLIDATION_MODEL' must be non nil")
+	}
+
+	observerModel, ok := getENV("OBSERVER_MODEL")
+	if !ok {
+		return fmt.Errorf("env 'OBSERVER_MODEL' must be non nil")
+	}
+
+	port, ok := getENV("PORT")
+	if !ok {
+		// default
+		port = "8080"
+	}
+
+	publicURL, ok := getENV("PUBLIC_URL")
+	if !ok {
+		// default
+		publicURL = fmt.Sprintf("localhost:%s", port)
+	}
+
+	logPretty, ok := getENV("LOG_PRETTY")
+	if !ok {
+		logPretty = "false"
+	}
+
+	logLevel, ok := getENV("LOG_LEVEL")
+	if !ok {
+		// default
+		logLevel = "4"
+	}
+
+	// logging
+	logPrettyBool, err := strconv.ParseBool(logPretty)
+	if err != nil {
+		return err
+	}
+
+	logLevelInt, err := strconv.Atoi(logLevel)
+	if err != nil {
+		return err
+	}
+
+	logging.Set(logPrettyBool, slog.Level(logLevelInt))
+
 	// App composing
 	app, err := app.BuildApp(ctx, app.AppConfig{
 		DataPath:           dataPath,
-		SearchHostScheme:   cfg.SearchHostScheme,
-		SearchHost:         cfg.SearchHost,
 		TelegramGroupID:    cfg.Telegram.GroupID,
 		BotConfigs:         botConf(cfg),
-		ShellEnv:           cfg.ShellEnv,
-		ConsolidationModel: cfg.ConsolidationModel,
-		ObserverModel:      cfg.ObserverModel,
+		ConsolidationModel: agent.ModelName(consolidationModel),
+		ObserverModel:      agent.ModelName(observerModel),
 	})
 	if err != nil {
 		return err
@@ -73,7 +117,8 @@ func run(ctx context.Context,
 
 	// server
 	httpServer := api.NewServer(
-		fmt.Sprintf(":%d", cfg.Port),
+		fmt.Sprintf(":%s", port),
+		publicURL,
 		app.TaskSvc,
 		app.ChatSvc,
 		app.SessionSvc,
@@ -101,14 +146,11 @@ func main() {
 
 	// flags
 	configPath := flag.String("config", "config.toml", "path to config file")
-	dataPath := flag.String("datadir", ".", "path to data directory")
-	logLevel := flag.Int("log-level", int(slog.LevelWarn), "path to data directory")
-	logPretty := flag.Bool("log-pretty", false, "path to data directory")
 	flag.Parse()
 
 	// run
 	ctx := context.Background()
-	if err := run(ctx, *configPath, *dataPath, slog.Level(*logLevel), *logPretty); err != nil {
+	if err := run(ctx, *configPath, os.LookupEnv); err != nil {
 		slog.Error("server run", "error", err)
 		os.Exit(1)
 	}
