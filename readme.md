@@ -89,7 +89,7 @@ All memory stores in `/agent/data/...`
 - [X] (API) memory consolidator
 - [-] (API) models svc 
 - [X] (API) activity handling
-- [-] (API) agent repo 
+- [X] (API) agent repo 
 - [X] API specefication (OpenAPI)
 - [ ] exclude telegram integration
 

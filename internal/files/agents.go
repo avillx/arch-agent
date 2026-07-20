@@ -122,6 +122,13 @@ func (s *AgentFiles) Save(agt agent.Agent) error {
 	return s.fs.WriteToFile(resolveAgentFilePath(agt.ID()), data)
 }
 
+func (s *AgentFiles) Delete(agentID agent.ID) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.fs.DeleteAll(fmt.Sprintf("/%s", agentID))
+}
+
 func (s *AgentFiles) readConfig(id agent.ID) (AgentDTO, error) {
 	data, err := s.fs.ReadFile(resolveAgentFilePath(id))
 	if err != nil {

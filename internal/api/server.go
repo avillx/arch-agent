@@ -26,6 +26,7 @@ func NewServer(
 	memoryIndexer agent.MemoryIndexer,
 	memorySvc *memory.Memory,
 	activityStore activityStore,
+	agentRepo agent.Repo,
 ) *http.Server {
 	h := http.NewServeMux()
 
@@ -63,6 +64,13 @@ func NewServer(
 
 	activityHandler := &activityHandler{store: activityStore}
 	h.HandleFunc("GET /activity", wrap(activityHandler.Activity))
+
+	agentHandler := &agentHandler{repo: agentRepo}
+	h.HandleFunc("GET /agent/list", wrap(agentHandler.List))
+	h.HandleFunc("GET /agent/{id}", wrap(agentHandler.Read))
+	h.HandleFunc("POST /agent/{id}", wrap(agentHandler.Create))
+	h.HandleFunc("PUT /agent/{id}", wrap(agentHandler.Update))
+	h.HandleFunc("DELETE /agent/{id}", wrap(agentHandler.Delete))
 
 	// api v1 route
 	v1 := http.NewServeMux()

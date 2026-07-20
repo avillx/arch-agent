@@ -6,7 +6,9 @@ type Repo interface {
 	All() ([]Agent, error)
 	Get(ID) (Agent, error)
 	Save(Agent) error
-	// Delete(ID) error
+
+	// TODO: tasks is not updating automaticly
+	Delete(ID) error
 }
 
 var _ Agent = (*agent)(nil)
