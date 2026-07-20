@@ -32,8 +32,8 @@ type CompletionDTO struct {
 }
 
 type chatHandler struct {
-	addr    string
-	chatSvc *chat.Service
+	chatSvc          *chat.Service
+	provToolRegister providedToolRegister
 }
 
 func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) error {
@@ -114,8 +114,12 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) error {
 		},
 	}
 
-	evCh := make(chan runtime.Event)
-	go reader.Read(evCh)
+	providedTools, close := produceProvidedToolServers(
+		h.provToolRegister,
+		stream,
+		chatReqDTO.ProvidedToolServers,
+	)
+	defer close()
 
 	return h.chatSvc.Chat(r.Context(), chat.Request{
 		AgentID:             chatReqDTO.AgentID,
@@ -124,7 +128,7 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) error {
 		Reader:              reader,
 		Logging:             chatReqDTO.Logging,
 		Additional:          chatReqDTO.AdditionalPrompt,
-		ProvidedToolServers: extractProvidedToolServers(h.addr, stream, chatReqDTO.ProvidedToolServers),
+		ProvidedToolServers: providedTools,
 	})
 }
 
@@ -152,18 +156,26 @@ func toolCallsToDTO(calls []*agent.ToolCall) []ToolCallDTO {
 	return dtos
 }
 
-func extractProvidedToolServers(addr string, s *Stream, dtos []ProvidedToolServerDTO) []agent.ToolServer {
+type providedToolRegister interface {
+	registerToolServer(t *ProvidedTool) unregisterFunc
+}
+
+func produceProvidedToolServers(r providedToolRegister, s *Stream, dtos []ProvidedToolServerDTO) ([]agent.ToolServer, unregisterFunc) {
 
 	providedToolServers := []agent.ToolServer{}
+	unregFuncs := []unregisterFunc{}
 
 	if !(len(dtos) > 0) {
-		return providedToolServers
+		return providedToolServers, func() {}
 	}
 
 	for _, dto := range dtos {
 		tools := []agent.Tool{}
 		for _, dtoTool := range dto.ProvidedTools {
-			tools = append(tools, NewProvidedTool(addr, s, dtoTool))
+
+			t := NewProvidedTool(s, dtoTool)
+			unregFuncs = append(unregFuncs, r.registerToolServer(t))
+			tools = append(tools, t)
 		}
 
 		if dto.Instruction != "" {
@@ -180,5 +192,9 @@ func extractProvidedToolServers(addr string, s *Stream, dtos []ProvidedToolServe
 			tools: tools,
 		})
 	}
-	return providedToolServers
+	return providedToolServers, func() {
+		for _, f := range unregFuncs {
+			f()
+		}
+	}
 }

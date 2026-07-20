@@ -8,11 +8,15 @@ import (
 	"arch-agent/internal/session"
 	"arch-agent/internal/task"
 	"arch-agent/internal/tools"
+	"fmt"
 	"net/http"
 )
 
+const apiPrefix = "/api/v1"
+
 func NewServer(
 	addr string,
+	pubURL string,
 	taskSvc *task.Service,
 	chatSvc *chat.Service,
 	sessSvc *session.Service,
@@ -50,12 +54,15 @@ func NewServer(
 	h.HandleFunc("GET /memory/{agent}/{memory_name}", wrap(memoryHandler.Get))
 	h.HandleFunc("GET /memory/{agent}", wrap(memoryHandler.List))
 
-	chatHandler := &chatHandler{addr: addr, chatSvc: chatSvc}
+	provToolHandler := &providedToolsRouter{pubURL: pubURL, waiters: map[string]chan ProvidedToolResultDTO{}}
+	h.HandleFunc(fmt.Sprintf("POST %s/{id}", toolResultEndpoint), wrap(provToolHandler.ResolveCall))
+
+	chatHandler := &chatHandler{provToolRegister: provToolHandler, chatSvc: chatSvc}
 	h.HandleFunc("POST /chat", wrap(chatHandler.Chat))
 
 	// api v1 route
 	v1 := http.NewServeMux()
-	v1.Handle("/api/v1/", http.StripPrefix("/api/v1", h))
+	v1.Handle(apiPrefix, http.StripPrefix(apiPrefix, h))
 
 	return &http.Server{
 		Addr:    addr,
