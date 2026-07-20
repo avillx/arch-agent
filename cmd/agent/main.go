@@ -127,6 +127,7 @@ func run(ctx context.Context,
 		app.MemoryRepo,
 		app.MemoryIndexer,
 		app.Memory,
+		app.ActivityRepo,
 	)
 
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {

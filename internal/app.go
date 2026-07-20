@@ -54,6 +54,7 @@ type App struct {
 	MCPSvc            *mcp.Service
 	ChatSvc           *chat.Service
 	SessionSvc        *session.Service
+	ActivityRepo      agent.ActivityRepo
 }
 
 func BuildModelsRepo(fs *files.FileSystem) (agent.ModelRepository, error) {
@@ -238,5 +239,6 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		MemoryRepo:        memoryFiles,
 		MemoryIndexer:     memoryFiles,
 		MemorySvc:         memoryConsolidator,
+		ActivityRepo:      activityRepo,
 	}, nil
 }
