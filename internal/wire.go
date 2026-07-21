@@ -1,7 +1,8 @@
-package app
+package wire
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/api"
 	"arch-agent/internal/chat"
 	"arch-agent/internal/cron"
 	"arch-agent/internal/files"
@@ -24,36 +25,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 )
 
-// TODO:
-// rename package to Wire
-// Delete App as datastruct and replace for return server
-// this package should assemble all services
-// api.NewServer responsobility is assemble a server not services
-
-type AppConfig struct {
+type Config struct {
+	PubURL             string
 	DataPath           string
 	TelegramGroupID    int64
 	ConsolidationModel string
 	ObserverModel      string
 	ShellEnv           []string
-}
-
-type App struct {
-	runtime       *runtime.AgentRuntime
-	TaskSvc       *task.Service
-	Memory        *memory.Memory
-	ToolsSvc      *tools.Service
-	MemoryRepo    agent.MemoryRepo
-	MemoryIndexer agent.MemoryIndexer
-	MemorySvc     *memory.Memory
-	MCPSvc        *mcp.Service
-	ChatSvc       *chat.Service
-	SessionSvc    *session.Service
-	ActivityRepo  agent.ActivityRepo
-	AgentRepo     agent.Repo
-	ProviderSvc   *model.ProviderService
 }
 
 func BuildTaskSvc(
@@ -108,7 +89,7 @@ func BuildMemoryConsolidator(
 	return memory, err
 }
 
-func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
+func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 
 	fs, err := files.NewFS(cfg.DataPath)
 	if err != nil {
@@ -206,20 +187,20 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	go memoryConsolidator.Run(ctx)
 
-	return &App{
-		runtime:       rt,
-		TaskSvc:       taskSvc,
-		Memory:        memoryConsolidator,
-		MCPSvc:        mcpSvc,
-		ChatSvc:       chatSvc,
-		SessionSvc:    sessSvc,
-		ToolsSvc:      toolSvc,
-		MemoryRepo:    memoryFiles,
-		MemoryIndexer: memoryFiles,
-		MemorySvc:     memoryConsolidator,
-		ActivityRepo:  activityRepo,
-		AgentRepo:     agentRepo,
-		ProviderSvc:   providerSvc,
-	}, nil
+	return api.NewServer(
+		cfg.PubURL,
+		taskSvc,
+		chatSvc,
+		sessSvc,
+		toolSvc,
+		mcpSvc,
+		memoryFiles,
+		memoryFiles,
+		memoryConsolidator,
+		activityRepo,
+		agentRepo,
+		providerSvc,
+	), nil
 }

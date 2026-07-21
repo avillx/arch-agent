@@ -1,8 +1,7 @@
 package main
 
 import (
-	app "arch-agent/internal"
-	"arch-agent/internal/api"
+	wire "arch-agent/internal"
 	"arch-agent/internal/logging"
 	"context"
 	"fmt"
@@ -78,7 +77,8 @@ func run(
 	logging.Set(logPrettyBool, slog.Level(logLevelInt))
 
 	// App composing
-	app, err := app.BuildApp(ctx, app.AppConfig{
+	srv, err := wire.BuildServer(ctx, wire.Config{
+		PubURL:             publicURL,
 		DataPath:           dataPath,
 		ConsolidationModel: consolidationModel,
 		ObserverModel:      observerModel,
@@ -86,24 +86,11 @@ func run(
 	if err != nil {
 		return err
 	}
-	go app.Memory.Run(ctx)
 
-	// server
-	httpServer := api.NewServer(
-		fmt.Sprintf(":%s", port),
-		publicURL,
-		app.TaskSvc,
-		app.ChatSvc,
-		app.SessionSvc,
-		app.ToolsSvc,
-		app.MCPSvc,
-		app.MemoryRepo,
-		app.MemoryIndexer,
-		app.Memory,
-		app.ActivityRepo,
-		app.AgentRepo,
-		app.ProviderSvc,
-	)
+	httpServer := http.Server{
+		Addr:    fmt.Sprintf(":%s", port),
+		Handler: srv,
+	}
 
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err
@@ -120,7 +107,6 @@ func run(
 
 func main() {
 
-	// run
 	ctx := context.Background()
 	if err := run(ctx, os.LookupEnv); err != nil {
 		slog.Error("server run", "error", err)

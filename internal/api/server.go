@@ -16,7 +16,6 @@ import (
 const apiPrefix = "/api/v1"
 
 func NewServer(
-	addr string,
 	pubURL string,
 	taskSvc *task.Service,
 	chatSvc *chat.Service,
@@ -29,7 +28,7 @@ func NewServer(
 	activityStore activityStore,
 	agentRepo agent.Repo,
 	providerSvc *model.ProviderService,
-) *http.Server {
+) *http.ServeMux {
 	h := http.NewServeMux()
 
 	taskHandler := &taskHandler{taskSvc: taskSvc}
@@ -87,8 +86,5 @@ func NewServer(
 	v1 := http.NewServeMux()
 	v1.Handle(apiPrefix, http.StripPrefix(apiPrefix, h))
 
-	return &http.Server{
-		Addr:    addr,
-		Handler: v1,
-	}
+	return v1
 }
