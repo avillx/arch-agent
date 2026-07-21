@@ -38,6 +38,13 @@ func NewProviderService(modelSvc *ModelService, repo ProviderConfigRepo) (*Provi
 	return svc, nil
 }
 
+func (s *ProviderService) GetAll() ([]ProviderConfig, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.repo.All()
+}
+
 func (s *ProviderService) GetProvider(id ProviderID) (ProviderConfig, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -50,7 +57,10 @@ func (s *ProviderService) AddProvider(cfg ProviderConfig) error {
 	defer s.mu.Unlock()
 
 	_, err := s.repo.Get(cfg.Name)
-	if err != nil && !errors.Is(err, types.ErrIsNotExist) {
+	if err == nil {
+		return types.ErrAlreadyExist
+	}
+	if !errors.Is(err, types.ErrIsNotExist) {
 		return err
 	}
 
@@ -139,8 +149,6 @@ func (s *ProviderService) DeleteModel(providerID ProviderID, modelName string) e
 
 	return s.modelSvc.delete(resolveModelID(providerID, modelName))
 }
-
-var ErrEmptyModelName = errors.New("model name is required")
 
 func (s *ProviderService) SetModel(providerID ProviderID, modelName string, modelCfg ModelConfig) error {
 

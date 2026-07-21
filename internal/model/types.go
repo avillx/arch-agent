@@ -2,6 +2,8 @@ package model
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/types"
+	"context"
 	"errors"
 )
 
@@ -11,8 +13,8 @@ type ModelID string
 const APITypeOpenAI APIType = "openai"
 
 var (
-	ErrShortName      = errors.New("short name is not allowed for this operation")
 	ErrUnsupportedAPI = errors.New("this api is not supported")
+	ErrEmptyModelName = errors.New("model name is required")
 )
 
 type TypedModelFactory interface {
@@ -33,11 +35,32 @@ type ProviderID string
 type ModelConfig map[string]any
 
 type ProviderConfig struct {
-	Name         ProviderID
-	BaseURL      string
-	KeyReference string
-	APIType      APIType
-	Models       map[string]ModelConfig
+	Name         ProviderID             `json:"name"`
+	BaseURL      string                 `json:"base_url"`
+	KeyReference string                 `json:"key_ref"`
+	APIType      APIType                `json:"api_type"`
+	Models       map[string]ModelConfig `json:"models"`
+}
+
+func (c ProviderConfig) Validate(_ context.Context) error {
+	problems := map[string]string{}
+	if c.APIType != APITypeOpenAI {
+		problems["api_type"] = ErrUnsupportedAPI.Error()
+	}
+
+	if c.Name == "" {
+		problems["name"] = "must be not empty"
+	}
+
+	if c.BaseURL == "" {
+		problems["base_url"] = "empty field"
+	}
+
+	if len(problems) > 0 {
+		return types.NewValidationError(problems)
+	}
+
+	return nil
 }
 
 type ProviderConfigRepo interface {

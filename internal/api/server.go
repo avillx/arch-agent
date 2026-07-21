@@ -5,6 +5,7 @@ import (
 	"arch-agent/internal/chat"
 	"arch-agent/internal/mcp"
 	"arch-agent/internal/memory"
+	"arch-agent/internal/model"
 	"arch-agent/internal/session"
 	"arch-agent/internal/task"
 	"arch-agent/internal/tools"
@@ -27,6 +28,7 @@ func NewServer(
 	memorySvc *memory.Memory,
 	activityStore activityStore,
 	agentRepo agent.Repo,
+	providerSvc *model.ProviderService,
 ) *http.Server {
 	h := http.NewServeMux()
 
@@ -71,6 +73,15 @@ func NewServer(
 	h.HandleFunc("POST /agent/{id}", wrap(agentHandler.Create))
 	h.HandleFunc("PUT /agent/{id}", wrap(agentHandler.Update))
 	h.HandleFunc("DELETE /agent/{id}", wrap(agentHandler.Delete))
+
+	providerHandler := &providerHandler{providerSvc: providerSvc}
+	h.HandleFunc("GET /providers", wrap(providerHandler.GetAll))
+	h.HandleFunc("GET /providers/{name}", wrap(providerHandler.GetProvider))
+	h.HandleFunc("POST /providers", wrap(providerHandler.AddProvider))
+	h.HandleFunc("PATCH /providers/{name}", wrap(providerHandler.UpdateProvider))
+	h.HandleFunc("DELETE /providers/{name}", wrap(providerHandler.DeleteProvider))
+	h.HandleFunc("DELETE /providers/{name}/models/{model}", wrap(providerHandler.DeleteModel))
+	h.HandleFunc("POST /providers/{name}/models/{model}", wrap(providerHandler.SetModel))
 
 	// api v1 route
 	v1 := http.NewServeMux()

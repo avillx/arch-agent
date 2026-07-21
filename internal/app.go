@@ -56,6 +56,7 @@ type App struct {
 	SessionSvc        *session.Service
 	ActivityRepo      agent.ActivityRepo
 	AgentRepo         agent.Repo
+	ProviderSvc       *model.ProviderService
 }
 
 func BuildTaskSvc(
@@ -128,8 +129,8 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 
 	providerFiles := files.NewProviderFiles(fs)
 
-	// providerSvc
-	if _, err = model.NewProviderService(modelsSvc, providerFiles); err != nil {
+	providerSvc, err := model.NewProviderService(modelsSvc, providerFiles)
+	if err != nil {
 		return nil, err
 	}
 
@@ -236,5 +237,6 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		MemorySvc:         memoryConsolidator,
 		ActivityRepo:      activityRepo,
 		AgentRepo:         agentRepo,
+		ProviderSvc:       providerSvc,
 	}, nil
 }

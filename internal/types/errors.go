@@ -58,6 +58,14 @@ func (e *ValidationError) Message() string {
 
 }
 
+func ResovleValidationProblems(err error) map[string]string {
+	var validationErr *ValidationError
+	if errors.As(err, &validationErr) {
+		return validationErr.problems
+	}
+	return nil
+}
+
 func DistillErrNotExist(msg string, err error) error {
 	errWrapper, ok := err.(interface{ Unwrap() []error })
 	if !ok {
