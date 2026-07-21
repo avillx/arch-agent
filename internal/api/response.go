@@ -42,7 +42,7 @@ func badRequest(msg string) *errStatus {
 // validation failed
 func invalidRequest(problems map[string]string) *errStatus {
 	return &errStatus{
-		status: http.StatusNotFound,
+		status: http.StatusBadRequest,
 		msg:    map[string]any{"problems": problems},
 	}
 }
@@ -79,7 +79,7 @@ func wrap(h func(w http.ResponseWriter, r *http.Request) error) http.HandlerFunc
 func decode[T any](r *http.Request) (T, error) {
 	var v T
 	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
-		return v, fmt.Errorf("decode json: %w", err)
+		return v, badRequest(fmt.Sprintf("decode json: %s", err.Error()))
 	}
 	return v, nil
 }
@@ -87,13 +87,12 @@ func decode[T any](r *http.Request) (T, error) {
 func decodeValid[T types.Validator](r *http.Request) (T, error) {
 	var v T
 	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
-		return v, fmt.Errorf("decode json: %w", err)
+		return v, badRequest(fmt.Sprintf("decode json: %s", err.Error()))
 	}
 	if err := v.Validate(r.Context()); err != nil {
 
-		var validationError *types.ValidationError
-		if errors.As(err, &validationError) {
-			return v, invalidRequest(validationError.Problems())
+		if problems := types.ResovleValidationProblems(err); len(problems) > 0 {
+			return v, invalidRequest(problems)
 		}
 
 		return v, err
