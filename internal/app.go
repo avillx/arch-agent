@@ -14,7 +14,6 @@ import (
 	"arch-agent/internal/session"
 	"arch-agent/internal/subagent"
 	"arch-agent/internal/task"
-	"arch-agent/internal/telegram"
 	"arch-agent/internal/tools"
 	"arch-agent/internal/tools/fetch"
 	fstools "arch-agent/internal/tools/fs"
@@ -39,24 +38,22 @@ type AppConfig struct {
 	ConsolidationModel string
 	ObserverModel      string
 	ShellEnv           []string
-	BotConfigs         []telegram.BotConfig
 }
 
 type App struct {
-	runtime           *runtime.AgentRuntime
-	TelegramOrchestra *telegram.BotOrchestrator
-	TaskSvc           *task.Service
-	Memory            *memory.Memory
-	ToolsSvc          *tools.Service
-	MemoryRepo        agent.MemoryRepo
-	MemoryIndexer     agent.MemoryIndexer
-	MemorySvc         *memory.Memory
-	MCPSvc            *mcp.Service
-	ChatSvc           *chat.Service
-	SessionSvc        *session.Service
-	ActivityRepo      agent.ActivityRepo
-	AgentRepo         agent.Repo
-	ProviderSvc       *model.ProviderService
+	runtime       *runtime.AgentRuntime
+	TaskSvc       *task.Service
+	Memory        *memory.Memory
+	ToolsSvc      *tools.Service
+	MemoryRepo    agent.MemoryRepo
+	MemoryIndexer agent.MemoryIndexer
+	MemorySvc     *memory.Memory
+	MCPSvc        *mcp.Service
+	ChatSvc       *chat.Service
+	SessionSvc    *session.Service
+	ActivityRepo  agent.ActivityRepo
+	AgentRepo     agent.Repo
+	ProviderSvc   *model.ProviderService
 }
 
 func BuildTaskSvc(
@@ -192,12 +189,6 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 	todoToolSrv := todo.NewTodoToolServer(todoStorage)
 	toolSvc.Connect("todo", todoToolSrv)
 
-	// Telegram Bots
-	botOrchestra, err := telegram.NewBotOrchestrator(cfg.BotConfigs...)
-	if err != nil {
-		return nil, err
-	}
-
 	consolidatorModel, err := modelsSvc.Get(cfg.ConsolidationModel)
 	if err != nil {
 		return nil, fmt.Errorf("'consolidator' model: %w", err)
@@ -216,27 +207,19 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		return nil, err
 	}
 
-	botOrchestra.Wire(
-		sessSvc,
-		chatSvc,
-		memoryConsolidator,
-		mcpSvc,
-	)
-
 	return &App{
-		runtime:           rt,
-		TelegramOrchestra: botOrchestra,
-		TaskSvc:           taskSvc,
-		Memory:            memoryConsolidator,
-		MCPSvc:            mcpSvc,
-		ChatSvc:           chatSvc,
-		SessionSvc:        sessSvc,
-		ToolsSvc:          toolSvc,
-		MemoryRepo:        memoryFiles,
-		MemoryIndexer:     memoryFiles,
-		MemorySvc:         memoryConsolidator,
-		ActivityRepo:      activityRepo,
-		AgentRepo:         agentRepo,
-		ProviderSvc:       providerSvc,
+		runtime:       rt,
+		TaskSvc:       taskSvc,
+		Memory:        memoryConsolidator,
+		MCPSvc:        mcpSvc,
+		ChatSvc:       chatSvc,
+		SessionSvc:    sessSvc,
+		ToolsSvc:      toolSvc,
+		MemoryRepo:    memoryFiles,
+		MemoryIndexer: memoryFiles,
+		MemorySvc:     memoryConsolidator,
+		ActivityRepo:  activityRepo,
+		AgentRepo:     agentRepo,
+		ProviderSvc:   providerSvc,
 	}, nil
 }

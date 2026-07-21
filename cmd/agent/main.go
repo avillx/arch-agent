@@ -3,11 +3,8 @@ package main
 import (
 	app "arch-agent/internal"
 	"arch-agent/internal/api"
-	"arch-agent/internal/config"
 	"arch-agent/internal/logging"
-	"arch-agent/internal/telegram"
 	"context"
-	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -17,22 +14,8 @@ import (
 	"syscall"
 )
 
-func botConf(cfg config.Config) []telegram.BotConfig {
-	// bot configs
-	botCfgs := make([]telegram.BotConfig, 0, len(cfg.Telegram.Accs))
-	for _, acc := range cfg.Telegram.Accs {
-		botCfgs = append(botCfgs, telegram.BotConfig{
-			Agent:          acc.Agent,
-			APIKey:         acc.APIKey,
-			Host:           cfg.Telegram.Host,
-			StickerSetName: acc.StickerSet,
-		})
-	}
-	return botCfgs
-}
-
-func run(ctx context.Context,
-	configPath string,
+func run(
+	ctx context.Context,
 	getENV func(key string) (string, bool),
 ) error {
 	ctx, stop := signal.NotifyContext(
@@ -42,12 +25,6 @@ func run(ctx context.Context,
 	)
 
 	defer stop()
-
-	// cfg
-	cfg, err := config.Load(configPath)
-	if err != nil {
-		return err
-	}
 
 	dataPath, ok := getENV("DATA_PATH")
 	if !ok {
@@ -103,8 +80,6 @@ func run(ctx context.Context,
 	// App composing
 	app, err := app.BuildApp(ctx, app.AppConfig{
 		DataPath:           dataPath,
-		TelegramGroupID:    cfg.Telegram.GroupID,
-		BotConfigs:         botConf(cfg),
 		ConsolidationModel: consolidationModel,
 		ObserverModel:      observerModel,
 	})
@@ -112,7 +87,6 @@ func run(ctx context.Context,
 		return err
 	}
 	go app.Memory.Run(ctx)
-	app.TelegramOrchestra.Run(ctx)
 
 	// server
 	httpServer := api.NewServer(
@@ -146,13 +120,9 @@ func run(ctx context.Context,
 
 func main() {
 
-	// flags
-	configPath := flag.String("config", "config.toml", "path to config file")
-	flag.Parse()
-
 	// run
 	ctx := context.Background()
-	if err := run(ctx, *configPath, os.LookupEnv); err != nil {
+	if err := run(ctx, os.LookupEnv); err != nil {
 		slog.Error("server run", "error", err)
 		os.Exit(1)
 	}
