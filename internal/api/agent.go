@@ -126,7 +126,7 @@ func dtoToAgent(id agent.ID, dto AgentDTO) agent.Agent {
 		id,
 		dto.Description,
 		dto.SystemPrompt,
-		agent.ModelName(dto.Model),
+		dto.Model,
 		nil,
 		dto.ToolServers,
 		dto.Memory,

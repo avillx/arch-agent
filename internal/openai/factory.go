@@ -29,21 +29,25 @@ func (f *OpenAIModelFactory) APIType() model.APIType {
 }
 
 func (f *OpenAIModelFactory) CreateModel(
-	provider model.ProviderConfig,
-	modelName agent.ModelName,
+	baseURL string,
+	keyReference string,
 	modelSettings agent.ModelSettings,
 ) (agent.Model, error) {
 	settings, err := f.parseSettings(modelSettings)
 	if err != nil {
-		return nil, fmt.Errorf("parse model settings for %s: %w", modelName, err)
+		return nil, fmt.Errorf("parse model settings: %w", err)
 	}
 
-	client, err := f.getOrCreateClient(provider)
+	if settings.Model == nil {
+		return nil, fmt.Errorf("model is required")
+	}
+
+	client, err := f.getOrCreateClient(baseURL, keyReference)
 	if err != nil {
-		return nil, fmt.Errorf("get client for provider %s: %w", provider.BaseURL, err)
+		return nil, fmt.Errorf("get client for provider %s: %w", baseURL, err)
 	}
 
-	return NewOpenAIReasoner(client, modelName, settings), nil
+	return NewOpenAIReasoner(client, *settings.Model, settings), nil
 }
 
 type clientKey struct {
@@ -51,16 +55,19 @@ type clientKey struct {
 	KeyRef string
 }
 
-func (f *OpenAIModelFactory) getOrCreateClient(provider model.ProviderConfig) (*openai.Client, error) {
+func (f *OpenAIModelFactory) getOrCreateClient(
+	BaseURL string,
+	KeyReference string,
+) (*openai.Client, error) {
 	f.clientsMu.Lock()
 	defer f.clientsMu.Unlock()
 
-	apiKey, found := f.secrets.Get(provider.KeyReference)
+	apiKey, found := f.secrets.Get(KeyReference)
 	if !found {
-		return nil, fmt.Errorf("api key %s is not found in secrets", provider.KeyReference)
+		return nil, fmt.Errorf("api key %s is not found in secrets", KeyReference)
 	}
 
-	cacheKey := clientKey{Url: provider.BaseURL, KeyRef: provider.KeyReference}
+	cacheKey := clientKey{Url: BaseURL, KeyRef: KeyReference}
 
 	if client, ok := f.clients[cacheKey]; ok {
 		return client, nil
@@ -68,7 +75,7 @@ func (f *OpenAIModelFactory) getOrCreateClient(provider model.ProviderConfig) (*
 
 	client := openai.NewClient(
 		option.WithAPIKey(apiKey),
-		option.WithBaseURL(provider.BaseURL),
+		option.WithBaseURL(BaseURL),
 	)
 
 	f.clients[cacheKey] = &client

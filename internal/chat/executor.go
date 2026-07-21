@@ -24,7 +24,7 @@ type Request struct {
 type executor struct {
 	agentRepo    agent.Repo
 	sessionSvc   *session.Service
-	modelRepo    agent.ModelRepository
+	modelRepo    agent.ModelRegistry
 	toolRegistry agent.ToolRegistry
 	harness      *runtime.Harness
 	runtime      *runtime.AgentRuntime
@@ -33,7 +33,7 @@ type executor struct {
 func NewExecutor(
 	agentRepo agent.Repo,
 	sessionSvc *session.Service,
-	modelRepo agent.ModelRepository,
+	modelRepo agent.ModelRegistry,
 	toolRegistry agent.ToolRegistry,
 	runtime *runtime.AgentRuntime,
 	harness *runtime.Harness,

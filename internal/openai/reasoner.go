@@ -16,12 +16,12 @@ const defaultContextLimit = 100_000
 
 type OpenAIReasoner struct {
 	client     *openai.Client
-	modelName  agent.ModelName
+	modelName  string
 	settings   OpenAIModelSettings
 	settingsMu sync.RWMutex
 }
 
-func NewOpenAIReasoner(client *openai.Client, modelName agent.ModelName, settings OpenAIModelSettings) *OpenAIReasoner {
+func NewOpenAIReasoner(client *openai.Client, modelName string, settings OpenAIModelSettings) *OpenAIReasoner {
 
 	return &OpenAIReasoner{
 		client:    client,

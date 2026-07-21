@@ -92,7 +92,7 @@ const sharedFolder = "shared"
 func validateAgentName(agentName string) error {
 	reservedNames := []string{
 		mcpServersFile,
-		modelSettingsFile,
+		providersFile,
 		TaskFile,
 		SecretsFile,
 		skillsFolder,
@@ -160,7 +160,7 @@ func (s *AgentFiles) fromDTO(dtos ...AgentDTO) ([]agent.Agent, error) {
 type AgentDTO struct {
 	ID           agent.ID         `yaml:"id"`
 	Description  string           `yaml:"description,omitempty"`
-	Model        agent.ModelName  `yaml:"model"`
+	Model        string           `yaml:"model"`
 	SystemPrompt string           `yaml:"omitempty"`
 	Tools        []agent.ToolName `yaml:"tools,omitempty"`
 	ToolServers  []string         `yaml:"tool_servers,omitempty"`

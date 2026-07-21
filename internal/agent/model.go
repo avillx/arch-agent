@@ -4,8 +4,6 @@ import (
 	"context"
 )
 
-type ModelName string
-
 type ModelSettings map[string]any
 
 type Modality string
@@ -22,10 +20,8 @@ type Model interface {
 	SupportedModalities() []Modality
 }
 
-type ModelRepository interface {
-	Get(ModelName) (Model, error)
-	Delete(ModelName) error
-	Save(ModelName, Model) error
+type ModelRegistry interface {
+	Get(string) (Model, error)
 }
 
 type Completion struct {

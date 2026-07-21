@@ -35,7 +35,7 @@ type Service struct {
 	rt        *runtime.AgentRuntime
 	toolRepo  agent.ToolRegistry
 	agentRepo agent.Repo
-	modelRepo agent.ModelRepository
+	modelRepo agent.ModelRegistry
 }
 
 func NewService(
@@ -43,7 +43,7 @@ func NewService(
 	rt *runtime.AgentRuntime,
 	toolRepo agent.ToolRegistry,
 	agentRepo agent.Repo,
-	modelRepo agent.ModelRepository,
+	modelRepo agent.ModelRegistry,
 ) *Service {
 	return &Service{
 		harness:   harness,

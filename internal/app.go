@@ -36,8 +36,8 @@ import (
 type AppConfig struct {
 	DataPath           string
 	TelegramGroupID    int64
-	ConsolidationModel agent.ModelName
-	ObserverModel      agent.ModelName
+	ConsolidationModel string
+	ObserverModel      string
 	ShellEnv           []string
 	BotConfigs         []telegram.BotConfig
 }
@@ -56,23 +56,6 @@ type App struct {
 	SessionSvc        *session.Service
 	ActivityRepo      agent.ActivityRepo
 	AgentRepo         agent.Repo
-}
-
-func BuildModelsRepo(fs *files.FileSystem) (agent.ModelRepository, error) {
-
-	secretsRepo, err := files.NewSecretsFiles(fs)
-	if err != nil {
-		return nil, err
-	}
-
-	modelFiles, err := files.NewModelFiles(fs)
-	if err != nil {
-		return nil, err
-	}
-
-	openaiFactory := openai.NewOpenAIModelFactory(secretsRepo)
-
-	return model.NewService(modelFiles, openaiFactory)
 }
 
 func BuildTaskSvc(
@@ -134,12 +117,23 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		return nil, err
 	}
 
-	modelRepo, err := BuildModelsRepo(fs)
+	secretsRepo, err := files.NewSecretsFiles(fs)
 	if err != nil {
 		return nil, err
 	}
 
-	observerModel, err := modelRepo.Get(cfg.ObserverModel)
+	openaiFactory := openai.NewOpenAIModelFactory(secretsRepo)
+
+	modelsSvc := model.NewModelService(openaiFactory)
+
+	providerFiles := files.NewProviderFiles(fs)
+
+	// providerSvc
+	if _, err = model.NewProviderService(modelsSvc, providerFiles); err != nil {
+		return nil, err
+	}
+
+	observerModel, err := modelsSvc.Get(cfg.ObserverModel)
 	if err != nil {
 		return nil, errors.New("has no observer model")
 	}
@@ -173,7 +167,7 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		return nil, err
 	}
 
-	chatExecutor := chat.NewExecutor(agentRepo, sessSvc, modelRepo, toolSvc, rt, agentHarness)
+	chatExecutor := chat.NewExecutor(agentRepo, sessSvc, modelsSvc, toolSvc, rt, agentHarness)
 	chatSvc := chat.NewService(chatExecutor)
 
 	taskSvc, err := BuildTaskSvc(
@@ -187,7 +181,7 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		return nil, err
 	}
 
-	subagentSvc := subagent.NewService(agentHarness, rt, toolSvc, agentRepo, modelRepo)
+	subagentSvc := subagent.NewService(agentHarness, rt, toolSvc, agentRepo, modelsSvc)
 
 	toolSvc.Connect("filesystem", fstools.NewFileSystemToolServer(fs))
 	toolSvc.Connect("tasks", tasktools.NewTasksToolServer(taskSvc))
@@ -203,7 +197,7 @@ func BuildApp(ctx context.Context, cfg AppConfig) (*App, error) {
 		return nil, err
 	}
 
-	consolidatorModel, err := modelRepo.Get(cfg.ConsolidationModel)
+	consolidatorModel, err := modelsSvc.Get(cfg.ConsolidationModel)
 	if err != nil {
 		return nil, fmt.Errorf("'consolidator' model: %w", err)
 	}

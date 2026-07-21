@@ -2,7 +2,6 @@ package main
 
 import (
 	app "arch-agent/internal"
-	"arch-agent/internal/agent"
 	"arch-agent/internal/api"
 	"arch-agent/internal/config"
 	"arch-agent/internal/logging"
@@ -106,8 +105,8 @@ func run(ctx context.Context,
 		DataPath:           dataPath,
 		TelegramGroupID:    cfg.Telegram.GroupID,
 		BotConfigs:         botConf(cfg),
-		ConsolidationModel: agent.ModelName(consolidationModel),
-		ObserverModel:      agent.ModelName(observerModel),
+		ConsolidationModel: consolidationModel,
+		ObserverModel:      observerModel,
 	})
 	if err != nil {
 		return err
