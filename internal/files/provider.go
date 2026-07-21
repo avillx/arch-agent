@@ -66,6 +66,7 @@ func (f *ProviderFiles) Get(id model.ProviderID) (model.ProviderConfig, error) {
 		BaseURL:      provDTO.BaseURL,
 		KeyReference: provDTO.KeyReference,
 		Models:       provDTO.Models,
+		APIType:      provDTO.APIType,
 	}, nil
 }
 
