@@ -524,7 +524,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/AgentListResponse"
 
-  /agent/{id}:
+  /agent/{agent}:
     get:
       tags: [Agents]
       summary: Get an agent by ID
