@@ -84,7 +84,7 @@ func NewServer(
 
 	// api v1 route
 	v1 := http.NewServeMux()
-	v1.Handle(apiPrefix, http.StripPrefix(apiPrefix, h))
+	v1.Handle(apiPrefix+"/", http.StripPrefix(apiPrefix, h))
 
 	return v1
 }
