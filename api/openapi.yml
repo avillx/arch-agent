@@ -32,7 +32,7 @@ tags:
 
 paths:
   # ── Chat ──────────────────────────────────────────────────────────────
-  /chat/{agent}/{session}/interrupt:
+  /chat/{agent}/{session_id}/interrupt:
     post:
       tags: [Chat]
       summary: Interrupt a running chat completion
