@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"sync"
 	"time"
 )
@@ -54,7 +53,7 @@ func (h *providedToolsRouter) ResolveCall(w http.ResponseWriter, r *http.Request
 	}
 
 	resCh <- res
-
+	w.WriteHeader(http.StatusOK)
 	return nil
 }
 
@@ -67,8 +66,7 @@ const (
 func (h *providedToolsRouter) registerToolServer(t *ProvidedTool) unregisterFunc {
 	id := createID()
 
-	resultURL, _ := url.JoinPath(h.pubURL, apiPrefix, toolResultEndpoint, id)
-	t.SetLink(resultURL)
+	t.SetID(id)
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -113,6 +111,35 @@ func (s *ProvidedToolServerInstructed) Instruction() string {
 	return s.instuction
 }
 
+func newProvidedToolServer(dto ProvidedToolServerDTO) agent.ToolServer {
+	tools := []agent.Tool{}
+	for _, toolDTO := range dto.ProvidedTools {
+		tools = append(tools, NewProvidedTool(toolDTO))
+	}
+
+	if dto.Instruction == "" {
+		return &ProvidedToolServer{
+			tools: tools,
+		}
+	}
+
+	return &ProvidedToolServerInstructed{
+		ProvidedToolServer: ProvidedToolServer{
+			tools: tools,
+		},
+	}
+}
+
+func dtoToServers(dtos []ProvidedToolServerDTO) []agent.ToolServer {
+
+	toolServers := []agent.ToolServer{}
+	for _, d := range dtos {
+		toolServers = append(toolServers, newProvidedToolServer(d))
+	}
+
+	return toolServers
+}
+
 // tool
 var _ agent.Tool = (*ProvidedTool)(nil)
 
@@ -120,29 +147,29 @@ type ProvidedTool struct {
 	name        string
 	description string
 	scheme      map[string]any
+	stream      *Stream
 
-	stream   *Stream
-	link     string
+	// URL safe unique id
+	id       string
 	resultCh chan ProvidedToolResultDTO
 }
 
-func NewProvidedTool(s *Stream, dto ProvidedToolDTO) *ProvidedTool {
+func NewProvidedTool(dto ProvidedToolDTO) *ProvidedTool {
 	return &ProvidedTool{
 		name:        dto.Name,
 		description: dto.Description,
 		scheme:      dto.Schema,
-		stream:      s,
 		resultCh:    make(chan ProvidedToolResultDTO),
 	}
 }
 
 func (t *ProvidedTool) Chan() chan ProvidedToolResultDTO { return t.resultCh }
-func (t *ProvidedTool) SetLink(l string)                 { t.link = l }
+func (t *ProvidedTool) SetID(id string)                  { t.id = id }
+func (t *ProvidedTool) SetStream(s *Stream)              { t.stream = s }
 
 func (t *ProvidedTool) Name() agent.ToolName { return agent.ToolName(t.name) }
 func (t *ProvidedTool) Description() string  { return t.description }
 func (t *ProvidedTool) Schema() any          { return t.scheme }
-
 func (t *ProvidedTool) Call(ctx context.Context, args agent.ToolArguments) ([]agent.ContentPart, error) {
 
 	type ProvidedToolCall struct {
@@ -150,9 +177,9 @@ func (t *ProvidedTool) Call(ctx context.Context, args agent.ToolArguments) ([]ag
 		Args map[string]any `json:"args,omitempty"`
 
 		// link for await result
-		ResultLink string `json:"result_link,omitempty"`
-		AgentID    string `json:"agent_id"`
-		SessionID  string `json:"session_id"`
+		ResultID  string `json:"result_id,omitempty"`
+		AgentID   string `json:"agent_id"`
+		SessionID string `json:"session_id"`
 	}
 
 	var parsedArgs map[string]any
@@ -169,14 +196,18 @@ func (t *ProvidedTool) Call(ctx context.Context, args agent.ToolArguments) ([]ag
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
+	if t.stream == nil {
+		return nil, fmt.Errorf("bad provided tool, has no stream to send request")
+	}
+
 	t.stream.send(Envelope{
 		Type: ProvidedCall,
 		Payload: ProvidedToolCall{
-			Name:       t.name,
-			Args:       parsedArgs,
-			ResultLink: t.link,
-			AgentID:    string(agentID),
-			SessionID:  string(sessionID),
+			Name:      t.name,
+			Args:      parsedArgs,
+			ResultID:  t.id,
+			AgentID:   string(agentID),
+			SessionID: string(sessionID),
 		},
 	})
 

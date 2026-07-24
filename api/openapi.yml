@@ -71,39 +71,19 @@ paths:
                   type: array
                   description: |
                     External client-side tool servers the agent can use for this call.
-                    client guarantee of execution and return result for it on intoduced link
+                    client guarantee of execution and return result for it on intoduced id 
+                    for tool result endpoint with path parameter
                   items:
                     $ref: "#/components/schemas/ProvidedToolServer"
       responses:
         "200":
-          description: SSE stream of completion events.
+          description: |
+            SSE stream of completion events. Each event is a JSON object wrapped as `data: <json>\n\n`.
+            The stream ends with `data: [DONE]\n\n`.
           content:
-            application/json:
+            text/event-stream:
               schema:
-                type: string
-                description: |
-                  SSE stream. Each event is a JSON object wrapped as `data: <json>\n\n`.
-                  The stream ends with `data: [DONE]\n\n`.
-                  Possible event types: `error`, `complete`, `tool_result`, `compaction`, `provided_toolcall`.
-              examples:
-                complete:
-                  value: |
-                    data: {"type":"complete","payload":{"done":false,"completion":"Hello!","tool_calls":[]}}
-                complete_final:
-                  value: |
-                    data: {"type":"complete","payload":{"done":true,"completion":"","tool_calls":[]}}
-                tool_result:
-                  value: |
-                    data: {"type":"tool_result","payload":{"id":"call_abc","result":[{"text":"File contents"}]}}
-                error:
-                  value: |
-                    data: {"type":"error","payload":{"cause":"something went wrong","session":"sess_1","agent":"agent_1"}}
-                compaction:
-                  value: |
-                    data: {"type":"compaction","payload":{"message":"compaction processed","result":"summary text"}}
-                provided_toolcall:
-                  value: |
-                    data: {"type":"provided_toolcall","payload":{"tool":"my_tool","args":{},"result_link":"http://host/api/v1/toolresult/abc","agent_id":"agent_1","session_id":"sess_1"}}
+                $ref: "#/components/schemas/ChatEvent"
 
   # ── Sessions ──────────────────────────────────────────────────────────
   /session/{agent}:
@@ -456,16 +436,15 @@ paths:
         - $ref: "#/components/parameters/AgentID"
       responses:
         "200":
-          description: SSE stream of consolidation progress.
+          description: |
+            SSE stream of consolidation progress events.
+            Each event is a JSON object wrapped as `data: <json>\n\n`.
+            The stream ends with `data: [DONE]\n\n`.
+            Event type is the same as `ChatEvent` from the Chat endpoint.
           content:
-            application/json:
+            text/event-stream:
               schema:
-                type: string
-                description: |
-                  SSE stream of consolidation progress events.
-                  Each event is a JSON object wrapped as `data: <json>\n\n`.
-                  The stream ends with `data: [DONE]\n\n`.
-                  Event type is the same as `complete` from the Chat endpoint.
+                $ref: "#/components/schemas/ChatEvent"
         "400":
           $ref: "#/components/responses/BadRequest"
 
@@ -1125,6 +1104,174 @@ components:
           properties:
             input:
               type: string
+
+    # ── Chat Events ─────────────────────────────────────────────────────
+    ChatErrorPayload:
+      type: object
+      description: Payload of an error event in the chat stream.
+      properties:
+        cause:
+          type: string
+          description: Human-readable error message.
+        session:
+          type: string
+          description: Session identifier.
+        agent:
+          type: string
+          description: Agent identifier.
+      example:
+        cause: "something went wrong"
+        session: "sess_1"
+        agent: "agent_1"
+
+    ChatCompletionPayload:
+      type: object
+      description: Payload of a completion event in the chat stream.
+      properties:
+        done:
+          type: boolean
+          description: Whether this is the final completion chunk.
+        completion:
+          type: string
+          description: The completion text chunk.
+        tool_calls:
+          type: array
+          description: Tool calls made by the model (non-empty only on done chunks).
+          items:
+            $ref: "#/components/schemas/ToolCall"
+      example:
+        done: false
+        completion: "Hello!"
+        tool_calls: []
+
+    ChatToolResultPayload:
+      type: object
+      description: Payload of a tool result event in the chat stream.
+      properties:
+        id:
+          type: string
+          description: Tool call ID.
+        result:
+          type: array
+          description: Tool call result content.
+          items:
+            $ref: "#/components/schemas/ContentPart"
+      example:
+        id: "call_abc"
+        result:
+          - text: "File contents"
+
+    ChatCompactionPayload:
+      type: object
+      description: Payload of a compaction event in the chat stream.
+      properties:
+        message:
+          type: string
+          description: Human-readable compaction status message.
+        result:
+          type: string
+          description: Compaction summary text.
+      example:
+        message: "compaction processed"
+        result: "summary text"
+
+    ChatProvidedToolCallPayload:
+      type: object
+      description: Payload of a provided tool call event in the chat stream.
+      properties:
+        tool:
+          type: string
+          description: Tool name.
+        args:
+          type: object
+          additionalProperties: true
+          description: Tool arguments.
+        result_id:
+          type: string
+          description: URL safe id for path parameter to /toolresult/{id} endpoint
+        agent_id:
+          type: string
+          description: Agent identifier.
+        session_id:
+          type: string
+          description: Session identifier.
+      example:
+        tool: "my_tool"
+        args: {}
+        result_id: "fg1ds12sg3d3f3fg342234d"
+        agent_id: "agent_1"
+        session_id: "sess_1"
+
+    # Full event messages (type + payload)
+    ChatErrorMessage:
+      type: object
+      required: [type, payload]
+      properties:
+        type:
+          type: string
+          enum: [error]
+        payload:
+          $ref: "#/components/schemas/ChatErrorPayload"
+
+    ChatCompletionMessage:
+      type: object
+      required: [type, payload]
+      properties:
+        type:
+          type: string
+          enum: [complete]
+        payload:
+          $ref: "#/components/schemas/ChatCompletionPayload"
+
+    ChatToolResultMessage:
+      type: object
+      required: [type, payload]
+      properties:
+        type:
+          type: string
+          enum: [tool_result]
+        payload:
+          $ref: "#/components/schemas/ChatToolResultPayload"
+
+    ChatCompactionMessage:
+      type: object
+      required: [type, payload]
+      properties:
+        type:
+          type: string
+          enum: [compaction]
+        payload:
+          $ref: "#/components/schemas/ChatCompactionPayload"
+
+    ChatProvidedToolCallMessage:
+      type: object
+      required: [type, payload]
+      properties:
+        type:
+          type: string
+          enum: [provided_toolcall]
+        payload:
+          $ref: "#/components/schemas/ChatProvidedToolCallPayload"
+
+    ChatEvent:
+      type: object
+      description: |
+        A single SSE event in the chat stream.
+        The `type` field determines which payload schema applies.
+      discriminator:
+        propertyName: type
+        mapping:
+          error: "#/components/schemas/ChatErrorMessage"
+          complete: "#/components/schemas/ChatCompletionMessage"
+          tool_result: "#/components/schemas/ChatToolResultMessage"
+          compaction: "#/components/schemas/ChatCompactionMessage"
+          provided_toolcall: "#/components/schemas/ChatProvidedToolCallMessage"
+      oneOf:
+        - $ref: "#/components/schemas/ChatErrorMessage"
+        - $ref: "#/components/schemas/ChatCompletionMessage"
+        - $ref: "#/components/schemas/ChatToolResultMessage"
+        - $ref: "#/components/schemas/ChatCompactionMessage"
+        - $ref: "#/components/schemas/ChatProvidedToolCallMessage"
 
     # ── MCP ─────────────────────────────────────────────────────────────
     ServerGatewayConfig:

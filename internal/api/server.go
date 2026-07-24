@@ -58,7 +58,7 @@ func NewServer(
 	h.HandleFunc("GET /memory/{agent}", wrap(memoryHandler.List))
 
 	provToolHandler := &providedToolsRouter{pubURL: pubURL, waiters: map[string]chan ProvidedToolResultDTO{}}
-	h.HandleFunc(fmt.Sprintf("POST %s/{id}", toolResultEndpoint), wrap(provToolHandler.ResolveCall))
+	h.HandleFunc(fmt.Sprintf("POST /%s/{id}", toolResultEndpoint), wrap(provToolHandler.ResolveCall))
 
 	chatHandler := &chatHandler{provToolRegister: provToolHandler, chatSvc: chatSvc}
 	h.HandleFunc("POST /chat", wrap(chatHandler.Chat))

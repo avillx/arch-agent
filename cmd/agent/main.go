@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 )
 
@@ -49,7 +50,10 @@ func run(
 	publicURL, ok := getENV("PUBLIC_URL")
 	if !ok {
 		// default
-		publicURL = fmt.Sprintf("localhost:%s", port)
+		publicURL = fmt.Sprintf("http://localhost:%s", port)
+	}
+	if !strings.HasPrefix(publicURL, "https://") && !strings.HasPrefix(publicURL, "http://") {
+		return fmt.Errorf("PUBLIC_URL must start with http:// or https:// has %s", publicURL)
 	}
 
 	logPretty, ok := getENV("LOG_PRETTY")
@@ -91,6 +95,8 @@ func run(
 		Addr:    fmt.Sprintf(":%s", port),
 		Handler: srv,
 	}
+
+	slog.Warn("start server")
 
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err

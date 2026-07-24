@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 )
 
 type apiError interface {
@@ -117,11 +118,12 @@ func message(content string) map[string]string {
 }
 
 type Stream struct {
-	w http.ResponseWriter
+	w  http.ResponseWriter
+	mu sync.Mutex
 }
 
 func newStream(w http.ResponseWriter) *Stream {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.WriteHeader(http.StatusOK)
@@ -129,6 +131,9 @@ func newStream(w http.ResponseWriter) *Stream {
 }
 
 func (s *Stream) send(v any) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	data, err := json.Marshal(v)
 	if err != nil {
 		return
@@ -136,10 +141,15 @@ func (s *Stream) send(v any) {
 	_, _ = fmt.Fprintf(s.w, "data: %s\n\n", data)
 	if f, ok := s.w.(http.Flusher); ok {
 		f.Flush()
+	} else {
+		slog.Error("stream", "error", "writer is not support flush")
 	}
 }
 
 func (s *Stream) done() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	_, _ = fmt.Fprint(s.w, "data: [DONE]\n\n")
 	if f, ok := s.w.(http.Flusher); ok {
 		f.Flush()

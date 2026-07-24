@@ -114,10 +114,11 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) error {
 		},
 	}
 
-	providedTools, close := produceProvidedToolServers(
+	toolSevrvers := dtoToServers(chatReqDTO.ProvidedToolServers)
+	close := registerProvidedToolServers(
 		h.provToolRegister,
 		stream,
-		chatReqDTO.ProvidedToolServers,
+		toolSevrvers,
 	)
 	defer close()
 
@@ -128,7 +129,7 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) error {
 		Reader:              reader,
 		Logging:             chatReqDTO.Logging,
 		Additional:          chatReqDTO.AdditionalPrompt,
-		ProvidedToolServers: providedTools,
+		ProvidedToolServers: toolSevrvers,
 	})
 }
 
@@ -160,39 +161,23 @@ type providedToolRegister interface {
 	registerToolServer(t *ProvidedTool) unregisterFunc
 }
 
-func produceProvidedToolServers(r providedToolRegister, s *Stream, dtos []ProvidedToolServerDTO) ([]agent.ToolServer, unregisterFunc) {
+func registerProvidedToolServers(r providedToolRegister, s *Stream, toolServers []agent.ToolServer) unregisterFunc {
 
-	providedToolServers := []agent.ToolServer{}
 	unregFuncs := []unregisterFunc{}
 
-	if !(len(dtos) > 0) {
-		return providedToolServers, func() {}
+	if !(len(toolServers) > 0) {
+		return func() {}
 	}
-
-	for _, dto := range dtos {
-		tools := []agent.Tool{}
-		for _, dtoTool := range dto.ProvidedTools {
-
-			t := NewProvidedTool(s, dtoTool)
-			unregFuncs = append(unregFuncs, r.registerToolServer(t))
-			tools = append(tools, t)
+	for _, ts := range toolServers {
+		for _, t := range ts.Tools() {
+			if providedTool, ok := t.(*ProvidedTool); ok {
+				providedTool.SetStream(s)
+				unreg := r.registerToolServer(providedTool)
+				unregFuncs = append(unregFuncs, unreg)
+			}
 		}
-
-		if dto.Instruction != "" {
-			providedToolServers = append(providedToolServers, &ProvidedToolServerInstructed{
-				ProvidedToolServer: ProvidedToolServer{
-					tools: tools,
-				},
-				instuction: dto.Instruction,
-			})
-			continue
-		}
-
-		providedToolServers = append(providedToolServers, &ProvidedToolServer{
-			tools: tools,
-		})
 	}
-	return providedToolServers, func() {
+	return func() {
 		for _, f := range unregFuncs {
 			f()
 		}
