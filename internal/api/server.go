@@ -62,6 +62,7 @@ func NewServer(
 
 	chatHandler := &chatHandler{provToolRegister: provToolHandler, chatSvc: chatSvc}
 	h.HandleFunc("POST /chat", wrap(chatHandler.Chat))
+	h.HandleFunc("POST /chat/{agent}/{session}/interrupt", wrap(chatHandler.Interrupt))
 
 	activityHandler := &activityHandler{store: activityStore}
 	h.HandleFunc("GET /activity", wrap(activityHandler.Activity))

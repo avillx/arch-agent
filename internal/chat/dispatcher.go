@@ -4,6 +4,7 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/session"
 	"context"
+	"log/slog"
 	"sync"
 )
 
@@ -37,6 +38,17 @@ func (d *dispatcher) remove(key sessionKey, p *requestProcessing) {
 
 	if d.processes[key] == p {
 		delete(d.processes, key)
+	}
+}
+
+func (d *dispatcher) Interrupt(key sessionKey) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if prev := d.processes[key]; prev != nil {
+		prev.cancel()
+		<-prev.done
+		slog.Warn("session interrupted", "session", key.SessionID, "agent", key.AgentID)
 	}
 }
 

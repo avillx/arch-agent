@@ -36,6 +36,14 @@ type chatHandler struct {
 	provToolRegister providedToolRegister
 }
 
+func (h *chatHandler) Interrupt(w http.ResponseWriter, r *http.Request) error {
+	agentID := agent.ID(r.PathValue("agent"))
+	sessionID := session.ID(r.PathValue("session"))
+	h.chatSvc.Interrupt(sessionID, agentID)
+	w.WriteHeader(http.StatusAccepted)
+	return nil
+}
+
 func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) error {
 
 	type ErrorDTO struct {

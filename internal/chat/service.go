@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"arch-agent/internal/agent"
+	"arch-agent/internal/session"
 	"context"
 	"fmt"
 )
@@ -24,6 +26,13 @@ func (s *Service) Chat(ctx context.Context, r Request) error {
 	}
 
 	return s.dispatcher.Dispatch(ctx, r, s.executor.chat)
+}
+
+func (s *Service) Interrupt(sessID session.ID, agentID agent.ID) {
+	s.dispatcher.Interrupt(sessionKey{
+		AgentID:   agentID,
+		SessionID: sessID,
+	})
 }
 
 func validateRequest(r Request) error {
