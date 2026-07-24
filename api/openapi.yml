@@ -1218,8 +1218,8 @@ components:
         agent_id: "agent_1"
         session_id: "sess_1"
 
-    # Full event messages (type + payload)
-    ChatErrorMessage:
+    # Full event types (type + payload)
+    ChatErrorEvent:
       type: object
       required: [type, payload]
       properties:
@@ -1229,7 +1229,7 @@ components:
         payload:
           $ref: "#/components/schemas/ChatErrorPayload"
 
-    ChatCompletionMessage:
+    ChatCompletionEvent:
       type: object
       required: [type, payload]
       properties:
@@ -1239,7 +1239,7 @@ components:
         payload:
           $ref: "#/components/schemas/ChatCompletionPayload"
 
-    ChatToolResultMessage:
+    ChatToolResultEvent:
       type: object
       required: [type, payload]
       properties:
@@ -1249,7 +1249,7 @@ components:
         payload:
           $ref: "#/components/schemas/ChatToolResultPayload"
 
-    ChatCompactionMessage:
+    ChatCompactionEvent:
       type: object
       required: [type, payload]
       properties:
@@ -1259,7 +1259,7 @@ components:
         payload:
           $ref: "#/components/schemas/ChatCompactionPayload"
 
-    ChatProvidedToolCallMessage:
+    ChatProvidedToolCallEvent:
       type: object
       required: [type, payload]
       properties:
@@ -1277,17 +1277,17 @@ components:
       discriminator:
         propertyName: type
         mapping:
-          error: "#/components/schemas/ChatErrorMessage"
-          complete: "#/components/schemas/ChatCompletionMessage"
-          tool_result: "#/components/schemas/ChatToolResultMessage"
-          compaction: "#/components/schemas/ChatCompactionMessage"
-          provided_toolcall: "#/components/schemas/ChatProvidedToolCallMessage"
+          error: "#/components/schemas/ChatErrorEvent"
+          complete: "#/components/schemas/ChatCompletionEvent"
+          tool_result: "#/components/schemas/ChatToolResultEvent"
+          compaction: "#/components/schemas/ChatCompactionEvent"
+          provided_toolcall: "#/components/schemas/ChatProvidedToolCallEvent"
       oneOf:
-        - $ref: "#/components/schemas/ChatErrorMessage"
-        - $ref: "#/components/schemas/ChatCompletionMessage"
-        - $ref: "#/components/schemas/ChatToolResultMessage"
-        - $ref: "#/components/schemas/ChatCompactionMessage"
-        - $ref: "#/components/schemas/ChatProvidedToolCallMessage"
+        - $ref: "#/components/schemas/ChatErrorEvent"
+        - $ref: "#/components/schemas/ChatCompletionEvent"
+        - $ref: "#/components/schemas/ChatToolResultEvent"
+        - $ref: "#/components/schemas/ChatCompactionEvent"
+        - $ref: "#/components/schemas/ChatProvidedToolCallEvent"
 
     # ── MCP ─────────────────────────────────────────────────────────────
     ServerGatewayConfig:
