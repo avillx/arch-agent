@@ -32,6 +32,22 @@ tags:
 
 paths:
   # ── Chat ──────────────────────────────────────────────────────────────
+  /chat/{agent}/{session}/interrupt:
+    post:
+      tags: [Chat]
+      summary: Interrupt a running chat completion
+      description: |
+        Interrupts the current chat completion for the given agent and session.
+      operationId: interruptChat
+      parameters:
+        - $ref: "#/components/parameters/AgentID"
+        - $ref: "#/components/parameters/SessionID"
+      responses:
+        "202":
+          description: Interruption accepted.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
   /chat:
     post:
       tags: [Chat]
