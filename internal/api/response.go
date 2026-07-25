@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 )
 
@@ -22,7 +23,13 @@ type errStatus struct {
 	err    error
 }
 
-func (e *errStatus) Error() string { return e.Error() }
+func (e *errStatus) Error() string {
+	var sb strings.Builder
+	for k, v := range e.msg {
+		fmt.Fprintf(&sb, "%s:%v\n", k, v)
+	}
+	return sb.String()
+}
 func (e *errStatus) Unwrap() error { return e.err }
 
 func internal(cause error) *errStatus {
