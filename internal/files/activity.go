@@ -43,6 +43,10 @@ func (f *ActivityFiles) GetRange(
 ) ([]agent.ActivityLog, error) {
 	logs := []agent.ActivityLog{}
 
+	if to.IsZero() {
+		to = time.Now()
+	}
+
 	for i := from; !i.After(to); i = i.AddDate(0, 0, 1) {
 
 		p := resolveActivityFilePath(agentID, i)
