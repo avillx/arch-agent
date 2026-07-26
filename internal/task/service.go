@@ -152,12 +152,17 @@ func (s *Service) validateIdentity(id string) error {
 
 func (s *Service) List() ([]TaskConfig, error) {
 
-	tasks, err := s.repo.All()
+	taskMap, err := s.repo.All()
 	if err != nil {
 		return nil, err
 	}
 
-	return slices.Collect(maps.Values(tasks)), nil
+	taskConfigs := slices.Collect(maps.Values(taskMap))
+	if taskConfigs == nil {
+		taskConfigs = []TaskConfig{}
+	}
+
+	return taskConfigs, nil
 }
 
 func (s *Service) Add(cfg TaskConfig) error {
