@@ -100,7 +100,7 @@ func (h *memoryHandler) Consolidate(w http.ResponseWriter, r *http.Request) erro
 	}
 	go evReader.Read(evCh)
 
-	if err := h.memorySvc.DreamImmidate(r.Context(), agent.ID(agentID), evCh); err != nil {
+	if err := h.memorySvc.ConsolidateImmidate(r.Context(), agent.ID(agentID), evCh); err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
 			return badRequest("agent is not exist")
 		}

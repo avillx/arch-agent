@@ -42,20 +42,24 @@ func NewAgentHarness(b cwdBearer, todoStorage todoStorage) (*runtime.Harness, er
 	}, nil
 }
 
-func NewMemoryHarness(b cwdBearer, todoStorage todoStorage, indexer agent.MemoryIndexer) *runtime.Harness {
+func NewMemoryHarness(b cwdBearer, todoStorage todoStorage, indexer agent.MemoryIndexer) (*runtime.Harness, error) {
 
-	accessHook, _ := NewFileAccessHook(
+	accessHook, err := NewFileAccessHook(
 		b.Cwd(),
 		func(agt agent.Agent) []Rule {
 			return []Rule{
+				{Pattern: ".", Access: No},
 				{Pattern: fmt.Sprintf("./%s/*", agt.ID()), Access: Read},
-				{Pattern: fmt.Sprintf("./%s/memory/*", agt.ID()), Access: Write},
 				{Pattern: fmt.Sprintf("./%s/sessions", agt.ID()), Access: No},
 				{Pattern: fmt.Sprintf("./%s/agent.md", agt.ID()), Access: No},
+				{Pattern: fmt.Sprintf("./%s/memory/*", agt.ID()), Access: Write},
 				{Pattern: fmt.Sprintf("./%s/activity/*", agt.ID()), Access: Read},
 			}
 		},
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	undoneTasks := NewUndoneTodoHook(todoStorage)
 
@@ -66,5 +70,5 @@ func NewMemoryHarness(b cwdBearer, todoStorage todoStorage, indexer agent.Memory
 			&EmptyAnswerHook{},
 			&OnlyValidMemoryFrontmatterHook{indexer: indexer},
 		),
-	}
+	}, nil
 }

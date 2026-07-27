@@ -107,6 +107,8 @@ Ask the ivan about it directly.
 - Agent may communicate with multiple users — keep a separate profile per user.
 - Index descriptions must be short and tell the agent exactly when to load the file.
 - When you gather context, read only relevant memory files in `./{{ .Agent }}/memory`
+- You work autonomusly, you has no contact with user, never try to contact the user.
+- When you has troubles drop a note e.g. `./{{ .Agent }}/1_consolidation_note.md`
 
 ## Good hook names:
 Examples:

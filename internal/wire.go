@@ -75,15 +75,20 @@ func BuildMemoryConsolidator(
 
 	fsToolsSrv := memory.NewInstuctFS(fs.Cwd(), fstools.NewRawFileSystemToolServer(fs))
 
+	harness, err := hooks.NewMemoryHarness(fs, todoStorage, indexer)
+	if err != nil {
+		return nil, fmt.Errorf("harness: %w", err)
+	}
+
 	memory, err := memory.NewMemory(
 		agentRepo,
 		rt,
 		append(additionalTools, fsToolsSrv),
 		model,
-		hooks.NewMemoryHarness(fs, todoStorage, indexer),
+		harness,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("memory consolidator: %w", err)
+		return nil, err
 	}
 
 	return memory, err
@@ -185,7 +190,7 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 		memoryFiles,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("memory consolidator: %w", err)
 	}
 	go memoryConsolidator.Run(ctx)
 

@@ -69,7 +69,7 @@ func NewMemory(
 	}, nil
 }
 
-func (m *Memory) DreamImmidate(ctx context.Context, agentID agent.ID, evCh chan runtime.Event) error {
+func (m *Memory) ConsolidateImmidate(ctx context.Context, agentID agent.ID, evCh chan runtime.Event) error {
 	agt, err := m.agentRepo.Get(agentID)
 	if err != nil {
 		return nil

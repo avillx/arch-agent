@@ -299,6 +299,7 @@ func (h *OnlySupportedExtensionsHook) Apply(
 
 	paths, err := resolvePaths(tc)
 	if errors.Is(err, errIsNotFileTool) ||
+		tc.ToolName == searchFilesToolName ||
 		tc.ToolName == listDirToolName ||
 		tc.ToolName == moveFileToolName ||
 		tc.ToolName == deleteToolName {
