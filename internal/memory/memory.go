@@ -137,6 +137,8 @@ func (m *Memory) Run(ctx context.Context) {
 		ticker := time.Tick(time.Until(nextExecution()))
 		select {
 		case <-ticker:
+			slog.Info("automatic memory consolidation started")
+
 			if m.model == nil {
 				slog.Warn("memorization declined", "warninig", "memory model is not setted")
 				continue
