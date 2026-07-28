@@ -29,7 +29,6 @@ import (
 )
 
 type Config struct {
-	PubURL             string
 	DataPath           string
 	TelegramGroupID    int64
 	ConsolidationModel string
@@ -195,7 +194,6 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 	go memoryConsolidator.Run(ctx)
 
 	return api.NewServer(
-		cfg.PubURL,
 		taskSvc,
 		chatSvc,
 		sessSvc,

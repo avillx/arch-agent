@@ -16,7 +16,6 @@ import (
 const apiPrefix = "/api/v1"
 
 func NewServer(
-	pubURL string,
 	taskSvc *task.Service,
 	chatSvc *chat.Service,
 	sessSvc *session.Service,
@@ -57,7 +56,7 @@ func NewServer(
 	h.HandleFunc("GET /memory/{agent}/{memory_name}", wrap(memoryHandler.Get))
 	h.HandleFunc("GET /memory/{agent}", wrap(memoryHandler.List))
 
-	provToolHandler := &providedToolsRouter{pubURL: pubURL, waiters: map[string]chan ProvidedToolResultDTO{}}
+	provToolHandler := &providedToolsRouter{waiters: map[string]chan ProvidedToolResultDTO{}}
 	h.HandleFunc(fmt.Sprintf("POST /%s/{id}", toolResultEndpoint), wrap(provToolHandler.ResolveCall))
 
 	chatHandler := &chatHandler{provToolRegister: provToolHandler, chatSvc: chatSvc}

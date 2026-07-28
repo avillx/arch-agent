@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"syscall"
 )
 
@@ -47,15 +46,6 @@ func run(
 		port = "8080"
 	}
 
-	publicURL, ok := getENV("PUBLIC_URL")
-	if !ok {
-		// default
-		publicURL = fmt.Sprintf("http://localhost:%s", port)
-	}
-	if !strings.HasPrefix(publicURL, "https://") && !strings.HasPrefix(publicURL, "http://") {
-		return fmt.Errorf("PUBLIC_URL must start with http:// or https:// has %s", publicURL)
-	}
-
 	logPretty, ok := getENV("LOG_PRETTY")
 	if !ok {
 		logPretty = "false"
@@ -82,7 +72,6 @@ func run(
 
 	// App composing
 	srv, err := wire.BuildServer(ctx, wire.Config{
-		PubURL:             publicURL,
 		DataPath:           dataPath,
 		ConsolidationModel: consolidationModel,
 		ObserverModel:      observerModel,

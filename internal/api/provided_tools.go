@@ -31,7 +31,6 @@ type ProvidedToolServerDTO struct {
 }
 
 type providedToolsRouter struct {
-	pubURL  string
 	waiters map[string]chan ProvidedToolResultDTO
 	mu      sync.RWMutex
 }
