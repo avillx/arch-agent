@@ -13,9 +13,61 @@ import (
 	"syscall"
 )
 
+type RunParameters struct {
+	DataPath           string
+	ConsolidationModel string
+	ObserverModel      string
+	Port               string
+	LogPretty          string
+	LogLevel           string
+}
+
+func NewRunParameters(
+	dataPath string,
+	consolidationModel string,
+	observerModel string,
+	port string,
+	logPretty string,
+	logLevel string,
+) (RunParameters, error) {
+
+	if dataPath == "" {
+		dataPath = "."
+	}
+
+	if port == "" {
+		port = "8080"
+	}
+
+	if logPretty == "" {
+		logPretty = "false"
+	}
+
+	if logLevel == "" {
+		logLevel = "4"
+	}
+
+	if consolidationModel == "" {
+		return RunParameters{}, fmt.Errorf("consolidation model is not set")
+	}
+
+	if observerModel == "" {
+		return RunParameters{}, fmt.Errorf("observer model is not set")
+	}
+
+	return RunParameters{
+		DataPath:           dataPath,
+		ConsolidationModel: consolidationModel,
+		ObserverModel:      observerModel,
+		Port:               port,
+		LogPretty:          logPretty,
+		LogLevel:           logLevel,
+	}, nil
+}
+
 func run(
 	ctx context.Context,
-	getENV func(key string) (string, bool),
+	getENV func(key string) string,
 ) error {
 	ctx, stop := signal.NotifyContext(
 		ctx,
@@ -25,63 +77,43 @@ func run(
 
 	defer stop()
 
-	dataPath, ok := getENV("DATA_PATH")
-	if !ok {
-		dataPath = "."
-	}
-
-	consolidationModel, ok := getENV("CONSOLIDATION_MODEL")
-	if !ok {
-		return fmt.Errorf("env 'CONSOLIDATION_MODEL' must be non nil")
-	}
-
-	observerModel, ok := getENV("OBSERVER_MODEL")
-	if !ok {
-		return fmt.Errorf("env 'OBSERVER_MODEL' must be non nil")
-	}
-
-	port, ok := getENV("PORT")
-	if !ok {
-		// default
-		port = "8080"
-	}
-
-	logPretty, ok := getENV("LOG_PRETTY")
-	if !ok {
-		logPretty = "false"
-	}
-
-	logLevel, ok := getENV("LOG_LEVEL")
-	if !ok {
-		// default
-		logLevel = "4"
+	params, err := NewRunParameters(
+		getENV("DATA_PATH"),
+		getENV("CONSOLIDATION_MODEL"),
+		getENV("OBSERVER_MODEL"),
+		getENV("PORT"),
+		getENV("LOG_PRETTY"),
+		getENV("LOG_LEVEL"),
+	)
+	if err != nil {
+		return fmt.Errorf("bad envirement variable: %w", err)
 	}
 
 	// logging
-	logPrettyBool, err := strconv.ParseBool(logPretty)
+	logPrettyBool, err := strconv.ParseBool(params.LogPretty)
 	if err != nil {
 		return err
 	}
 
-	logLevelInt, err := strconv.Atoi(logLevel)
+	logLevel, err := logging.ToLogLevel(params.LogLevel)
 	if err != nil {
 		return err
 	}
 
-	logging.Set(logPrettyBool, slog.Level(logLevelInt))
+	logging.Set(logPrettyBool, logLevel)
 
 	// App composing
 	srv, err := wire.BuildServer(ctx, wire.Config{
-		DataPath:           dataPath,
-		ConsolidationModel: consolidationModel,
-		ObserverModel:      observerModel,
+		DataPath:           params.DataPath,
+		ConsolidationModel: params.ConsolidationModel,
+		ObserverModel:      params.ObserverModel,
 	})
 	if err != nil {
 		return err
 	}
 
 	httpServer := http.Server{
-		Addr:    fmt.Sprintf(":%s", port),
+		Addr:    fmt.Sprintf(":%s", params.Port),
 		Handler: srv,
 	}
 
@@ -103,7 +135,7 @@ func run(
 func main() {
 
 	ctx := context.Background()
-	if err := run(ctx, os.LookupEnv); err != nil {
+	if err := run(ctx, os.Getenv); err != nil {
 		slog.Error("server run", "error", err)
 		os.Exit(1)
 	}

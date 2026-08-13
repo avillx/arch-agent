@@ -8,7 +8,23 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 )
+
+func ToLogLevel(level string) (slog.Level, error) {
+	switch strings.ToLower(level) {
+	case "debug":
+		return slog.LevelDebug, nil
+	case "info":
+		return slog.LevelInfo, nil
+	case "warn":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	default:
+		return 0, fmt.Errorf("unknown log level: %s", level)
+	}
+}
 
 func Set(isPretty bool, level slog.Level) {
 	switch {
