@@ -11,36 +11,24 @@ import (
 	"strings"
 )
 
-func ToLogLevel(level string) (slog.Level, error) {
-	switch strings.ToLower(level) {
-	case "debug":
-		return slog.LevelDebug, nil
-	case "info":
-		return slog.LevelInfo, nil
-	case "warn":
-		return slog.LevelWarn, nil
-	case "error":
-		return slog.LevelError, nil
-	default:
-		return 0, fmt.Errorf("unknown log level: %s", level)
-	}
-}
-
 func Set(isPretty bool, level slog.Level) {
+
+	opt := &slog.HandlerOptions{
+		Level:       level,
+		AddSource:   true,
+		ReplaceAttr: replaceAttrs,
+	}
+
+	var handler slog.Handler
 	switch {
 	case isPretty:
-		slog.SetDefault(NewPrettyLogger())
+		handler = slog.NewJSONHandler(&prettyWriter{os.Stdout}, opt)
 	default:
-		slog.SetDefault(DefaultLogger())
+		handler = slog.NewJSONHandler(os.Stdout, opt)
 	}
 
-	slog.SetLogLoggerLevel(level)
-}
-
-// default logger
-func DefaultLogger() *slog.Logger {
-	jsonHandler := slog.NewJSONHandler(os.Stdout, nil)
-	return slog.New(jsonHandler)
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
 }
 
 type prettyWriter struct {
@@ -56,15 +44,19 @@ func (w *prettyWriter) Write(p []byte) (int, error) {
 	return w.out.Write(buf.Bytes())
 }
 
-// logs to stdout pretty json's
-func NewPrettyLogger() *slog.Logger {
-	opt := &slog.HandlerOptions{
-		Level:       slog.LevelDebug,
-		AddSource:   true,
-		ReplaceAttr: replaceAttrs,
+func ToLogLevel(level string) (slog.Level, error) {
+	switch strings.ToLower(level) {
+	case "debug":
+		return slog.LevelDebug, nil
+	case "info":
+		return slog.LevelInfo, nil
+	case "warn":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	default:
+		return 0, fmt.Errorf("unknown log level: %s", level)
 	}
-	textHandler := slog.NewJSONHandler(&prettyWriter{os.Stdout}, opt)
-	return slog.New(textHandler)
 }
 
 func replaceAttrs(groups []string, a slog.Attr) slog.Attr {
