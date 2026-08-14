@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 )
 
 type EventCallbacks struct {
@@ -114,14 +115,19 @@ func (s *executor) chat(
 	// sink
 	evCh := make(chan runtime.Event, 16)
 	defer close(evCh)
-	go ReadEvents(
-		evCh,
-		r.OnError,
-		r.OnComplete,
-		r.OnToolResult,
-		r.OnCompaction,
-		r.OnEvent,
-	)
+
+	done := make(chan struct{})
+	go func() {
+		ReadEvents(
+			evCh,
+			r.OnError,
+			r.OnComplete,
+			r.OnToolResult,
+			r.OnCompaction,
+			r.OnEvent,
+		)
+		close(done)
+	}()
 
 	// run
 	streamErr := s.runtime.RunStream(
@@ -141,6 +147,14 @@ func (s *executor) chat(
 			},
 		},
 	)
+
+	// await of event processing
+	awaitCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	select {
+	case <-awaitCtx.Done():
+	case <-done:
+	}
 
 	// save session
 	sessErr := s.sessionSvc.Save(agt.ID(), sess)
