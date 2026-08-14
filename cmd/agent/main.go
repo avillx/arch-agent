@@ -44,7 +44,7 @@ func NewRunParameters(
 	}
 
 	if logLevel == "" {
-		logLevel = "4"
+		logLevel = "error"
 	}
 
 	if consolidationModel == "" {

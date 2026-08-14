@@ -108,7 +108,7 @@ func (m *Memory) SetModel(model agent.Model) {
 	m.model = model
 }
 
-func (m *Memory) consolidateMemory(ctx context.Context) error {
+func (m *Memory) consolidateInBackground(ctx context.Context) error {
 	agents, err := m.agentRepo.All()
 	if err != nil {
 		return err
@@ -121,8 +121,13 @@ func (m *Memory) consolidateMemory(ctx context.Context) error {
 		}
 
 		evCh := make(chan runtime.Event, 16)
-		evReader := runtime.EventReader{}
-		go evReader.Read(evCh)
+		defer close(evCh)
+
+		// for drop consolidation events
+		go func() {
+			for range evCh {
+			}
+		}()
 
 		if err := m.consolidateMemoryFor(ctx, agt, evCh); err != nil {
 			errc = errors.Join(errc, err)
@@ -144,7 +149,7 @@ func (m *Memory) Run(ctx context.Context) {
 				continue
 			}
 
-			if err := m.consolidateMemory(ctx); err != nil {
+			if err := m.consolidateInBackground(ctx); err != nil {
 				slog.Error("memory consolidation", "error", err)
 			}
 		case <-ctx.Done():

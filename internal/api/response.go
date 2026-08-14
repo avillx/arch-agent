@@ -153,7 +153,7 @@ func (s *Stream) send(v any) {
 	}
 }
 
-func (s *Stream) done() {
+func (s *Stream) close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -166,14 +166,3 @@ func (s *Stream) done() {
 type ErrorDTO struct {
 	Message string `json:"msg"`
 }
-
-// func (s *Stream) sendError(err error) {
-// 	data, marshalErr := json.Marshal(ErrorDTO{Message: err.Error()})
-// 	if marshalErr != nil {
-// 		return
-// 	}
-// 	_, _ = fmt.Fprintf(s.w, "data: %s\n\n", data)
-// 	if f, ok := s.w.(http.Flusher); ok {
-// 		f.Flush()
-// 	}
-// }

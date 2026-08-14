@@ -116,11 +116,6 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 		return nil, err
 	}
 
-	observerModel, err := modelsSvc.Get(cfg.ObserverModel)
-	if err != nil {
-		return nil, errors.New("has no observer model")
-	}
-
 	agentRepo := files.NewAgentFiles(fs)
 
 	activityRepo := files.NewActivityFiles(fs)
@@ -129,12 +124,10 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 		uuid.NewUUIDGenerator(),
 	)
 
-	observer := runtime.NewObserver(observerModel, activityRepo)
-
 	skillFiles := files.NewSkillFiles(fs)
 	memoryFiles := files.NewMemoryFiles(fs)
 	contextAssembler := runtime.NewContextAssembler(skillFiles, activityRepo, memoryFiles)
-	rt := runtime.NewAgentRuntime(observer, contextAssembler)
+	rt := runtime.NewAgentRuntime(contextAssembler)
 
 	toolSvc := tools.NewService()
 
@@ -150,7 +143,16 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 		return nil, err
 	}
 
-	chatExecutor := chat.NewExecutor(agentRepo, sessSvc, modelsSvc, toolSvc, rt, agentHarness)
+	// chat service
+	observerModel, err := modelsSvc.Get(cfg.ObserverModel)
+	if err != nil {
+		return nil, errors.New("has no observer model")
+	}
+
+	reporter := chat.NewActivityReporter(observerModel)
+	observer := chat.NewObserver(reporter, activityRepo)
+
+	chatExecutor := chat.NewExecutor(agentRepo, sessSvc, modelsSvc, toolSvc, rt, agentHarness, observer)
 	chatSvc := chat.NewService(chatExecutor)
 
 	taskSvc, err := BuildTaskSvc(

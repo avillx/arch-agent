@@ -11,41 +11,6 @@ var (
 	_ ToolCallResultEvent = toolCallResultEvent{}
 )
 
-type EventReader struct {
-	OnError      func(agent.ID, session.ID, error)
-	OnComplete   func(agent.ID, session.ID, *agent.Completion)
-	OnToolResult func(agent.ID, session.ID, *agent.ToolResult)
-	OnCompaction func(agent.ID, session.ID, string)
-	OnEvent      func(Event)
-}
-
-func (r EventReader) Read(ch <-chan Event) {
-	for ev := range ch {
-		if r.OnEvent != nil {
-			r.OnEvent(ev)
-		}
-
-		switch typedEv := ev.(type) {
-		case ErrEvent:
-			if r.OnError != nil {
-				r.OnError(typedEv.Agent(), typedEv.Session(), typedEv.Err())
-			}
-		case CompleteEvent:
-			if r.OnComplete != nil {
-				r.OnComplete(typedEv.Agent(), typedEv.Session(), typedEv.Complete())
-			}
-		case ToolCallResultEvent:
-			if r.OnToolResult != nil {
-				r.OnToolResult(typedEv.Agent(), typedEv.Session(), typedEv.Result())
-			}
-		case CompactionEvent:
-			if r.OnCompaction != nil {
-				r.OnCompaction(ev.Agent(), ev.Session(), typedEv.Summary())
-			}
-		}
-	}
-}
-
 type Event interface {
 	Agent() agent.ID
 	Session() session.ID

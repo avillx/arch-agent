@@ -83,6 +83,8 @@ All memory stores in `/agent/data/...`
 - [ ] search_files issue (glob/grep divide?)
 - [ ] runtime fallback models pool
 - [ ] runtime toolcall loop detection
+- [ ] runtime eliminate oobserver to chat service
+- [ ] runtime toolcall service as separated responsobility
 - [ ] runtime reorganize for simplicity and robustness
 - [ ] runtime observability issues
 - [ ] better responses and api design
@@ -95,3 +97,8 @@ All memory stores in `/agent/data/...`
 - [ ] add validations
 - [ ] e2e tests 
 - [ ] from zero launch (preloaded agent, cli, skills)
+
+**v1.1**
+- [ ] scheduled tasks with skill prefill
+- [ ] skill allow tools for agent
+- [ ] sub agent call with skill prefill

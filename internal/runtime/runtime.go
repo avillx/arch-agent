@@ -17,17 +17,13 @@ const (
 )
 
 type AgentRuntime struct {
-	// TODO: expose observer out of runtime as higher level conception
-	observer         *Observer
 	contextAssembler *ContextAssembler
 }
 
 func NewAgentRuntime(
-	observer *Observer,
 	contextAssembler *ContextAssembler,
 ) *AgentRuntime {
 	return &AgentRuntime{
-		observer:         observer,
 		contextAssembler: contextAssembler,
 	}
 }
@@ -38,7 +34,6 @@ type RunStramRequest struct {
 	ToolServers []agent.ToolServer
 	Sess        session.Session
 	EvCh        chan Event
-	LogActivity bool
 	Harness     *Harness
 	BuildContextRequest
 }
@@ -71,19 +66,6 @@ func (r *AgentRuntime) RunStream(
 
 	ctx = withAgentID(ctx, req.Agent.ID())
 	ctx = withSessionID(ctx, req.Sess.ID())
-
-	// wraps event channel for observing aсtivity
-	if req.LogActivity {
-		req.EvCh = r.observer.Intercept(
-			ctx,
-			[]agent.Message{req.Sess.GetLastUserMessage()},
-			req.Agent.ID(),
-			req.Sess.ID(),
-			req.EvCh,
-		)
-	}
-
-	defer close(req.EvCh)
 
 	compactAttempts := 0
 

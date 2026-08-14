@@ -92,14 +92,17 @@ func (s *Service) Call(
 
 	// sink
 	lastAgentMessageContent := ""
-	evReader := runtime.EventReader{
-		OnComplete: func(_ agent.ID, _ session.ID, c *agent.Completion) {
-			lastAgentMessageContent = c.Content
-		},
-	}
-
 	evCh := make(chan runtime.Event, 16)
-	go evReader.Read(evCh)
+	defer close(evCh)
+
+	go func() {
+		for ev := range evCh {
+			if completeEvent, ok := ev.(runtime.CompleteEvent); ok {
+				c := completeEvent.Complete()
+				lastAgentMessageContent += c.Content
+			}
+		}
+	}()
 
 	err = s.rt.RunStream(
 		ctx,
