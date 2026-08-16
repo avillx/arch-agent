@@ -4,7 +4,6 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/prompt"
 	"arch-agent/internal/runtime"
-	"arch-agent/internal/session"
 	"context"
 	"errors"
 	"fmt"
@@ -30,18 +29,16 @@ func (r *InstructedFSServer) AgentInstruction(agt agent.Agent) string {
 
 type Memory struct {
 	agentRepo  agent.Repo
-	runtime    *runtime.AgentRuntime
 	toolServer []agent.ToolServer
 	model      agent.Model
-	harness    *runtime.Harness
+	hooks      []any
 }
 
 func NewMemory(
 	agentRepo agent.Repo,
-	runtime *runtime.AgentRuntime,
 	toolServer []agent.ToolServer,
 	model agent.Model,
-	harness *runtime.Harness,
+	hooks []any,
 ) (*Memory, error) {
 
 	if !(len(toolServer) > 0) {
@@ -52,10 +49,6 @@ func NewMemory(
 		return nil, fmt.Errorf("has no model")
 	}
 
-	if runtime == nil {
-		return nil, fmt.Errorf("has no agent runtime")
-	}
-
 	if agentRepo == nil {
 		return nil, fmt.Errorf("has no agentRepo")
 	}
@@ -63,9 +56,8 @@ func NewMemory(
 	return &Memory{
 		model:      model,
 		agentRepo:  agentRepo,
-		runtime:    runtime,
 		toolServer: toolServer,
-		harness:    harness,
+		hooks:      hooks,
 	}, nil
 }
 
@@ -79,29 +71,28 @@ func (m *Memory) ConsolidateImmidate(ctx context.Context, agentID agent.ID, evCh
 }
 
 func (m *Memory) consolidateMemoryFor(ctx context.Context, agt agent.Agent, evCh chan runtime.Event) error {
-	return m.runtime.RunStream(
-		ctx,
-		runtime.RunStramRequest{
-			Model:       m.model,
-			ToolServers: m.toolServer,
-			Sess:        m.createMemorizationSession(agt.ID()),
-			Agent:       resolveConsolidationAgent(agt),
-			EvCh:        evCh,
-			Harness:     m.harness,
-			BuildContextRequest: runtime.BuildContextRequest{
-				IncludeMemory:       true,
-				IncludeSkills:       false,
-				AllowOptimizeImages: false,
-				AddInstuctions:      true,
-			},
-		},
-	)
-}
 
-func (m *Memory) createMemorizationSession(agentID agent.ID) session.Session {
-	sess := session.NewSession("hidden")
-	sess.AddMessages(agent.NewUserMessage(prompt.MemorizationRequest(agentID)))
-	return sess
+	systemPrompt := prompt.Memorization(agt.ID())
+	systemMessage := agent.NewSystemMessage(systemPrompt)
+
+	memoRequest := prompt.MemorizationRequest(agt.ID())
+	userMessage := agent.NewUserMessage(memoRequest)
+
+	messages := []agent.Message{systemMessage, userMessage}
+
+	tools := []agent.Tool{}
+	for _, ts := range m.toolServer {
+		tools = append(tools, ts.Tools()...)
+	}
+
+	return runtime.RunAgentLoop(
+		ctx,
+		m.model,
+		messages,
+		tools,
+		evCh,
+		m.hooks,
+	)
 }
 
 func (m *Memory) SetModel(model agent.Model) {
@@ -156,18 +147,6 @@ func (m *Memory) Run(ctx context.Context) {
 			return
 		}
 	}
-}
-
-func resolveConsolidationAgent(agt agent.Agent) agent.Agent {
-	return agent.NewAgent(
-		agt.ID(),
-		"",
-		prompt.Memorization(agt.ID()),
-		agt.Model(),
-		[]agent.ToolName{},
-		nil,
-		true,
-	)
 }
 
 func nextExecution() time.Time {
