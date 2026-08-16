@@ -2,20 +2,21 @@ package chat
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/memory"
 	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"arch-agent/internal/types"
 	"context"
-	"errors"
 	"fmt"
 	"time"
 )
 
 type EventCallbacks struct {
-	OnError      func(agent.ID, session.ID, error)
-	OnComplete   func(agent.ID, session.ID, *agent.Completion)
-	OnToolResult func(agent.ID, session.ID, *agent.ToolResult)
-	OnCompaction func(agent.ID, session.ID, string)
+	OnLoopExit   func(*runtime.LoopExitEvent)
+	OnComplete   func(*runtime.CompleteEvent)
+	OnToolResult func(*runtime.ToolResultEvent)
+	OnCompaction func(*runtime.CompactionEvent)
+	OnToolErr    func(*runtime.ToolCallErrEvent)
 	OnEvent      func(runtime.Event)
 }
 
@@ -28,15 +29,30 @@ type Request struct {
 	EventCallbacks
 }
 
+func (r Request) validate() error {
+	if r.AgentID == "" {
+		return fmt.Errorf("completion request must include agentID")
+	}
+
+	if r.SessionID == "" {
+		return fmt.Errorf("completion request must include sessionID")
+	}
+
+	if r.UserMessage == nil {
+		return fmt.Errorf("completion request must include user message")
+	}
+
+	return nil
+}
+
 // request executor
 type executor struct {
-	agentRepo    agent.Repo
-	sessionSvc   *session.Service
-	modelRepo    agent.ModelRegistry
-	toolRegistry agent.ToolRegistry
-	observer     *Observer
-	harness      *runtime.Harness
-	runtime      *runtime.AgentRuntime
+	agentRepo        agent.Repo
+	sessionSvc       *session.Service
+	modelRepo        agent.ModelRegistry
+	toolRegistry     agent.ToolRegistry
+	contextAssembler *ContextAssembler
+	observer         *memory.Observer
 }
 
 func NewExecutor(
@@ -44,74 +60,105 @@ func NewExecutor(
 	sessionSvc *session.Service,
 	modelRepo agent.ModelRegistry,
 	toolRegistry agent.ToolRegistry,
-	runtime *runtime.AgentRuntime,
-	harness *runtime.Harness,
-	observer *Observer,
+	contextAssembler *ContextAssembler,
+	observer *memory.Observer,
 ) *executor {
 	return &executor{
-		agentRepo:    agentRepo,
-		sessionSvc:   sessionSvc,
-		modelRepo:    modelRepo,
-		toolRegistry: toolRegistry,
-		runtime:      runtime,
-		harness:      harness,
-		observer:     observer,
+		agentRepo:        agentRepo,
+		sessionSvc:       sessionSvc,
+		modelRepo:        modelRepo,
+		toolRegistry:     toolRegistry,
+		observer:         observer,
+		contextAssembler: contextAssembler,
 	}
 }
 
-func (s *executor) chat(
+func (e *executor) chat(
 	ctx context.Context,
 	r Request,
 ) error {
 
+	//agent
+	agt, err := e.agentRepo.Get(r.AgentID)
+	if err != nil {
+		return err
+	}
+
+	// model
+	model, err := e.modelRepo.Get(agt.Model())
+	if err != nil {
+		return err
+	}
+
+	// tools
+	toolServers, err := resolveToolServers(e.toolRegistry, agt, r.ProvidedToolServers)
+	if err != nil {
+		return err
+	}
+
 	// session
-	sess, err := s.sessionSvc.Get(r.AgentID, r.SessionID)
+	sess, err := e.sessionSvc.Get(agt.ID(), r.SessionID)
 	if err != nil {
 		return err
 	}
 
 	sess.AddMessages(r.UserMessage)
 
-	//agent
-	agt, err := s.agentRepo.Get(r.AgentID)
+	r.EventCallbacks, err = e.attachSession(
+		r.AgentID,
+		sess,
+		r.EventCallbacks,
+	)
 	if err != nil {
 		return err
-	}
-
-	// model
-	model, err := s.modelRepo.Get(agt.Model())
-	if err != nil {
-		return err
-	}
-
-	// tools
-	toolServers, err := s.toolRegistry.ToolServers(agt.ToolServers()...)
-	if err != nil {
-		if err := types.DistillErrNotExist(fmt.Sprintf("agent %s", err), err); err != nil {
-			return err
-		}
-	}
-
-	if r.ProvidedToolServers != nil {
-		toolServers = append(toolServers, r.ProvidedToolServers...)
 	}
 
 	// logging
 	if r.Logging {
-
-		// commit user message
-		s.observer.Commit(agt.ID(), sess.ID(), []agent.Message{r.UserMessage})
-
-		// wrap on complete for log shit
-		prev := r.OnComplete
-		r.OnComplete = func(agentID agent.ID, sessID session.ID, c *agent.Completion) {
-			msg := agent.NewAgentMessage(c.Content, nil)
-			msgs := []agent.Message{msg}
-			s.observer.Commit(agentID, sessID, msgs)
-			prev(agentID, sessID, c)
-		}
+		r.EventCallbacks = e.attachLogging(
+			r.AgentID,
+			r.SessionID,
+			r.UserMessage,
+			r.EventCallbacks,
+		)
 	}
 
+	// build context
+	systemMessage, err := e.contextAssembler.BuildSystemMessage(
+		ctx,
+		agt,
+		toolServers,
+		sess,
+	)
+	if err != nil {
+		return err
+	}
+
+	agentContext := []agent.Message{}
+	agentContext = append(agentContext, systemMessage)
+	agentContext = append(agentContext, sess.Messages()...)
+
+	// inject id's
+	withAgentID(ctx, r.AgentID)
+	withSessionID(ctx, r.SessionID)
+
+	// run
+	return runAgentLoopOnCallBacks(
+		ctx,
+		model,
+		agentContext,
+		extractTools(toolServers),
+		r.EventCallbacks,
+	)
+}
+
+func runAgentLoopOnCallBacks(
+	ctx context.Context,
+	model agent.Model,
+	agentContext []agent.Message,
+	toolKit []agent.Tool,
+	evCallbacks EventCallbacks,
+) error {
 	// sink
 	evCh := make(chan runtime.Event, 16)
 	defer close(evCh)
@@ -120,32 +167,24 @@ func (s *executor) chat(
 	go func() {
 		ReadEvents(
 			evCh,
-			r.OnError,
-			r.OnComplete,
-			r.OnToolResult,
-			r.OnCompaction,
-			r.OnEvent,
+			evCallbacks.OnLoopExit,
+			evCallbacks.OnComplete,
+			evCallbacks.OnToolResult,
+			evCallbacks.OnCompaction,
+			evCallbacks.OnToolErr,
+			evCallbacks.OnEvent,
 		)
 		close(done)
 	}()
 
 	// run
-	streamErr := s.runtime.RunStream(
+	loopErr := runtime.RunAgentLoop(
 		ctx,
-		runtime.RunStramRequest{
-			Model:       model,
-			ToolServers: toolServers,
-			Sess:        sess,
-			Agent:       agt,
-			EvCh:        evCh,
-			Harness:     s.harness,
-			BuildContextRequest: runtime.BuildContextRequest{
-				IncludeMemory:       true,
-				IncludeSkills:       true,
-				AllowOptimizeImages: true,
-				AddInstuctions:      true,
-			},
-		},
+		model,
+		agentContext,
+		toolKit,
+		evCh,
+		nil,
 	)
 
 	// await of event processing
@@ -156,18 +195,81 @@ func (s *executor) chat(
 	case <-done:
 	}
 
-	// save session
-	sessErr := s.sessionSvc.Save(agt.ID(), sess)
+	return loopErr
+}
 
-	return errors.Join(streamErr, sessErr)
+func (e *executor) attachSession(
+	agentID agent.ID,
+	sess session.Session,
+	eventCallbacks EventCallbacks,
+) (EventCallbacks, error) {
+
+	// wrap completion
+	wrappedOnComplete := eventCallbacks.OnComplete
+	eventCallbacks.OnComplete = func(ev *runtime.CompleteEvent) {
+		sess.ApplyCompletion(ev.Complete())
+
+		wrappedOnComplete(ev)
+	}
+
+	// wrap toolresult
+	wrappedOnToolResult := eventCallbacks.OnToolResult
+	eventCallbacks.OnToolResult = func(ev *runtime.ToolResultEvent) {
+		sess.AddMessages(agent.NewToolResultMessage(ev.Result()))
+
+		wrappedOnToolResult(ev)
+	}
+
+	// wrap compaction
+	wrappedOnCompaction := eventCallbacks.OnCompaction
+	eventCallbacks.OnCompaction = func(ev *runtime.CompactionEvent) {
+		sess.OverwriteMessages(0, ev.CompactedContext())
+
+		wrappedOnCompaction(ev)
+	}
+
+	// wrap loop exit
+	wrappedOnLoopExit := eventCallbacks.OnLoopExit
+	eventCallbacks.OnLoopExit = func(ev *runtime.LoopExitEvent) {
+		if err := e.sessionSvc.Save(agentID, sess); err != nil {
+			// log it
+		}
+		wrappedOnLoopExit(ev)
+	}
+
+	return eventCallbacks, nil
+}
+
+func (e *executor) attachLogging(
+	agentID agent.ID,
+	sessID session.ID,
+	userMessage agent.Message,
+	eventCallbacks EventCallbacks,
+) EventCallbacks {
+	// commit user message
+	e.observer.Commit(agentID, sessID, []agent.Message{userMessage})
+
+	// wrap on complete for log shit
+	wrappedOnComplete := eventCallbacks.OnComplete
+	eventCallbacks.OnComplete = func(ev *runtime.CompleteEvent) {
+		completion := ev.Complete()
+		msg := agent.NewAgentMessage(completion.Content, completion.ToolCalls)
+		msgs := []agent.Message{msg}
+		e.observer.Commit(agentID, sessID, msgs)
+
+		wrappedOnComplete(ev)
+	}
+
+	return eventCallbacks
 }
 
 func ReadEvents(
 	ch <-chan runtime.Event,
-	OnError func(agent.ID, session.ID, error),
-	OnComplete func(agent.ID, session.ID, *agent.Completion),
-	OnToolResult func(agent.ID, session.ID, *agent.ToolResult),
-	OnCompaction func(agent.ID, session.ID, string),
+	OnLoopExit func(*runtime.LoopExitEvent),
+	OnComplete func(*runtime.CompleteEvent),
+	OnToolResult func(*runtime.ToolResultEvent),
+	OnCompaction func(*runtime.CompactionEvent),
+	OnToolErr func(*runtime.ToolCallErrEvent),
 	OnEvent func(runtime.Event),
 ) {
 	for ev := range ch {
@@ -176,22 +278,68 @@ func ReadEvents(
 		}
 
 		switch typedEv := ev.(type) {
-		case runtime.ErrEvent:
-			if OnError != nil {
-				OnError(typedEv.Agent(), typedEv.Session(), typedEv.Err())
+		case *runtime.LoopExitEvent:
+			if OnLoopExit != nil {
+				OnLoopExit(typedEv)
 			}
-		case runtime.CompleteEvent:
-			if OnComplete != nil {
-				OnComplete(typedEv.Agent(), typedEv.Session(), typedEv.Complete())
-			}
-		case runtime.ToolCallResultEvent:
-			if OnToolResult != nil {
-				OnToolResult(typedEv.Agent(), typedEv.Session(), typedEv.Result())
-			}
-		case runtime.CompactionEvent:
+		case *runtime.CompactionEvent:
 			if OnCompaction != nil {
-				OnCompaction(ev.Agent(), ev.Session(), typedEv.Summary())
+				OnCompaction(typedEv)
+			}
+		case *runtime.CompleteEvent:
+			if OnComplete != nil {
+				OnComplete(typedEv)
+			}
+		case *runtime.ToolResultEvent:
+			if OnToolResult != nil {
+				OnToolResult(typedEv)
+			}
+		case *runtime.ToolCallErrEvent:
+			if OnToolErr != nil {
+				OnToolErr(typedEv)
 			}
 		}
 	}
+}
+
+func resolveToolServers(reg agent.ToolRegistry, agt agent.Agent, provided []agent.ToolServer) ([]agent.ToolServer, error) {
+	toolServers, err := reg.ToolServers(agt.ToolServers()...)
+	if err != nil {
+		if err := types.DistillErrNotExist(fmt.Sprintf("agent %s", err), err); err != nil {
+			return nil, err
+		}
+	}
+
+	if provided != nil {
+		toolServers = append(toolServers, provided...)
+	}
+
+	return toolServers, nil
+}
+
+func extractTools(toolServers []agent.ToolServer) []agent.Tool {
+	toolKit := []agent.Tool{}
+	for _, ts := range toolServers {
+		toolKit = append(toolKit, ts.Tools()...)
+	}
+	return toolKit
+}
+
+type agentIDCTXKey struct{}
+type sessionIDCTXKey struct{}
+
+func withAgentID(ctx context.Context, id agent.ID) context.Context {
+	return context.WithValue(ctx, agentIDCTXKey{}, id)
+}
+func AgentIDFromContext(ctx context.Context) (agent.ID, bool) {
+	id, ok := ctx.Value(agentIDCTXKey{}).(agent.ID)
+	return id, ok
+}
+
+func withSessionID(ctx context.Context, id session.ID) context.Context {
+	return context.WithValue(ctx, sessionIDCTXKey{}, id)
+}
+func SessionIDFromContext(ctx context.Context) (session.ID, bool) {
+	id, ok := ctx.Value(sessionIDCTXKey{}).(session.ID)
+	return id, ok
 }

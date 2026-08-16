@@ -41,6 +41,11 @@ var toolUsageGuidanceRaw string
 
 func ToolUsageGuide() string { return toolUsageGuidanceRaw }
 
+//go:embed templates/default_agent.md
+var defaultAgentRaw string
+
+func DefaultAgent() string { return defaultAgentRaw }
+
 //go:embed templates/sub_agent_callstack_overflow.md
 var subAgentCallStackOverflowRaw string
 
