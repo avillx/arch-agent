@@ -16,14 +16,10 @@ type RuntimeError struct {
 }
 
 func NewRuntimeError(
-	sessionID session.ID,
-	agt agent.ID,
 	err error,
 ) error {
 	return &RuntimeError{
-		sessionID: sessionID,
-		agt:       agt,
-		err:       err,
+		err: err,
 	}
 }
 

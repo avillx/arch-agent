@@ -2,143 +2,121 @@ package runtime
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/session"
+	"time"
 )
 
-var (
-	_ ErrEvent            = errEvent{}
-	_ CompleteEvent       = completeEvent{}
-	_ ToolCallResultEvent = toolCallResultEvent{}
-)
+type Event interface{}
 
-type Event interface {
-	Agent() agent.ID
-	Session() session.ID
+// base event
+type baseEvent struct {
+	Timestamp time.Time `json:"timestamp"`
 }
 
-type CompactionEvent interface {
-	Summary() string
-}
-
-type compactionEvent struct {
-	baseEvent
-	summary string
-}
-
-func NewCompactionEvent(agentID agent.ID, sessionID session.ID, summary string) compactionEvent {
-	return compactionEvent{
-		baseEvent: baseEvent{
-			agentID:   agentID,
-			sessionID: sessionID,
-		},
-		summary: summary,
+func newBaseEvent() baseEvent {
+	return baseEvent{
+		Timestamp: time.Now(),
 	}
 }
 
-func (ev compactionEvent) Summary() string {
+// compaction event
+type CompactionEvent struct {
+	baseEvent
+	compactedContext []agent.Message
+	summary          string
+}
+
+func NewCompactionEvent(summary string, compactedContext []agent.Message) *CompactionEvent {
+	return &CompactionEvent{
+		baseEvent:        newBaseEvent(),
+		summary:          summary,
+		compactedContext: compactedContext,
+	}
+}
+
+func (ev *CompactionEvent) Summary() string {
 	return ev.summary
 }
 
-type ErrEvent interface {
-	Event
-	Err() error
+func (ev *CompactionEvent) CompactedContext() []agent.Message {
+	return ev.compactedContext
 }
 
-type CompleteEvent interface {
-	Event
-	Complete() *agent.Completion
-}
-
-type ToolCallResultEvent interface {
-	Event
-	Result() *agent.ToolResult
-}
-
-type baseEvent struct {
-	agentID   agent.ID
-	sessionID session.ID
-}
-
-func (e baseEvent) Agent() agent.ID {
-	return e.agentID
-}
-
-func (e baseEvent) Session() session.ID {
-	return e.sessionID
-}
-
-type errEvent struct {
-	baseEvent
-	err error
-}
-
-func NewErrEvent(agentID agent.ID, sessionID session.ID, err error) errEvent {
-	return errEvent{
-		baseEvent: baseEvent{
-			agentID:   agentID,
-			sessionID: sessionID,
-		},
-		err: err,
-	}
-}
-
-func (e errEvent) Err() error {
-	return e.err
-}
-
-type completeEvent struct {
+// complete event
+type CompleteEvent struct {
 	baseEvent
 	completion *agent.Completion
 }
 
-func NewCompleteEvent(agentID agent.ID, sessionID session.ID, completion *agent.Completion) completeEvent {
-	return completeEvent{
-		baseEvent: baseEvent{
-			agentID:   agentID,
-			sessionID: sessionID,
-		},
+func NewCompleteEvent(completion *agent.Completion) *CompleteEvent {
+	return &CompleteEvent{
+		baseEvent:  newBaseEvent(),
 		completion: completion,
 	}
 }
 
-func (e completeEvent) Complete() *agent.Completion {
+func (e *CompleteEvent) Complete() *agent.Completion {
 	return e.completion
 }
 
-type toolCallResultEvent struct {
+// tool call result event
+type ToolResultEvent struct {
 	baseEvent
 	result *agent.ToolResult
 }
 
-func NewToolCallResultEvent(agentID agent.ID, sessionID session.ID, result *agent.ToolResult) toolCallResultEvent {
-	return toolCallResultEvent{
-		baseEvent: baseEvent{
-			agentID:   agentID,
-			sessionID: sessionID,
-		},
-		result: result,
+func NewToolCallResultEvent(result *agent.ToolResult) *ToolResultEvent {
+	return &ToolResultEvent{
+		baseEvent: newBaseEvent(),
+		result:    result,
 	}
 }
 
-func (e toolCallResultEvent) Result() *agent.ToolResult {
+func (e *ToolResultEvent) Result() *agent.ToolResult {
 	return e.result
 }
 
-type ErrToolCallEvent struct {
+// tool call error event
+type ToolCallErrEvent struct {
+	baseEvent
+	toolName agent.ToolName
+	toolArgs agent.ToolArguments
+	err      error
+}
+
+func NewErrToolCallEvent(toolName agent.ToolName, args agent.ToolArguments, err error) *ToolCallErrEvent {
+	return &ToolCallErrEvent{
+		baseEvent: newBaseEvent(),
+		toolName:  toolName,
+		toolArgs:  args,
+		err:       err,
+	}
+}
+
+func (e *ToolCallErrEvent) ToolName() agent.ToolName {
+	return e.toolName
+}
+
+func (e *ToolCallErrEvent) ToolArgs() agent.ToolArguments {
+	return e.toolArgs
+}
+
+func (e *ToolCallErrEvent) Error() error {
+	return e.err
+}
+
+// loop exit event
+type LoopExitEvent struct {
 	baseEvent
 	err error
 }
 
-func NewErrToolCallEvent(agentID agent.ID, sessionID session.ID, err error) ErrToolCallEvent {
-	return ErrToolCallEvent{
-		baseEvent: baseEvent{
-			agentID:   agentID,
-			sessionID: sessionID,
-		},
-		err: err,
+func NewLoopExitEvent(err error) *LoopExitEvent {
+	return &LoopExitEvent{
+		baseEvent: newBaseEvent(),
+		err:       err,
 	}
 }
 
-func (e ErrToolCallEvent) Error() error {
+func (e *LoopExitEvent) Err() error {
 	return e.err
 }

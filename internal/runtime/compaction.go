@@ -3,8 +3,8 @@ package runtime
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/prompt"
-	"arch-agent/internal/session"
 	"context"
+	"fmt"
 )
 
 const (
@@ -15,50 +15,80 @@ const (
 
 func doCompact(
 	ctx context.Context,
-	sess session.Session,
-	agt agent.Agent,
 	model agent.Model,
+	msgs []agent.Message,
 	evCh chan Event,
-) error {
+) ([]agent.Message, error) {
 
-	msgs := sess.Messages()
+	if len(msgs) <= 1 {
+		return nil, fmt.Errorf("must be at least one message")
+	}
 
-	divide := int(float32(len(msgs)) * compactionRatio)
-	toCompact := msgs[:divide]
-	tail := msgs[divide:]
-
-	completion, err := model.Complete(ctx, nil,
-		[]agent.Message{
-			agent.NewSystemMessage(prompt.Compaction()),
-			agent.NewUserMessage(agent.StringifyConversation(toCompact)),
-		},
+	var (
+		preContextMsgs          []agent.Message
+		onCompactionContextMsgs []agent.Message
+		tailContextMsgs         []agent.Message
 	)
+
+	// keep system prompt message
+	preContextMsgs = []agent.Message{}
+	if systemMsg, ok := msgs[0].(*agent.SystemMessage); ok {
+		preContextMsgs = append(preContextMsgs, systemMsg)
+		msgs = msgs[1:]
+	}
+
+	// sepatare tail and compaction candidates
+	divide := int(float32(len(msgs)) * compactionRatio)
+	onCompactionContextMsgs = msgs[:divide]
+	tailContextMsgs = msgs[divide:]
+
+	compactionRequest := agent.StringifyConversation(onCompactionContextMsgs)
+	compactionContext := []agent.Message{
+		agent.NewSystemMessage(prompt.Compaction()),
+		agent.NewUserMessage(compactionRequest),
+	}
+
+	// call llm
+	completion, err := model.Complete(ctx, nil, compactionContext)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	// assemble new context
 	summary := prompt.SummaryExplanation(completion.Content)
-
-	// add message or concat with actual
-	if len(tail) > 0 && tail[0].Role() == agent.UserMessageRole {
-		tail[0].SetContent(append(tail[0].Content(), agent.NewContent(summary)...))
-	} else {
-		tail = append([]agent.Message{agent.NewUserMessage(summary)}, tail...)
-	}
-
-	var estimateTokens int64 = 0
-	for _, m := range tail {
-		estimateTokens += estimateMessageTokens(m)
-	}
-	sess.OverwriteMessages(estimateTokens, tail)
+	tailContextMsgs = roleSafePushback(tailContextMsgs, agent.NewUserMessage(summary))
+	compactedContext := append(preContextMsgs, tailContextMsgs...)
 
 	evCh <- NewCompactionEvent(
-		agt.ID(),
-		sess.ID(),
 		completion.Content,
+		compactedContext,
 	)
 
-	return nil
+	return compactedContext, nil
+}
+
+func roleSafePushback(
+	messages []agent.Message,
+	newFirstMessage agent.Message,
+) []agent.Message {
+
+	firstMessage := messages[0]
+
+	if firstMessage.Role() == newFirstMessage.Role() {
+
+		prevFirstContent := firstMessage.Content()
+		newFirstContent := newFirstMessage.Content()
+
+		contentUnion := append(prevFirstContent, newFirstContent...)
+		firstMessage.SetContent(contentUnion)
+
+		return messages
+	}
+
+	newStack := []agent.Message{}
+	newStack = append(newStack, newFirstMessage)
+	newStack = append(newStack, messages...)
+	return newStack
 }
 
 func shouldCompact(
@@ -70,28 +100,4 @@ func shouldCompact(
 		contextLimit = defaultContextLimit
 	}
 	return (inputTokens + outputTokens) >= int64(float64(contextLimit)*thereshold)
-}
-
-func estimateMessageTokens(msg agent.Message) int64 {
-	// charsPerToken: average characters per token. 4 is a widely-used
-	// heuristic for English; slightly overestimates for code/JSON (~3.5).
-	const charsPerToken = 4
-
-	// perMessageOverhead: role, ToolCallID, delimiters, etc.
-	const perMessageOverhead = 5
-
-	var chars int
-	chars += len(msg.Content())
-
-	if agentMessage, ok := msg.(*agent.AgentMessage); ok {
-		for _, tc := range agentMessage.ToolCalls() {
-			chars += len(tc.ToolName)
-			chars += len(string(tc.Arguments))
-		}
-	}
-
-	if chars == 0 {
-		return perMessageOverhead
-	}
-	return int64(chars/charsPerToken) + perMessageOverhead
 }

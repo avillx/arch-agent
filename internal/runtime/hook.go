@@ -2,28 +2,10 @@ package runtime
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/session"
 )
 
 type Hook[T any] interface {
-	Apply(session.ID, agent.Agent, T) (T, error)
-}
-
-type HookSet[T any] []Hook[T]
-
-func NewHookSet[T any](hooks ...Hook[T]) HookSet[T] {
-	return HookSet[T](hooks)
-}
-
-func (s HookSet[T]) Apply(sessID session.ID, agentID agent.Agent, v T) (T, error) {
-	for _, h := range s {
-		new, err := h.Apply(sessID, agentID, v)
-		if err != nil {
-			return new, err
-		}
-		v = new
-	}
-	return v, nil
+	Apply(T) (T, error)
 }
 
 type AfterToolCall struct {
@@ -32,7 +14,27 @@ type AfterToolCall struct {
 }
 
 type Harness struct {
-	OnToolCall              HookSet[*agent.ToolCall]
-	OnToolCallResultMessage HookSet[*AfterToolCall]
-	OnComplete              HookSet[*agent.Completion]
+	OnToolCall              []Hook[*agent.ToolCall]
+	OnToolCallResultMessage []Hook[*AfterToolCall]
+	OnComplete              []Hook[*agent.Completion]
+}
+
+func ApplyHooks[T any](hooks []any, event T) (T, error) {
+
+	for _, h := range hooks {
+
+		typedHook, ok := h.(Hook[T])
+		if !ok {
+			continue
+		}
+
+		new, err := typedHook.Apply(event)
+		if err != nil {
+			return new, err
+		}
+		event = new
+
+	}
+
+	return event, nil
 }
