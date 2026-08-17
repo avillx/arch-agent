@@ -42,6 +42,40 @@ func (r Request) validate() error {
 		return fmt.Errorf("completion request must include user message")
 	}
 
+	if len(r.UserMessage.Content()) <= 0 {
+		return fmt.Errorf("user message must has content")
+	}
+
+	for _, c := range r.UserMessage.Content() {
+		if c.ImageURL == "" && c.Text == "" {
+			return fmt.Errorf("user message must has no empty content parts")
+		}
+	}
+
+	if r.OnCompaction == nil {
+		return fmt.Errorf("on compaction callback is empty")
+	}
+
+	if r.OnComplete == nil {
+		return fmt.Errorf("on complete callback is empty")
+	}
+
+	if r.OnEvent == nil {
+		return fmt.Errorf("on event callback is empty")
+	}
+
+	if r.OnLoopExit == nil {
+		return fmt.Errorf("on loop exit callback is empty")
+	}
+
+	if r.OnToolErr == nil {
+		return fmt.Errorf("on tool error callback is empty")
+	}
+
+	if r.OnToolResult == nil {
+		return fmt.Errorf("on tool result callback is empty")
+	}
+
 	return nil
 }
 
@@ -73,10 +107,15 @@ func NewExecutor(
 	}
 }
 
-func (e *executor) chat(
+func (e *executor) Chat(
 	ctx context.Context,
 	r Request,
 ) error {
+
+	// validate request
+	if err := r.validate(); err != nil {
+		return err
+	}
 
 	//agent
 	agt, err := e.agentRepo.Get(r.AgentID)
@@ -143,7 +182,7 @@ func (e *executor) chat(
 	withSessionID(ctx, r.SessionID)
 
 	// run
-	return runAgentLoopOnCallBacks(
+	return runAgentLoopWithCallbacks(
 		ctx,
 		model,
 		agentContext,
@@ -152,7 +191,7 @@ func (e *executor) chat(
 	)
 }
 
-func runAgentLoopOnCallBacks(
+func runAgentLoopWithCallbacks(
 	ctx context.Context,
 	model agent.Model,
 	agentContext []agent.Message,
@@ -273,31 +312,19 @@ func ReadEvents(
 	OnEvent func(runtime.Event),
 ) {
 	for ev := range ch {
-		if OnEvent != nil {
-			OnEvent(ev)
-		}
+		OnEvent(ev)
 
 		switch typedEv := ev.(type) {
 		case *runtime.LoopExitEvent:
-			if OnLoopExit != nil {
-				OnLoopExit(typedEv)
-			}
+			OnLoopExit(typedEv)
 		case *runtime.CompactionEvent:
-			if OnCompaction != nil {
-				OnCompaction(typedEv)
-			}
+			OnCompaction(typedEv)
 		case *runtime.CompleteEvent:
-			if OnComplete != nil {
-				OnComplete(typedEv)
-			}
+			OnComplete(typedEv)
 		case *runtime.ToolResultEvent:
-			if OnToolResult != nil {
-				OnToolResult(typedEv)
-			}
+			OnToolResult(typedEv)
 		case *runtime.ToolCallErrEvent:
-			if OnToolErr != nil {
-				OnToolErr(typedEv)
-			}
+			OnToolErr(typedEv)
 		}
 	}
 }
