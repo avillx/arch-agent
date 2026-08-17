@@ -17,7 +17,7 @@ const apiPrefix = "/api/v1"
 
 func NewServer(
 	taskSvc *task.Service,
-	chatSvc *chat.Service,
+	chatSvc *chat.Dispatcher,
 	sessSvc *session.Service,
 	toolsSvc *tools.Service,
 	mcpSvc *mcp.Service,
@@ -59,7 +59,7 @@ func NewServer(
 	provToolHandler := &providedToolsRouter{waiters: map[string]chan ProvidedToolResultDTO{}}
 	h.HandleFunc(fmt.Sprintf("POST /%s/{id}", toolResultEndpoint), wrap(provToolHandler.ResolveCall))
 
-	chatHandler := &chatHandler{provToolRegister: provToolHandler, chatSvc: chatSvc}
+	chatHandler := &chatHandler{provToolRegister: provToolHandler, chatDispatcher: chatSvc}
 	h.HandleFunc("POST /chat", wrap(chatHandler.Chat))
 	h.HandleFunc("POST /chat/{agent}/{session}/interrupt", wrap(chatHandler.Interrupt))
 

@@ -3,6 +3,7 @@ package api
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/chat"
+	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"encoding/json"
 	"log/slog"
@@ -31,14 +32,14 @@ type CompletionDTO struct {
 }
 
 type chatHandler struct {
-	chatSvc          *chat.Service
+	chatDispatcher   *chat.Dispatcher
 	provToolRegister providedToolRegister
 }
 
 func (h *chatHandler) Interrupt(w http.ResponseWriter, r *http.Request) error {
 	agentID := agent.ID(r.PathValue("agent"))
 	sessionID := session.ID(r.PathValue("session"))
-	h.chatSvc.Interrupt(sessionID, agentID)
+	h.chatDispatcher.Interrupt(sessionID, agentID)
 	w.WriteHeader(http.StatusAccepted)
 	return nil
 }
@@ -72,7 +73,7 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) error {
 	)
 	defer unregisterProvidedTools()
 
-	return h.chatSvc.Chat(r.Context(), chat.Request{
+	return h.chatDispatcher.Chat(r.Context(), chat.Request{
 		AgentID:             chatReqDTO.AgentID,
 		SessionID:           chatReqDTO.SessionID,
 		UserMessage:         agent.NewUserMessage(chatReqDTO.UserRequest),
@@ -100,18 +101,24 @@ func newEventCallbacks(stream *Stream) chat.EventCallbacks {
 		Result []agent.ContentPart `json:"result"`
 	}
 
-	onError := func(agentID agent.ID, sessID session.ID, err error) {
+	// TODO: on error depricated, should changed to tool error
+	onError := func(ev *runtime.ToolCallErrEvent) {
+
+		err := ev.Error()
 		data := Envelope{
 			Type: Error,
 			Payload: ErrorDTO{
 				Cause:     err.Error(),
-				SessionID: sessID,
-				AgentID:   agentID,
+				SessionID: "",
+				AgentID:   "",
 			},
 		}
 		stream.send(data)
 	}
-	onComplete := func(agentID agent.ID, sessID session.ID, c *agent.Completion) {
+
+	onComplete := func(ev *runtime.CompleteEvent) {
+
+		c := ev.Complete()
 		data := Envelope{
 			Type: Complete,
 			Payload: CompletionDTO{
@@ -122,7 +129,8 @@ func newEventCallbacks(stream *Stream) chat.EventCallbacks {
 		}
 		stream.send(data)
 	}
-	onToolResult := func(agentID agent.ID, sessID session.ID, tr *agent.ToolResult) {
+	onToolResult := func(ev *runtime.ToolResultEvent) {
+		tr := ev.Result()
 		data := Envelope{
 			Type: ToolResult,
 			Payload: ToolResultDTO{
@@ -132,22 +140,24 @@ func newEventCallbacks(stream *Stream) chat.EventCallbacks {
 		}
 		stream.send(data)
 	}
-	onCompaction := func(agentID agent.ID, sessID session.ID, summary string) {
+	onCompaction := func(ev *runtime.CompactionEvent) {
 		data := Envelope{
 			Type: Compaction,
 			Payload: CompactionDTO{
 				Message: "compaction has been proceed",
-				Result:  summary,
+				Result:  ev.Summary(),
 			},
 		}
 		stream.send(data)
 	}
 
 	return chat.EventCallbacks{
-		OnError:      onError,
 		OnComplete:   onComplete,
 		OnToolResult: onToolResult,
 		OnCompaction: onCompaction,
+		OnToolErr:    onError,
+		OnLoopExit:   func(*runtime.LoopExitEvent) {},
+		OnEvent:      func(runtime.Event) {},
 	}
 }
 

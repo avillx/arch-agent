@@ -2,7 +2,7 @@ package api
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/runtime"
+	"arch-agent/internal/chat"
 	"arch-agent/internal/types"
 	"context"
 	"encoding/json"
@@ -99,7 +99,7 @@ func (s *ProvidedToolServer) Tools() []agent.Tool {
 }
 
 // instucted wrapper
-var _ runtime.Instructed = (*ProvidedToolServerInstructed)(nil)
+var _ chat.ToolInstructer = (*ProvidedToolServerInstructed)(nil)
 
 type ProvidedToolServerInstructed struct {
 	ProvidedToolServer
@@ -189,8 +189,9 @@ func (t *ProvidedTool) Call(ctx context.Context, args agent.ToolArguments) ([]ag
 		}
 	}
 
-	agentID, _ := runtime.AgentIDFromContext(ctx)
-	sessionID, _ := runtime.SessionIDFromContext(ctx)
+	// agentID and sessID guaranteed, so no need to check it
+	agentID, _ := chat.AgentIDFromContext(ctx)
+	sessionID, _ := chat.SessionIDFromContext(ctx)
 
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()

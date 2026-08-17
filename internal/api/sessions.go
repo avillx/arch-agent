@@ -86,7 +86,8 @@ func (h *sessionHandler) List(w http.ResponseWriter, r *http.Request) error {
 func (h *sessionHandler) Create(w http.ResponseWriter, r *http.Request) error {
 	agentID := r.PathValue("agent")
 
-	sessID, err := h.sessSvc.Create(agent.ID(agentID))
+	// TODO: update API to insert instruction for session
+	sessID, err := h.sessSvc.Create(agent.ID(agentID), "")
 	if err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
 			return badRequest("is not exist")
