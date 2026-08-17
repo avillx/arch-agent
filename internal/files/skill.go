@@ -7,11 +7,10 @@ import (
 	"log/slog"
 	"maps"
 	"path"
-	"path/filepath"
 	"sync"
 )
 
-const skillsFolder = "/skills"
+const skillsFolder = "skills"
 const skillFile = "SKILL.md"
 
 var _ chat.SkillsRepo = (*SkillFiles)(nil)
@@ -34,7 +33,7 @@ func (f *SkillFiles) Skills(agentID agent.ID) (map[string]string, error) {
 	skillsIndex := map[string]string{}
 
 	// private skills
-	privateSkillsPath := path.Join(string(filepath.Separator), string(agentID), skillsFolder)
+	privateSkillsPath := path.Join(string(agentID), skillsFolder)
 	privateSkills, err := f.loadSkills(privateSkillsPath)
 	if err != nil {
 		return nil, err
@@ -68,6 +67,11 @@ func (f *SkillFiles) loadSkills(p string) (map[string]string, error) {
 	skillIndex := map[string]string{}
 
 	walkDirFunc := func(currentPath string, d fs.DirEntry, err error) error {
+
+		// skip when entry is empty
+		if d == nil {
+			return nil
+		}
 
 		// skip dirs
 		if d.IsDir() {
