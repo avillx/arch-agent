@@ -56,6 +56,11 @@ var subagentCallRaw string
 
 func SubAgentGuidance() string { return subagentCallRaw }
 
+//go:embed templates/autonomous_request.md
+var autonomousRequestRaw string
+
+func GetAutonomusGuidance() string { return autonomousRequestRaw }
+
 //go:embed templates/consolidation_fs_instruction.md
 var consolidationFSinstructionRaw string
 var consolidationFSinstructionTempl = template.Must(template.New("consolidate_fs_inst").Parse(consolidationFSinstructionRaw))
@@ -149,19 +154,6 @@ func ExcludedUnsupportedModality(modality agent.Modality) string {
 	}
 
 	return mustExecute(excludedModalityTmpl, vars)
-}
-
-//go:embed templates/autonomous_request.md
-var autonomousRequestRaw string
-var autonomousRequestTmpl = template.Must(template.New("autonomous_request").Parse(autonomousRequestRaw))
-
-func GetAutonomusRequest(request string) string {
-
-	vars := map[string]any{
-		"Request": request,
-	}
-
-	return mustExecute(autonomousRequestTmpl, vars)
 }
 
 //go:embed templates/memory_file_system_instruction.md

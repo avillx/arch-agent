@@ -10,18 +10,18 @@ import (
 )
 
 type executor struct {
-	sessionSvc *session.Service
-	chatSvc    *chat.Service
+	sessionSvc   *session.Service
+	chatExecutor chat.ChatExecutor
 }
 
 // executor
 func NewExecutor(
 	sessionSvc *session.Service,
-	chatSvc *chat.Service,
+	chatExecutor chat.ChatExecutor,
 ) *executor {
 	return &executor{
-		sessionSvc: sessionSvc,
-		chatSvc:    chatSvc,
+		sessionSvc:   sessionSvc,
+		chatExecutor: chatExecutor,
 	}
 }
 
@@ -37,17 +37,17 @@ func (s *executor) execute(ctx context.Context, t TaskConfig) {
 func (s *executor) processRecipientTask(ctx context.Context, agentID agent.ID, taskName, request string) error {
 	slog.Info("task executes in background", "task", taskName)
 
-	sessID, err := s.sessionSvc.Create(agentID)
+	sessID, err := s.sessionSvc.Create(agentID, prompt.GetAutonomusGuidance())
 	if err != nil {
 		return err
 	}
 
-	return s.chatSvc.Chat(
+	return s.chatExecutor.Chat(
 		ctx,
 		chat.Request{
 			AgentID:     agentID,
 			SessionID:   sessID,
-			UserMessage: agent.NewUserMessage(prompt.GetAutonomusRequest(request)),
+			UserMessage: agent.NewUserMessage(request),
 			Logging:     true,
 		},
 	)
