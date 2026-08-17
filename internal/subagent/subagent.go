@@ -2,59 +2,33 @@ package subagent
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/chat"
 	"arch-agent/internal/prompt"
+	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
-	"arch-agent/internal/types"
 	"errors"
 	"fmt"
-
-	"arch-agent/internal/runtime"
+	"log/slog"
 
 	"context"
 )
 
-type ctxKey struct{}
-
-type subAgentCall struct {
-	subagent agent.ID
-}
+var ErrCallStackOverflow = errors.New("sub agent call is overflow")
 
 const maxSubAgentDepth = 3
 
-func subAgentCallStack(ctx context.Context, s subAgentCall) (context.Context, bool) {
-	callStack, _ := ctx.Value(ctxKey{}).([]subAgentCall)
-	if len(callStack) >= maxSubAgentDepth {
-		return ctx, true
-	}
-	newStack := append([]subAgentCall{s}, callStack...)
-	return context.WithValue(ctx, ctxKey{}, newStack), false
-}
-
 type Service struct {
-	harness   *runtime.Harness
-	rt        *runtime.AgentRuntime
-	toolRepo  agent.ToolRegistry
-	agentRepo agent.Repo
-	modelRepo agent.ModelRegistry
+	chatExecutor chat.ChatExecutor
+	sessService  *session.Service
 }
 
 func NewService(
-	harness *runtime.Harness,
-	rt *runtime.AgentRuntime,
-	toolRepo agent.ToolRegistry,
-	agentRepo agent.Repo,
-	modelRepo agent.ModelRegistry,
+	chatExecutor chat.ChatExecutor,
 ) *Service {
 	return &Service{
-		harness:   harness,
-		rt:        rt,
-		toolRepo:  toolRepo,
-		agentRepo: agentRepo,
-		modelRepo: modelRepo,
+		chatExecutor: chatExecutor,
 	}
 }
-
-var ErrCallStackOverflow = errors.New("sub agent call is overflow")
 
 func (s *Service) Call(
 	ctx context.Context,
@@ -67,60 +41,71 @@ func (s *Service) Call(
 		return "", ErrCallStackOverflow
 	}
 
-	sess := session.NewSession("")
-	sess.AddMessages(agent.NewUserMessage(prompt.SubAgentGuidance(request)))
-
-	//agent
-	agt, err := s.agentRepo.Get(subAgentID)
+	// create session
+	sessID, err := s.sessService.Create(subAgentID, prompt.SubAgentGuidance())
 	if err != nil {
 		return "", err
-	}
-
-	// model
-	model, err := s.modelRepo.Get(agt.Model())
-	if err != nil {
-		return "", err
-	}
-
-	// tools
-	toolServers, err := s.toolRepo.ToolServers(agt.ToolServers()...)
-	if err != nil {
-		if err := types.DistillErrNotExist(fmt.Sprintf("subagent %s", subAgentID), err); err != nil {
-			return "", err
-		}
 	}
 
 	// sink
 	lastAgentMessageContent := ""
-	evCh := make(chan runtime.Event, 16)
-	defer close(evCh)
 
-	go func() {
-		for ev := range evCh {
-			if completeEvent, ok := ev.(runtime.CompleteEvent); ok {
-				c := completeEvent.Complete()
-				lastAgentMessageContent += c.Content
-			}
+	// event callbacks
+
+	onLoopExit := func(lee *runtime.LoopExitEvent) {
+		if lee.Err() != nil {
+			message := fmt.Sprintf("sub agent %s, fall with error", subAgentID)
+			lastAgentMessageContent += message
 		}
-	}()
+		slog.Error(
+			"sub agent fall with error",
+			"agent", subAgentID,
+			"session", sessID,
+			"error", err,
+		)
+	}
 
-	err = s.rt.RunStream(
+	onComplete := func(ce *runtime.CompleteEvent) {
+		lastAgentMessageContent = ce.Complete().Content
+	}
+
+	eventCallbacks := chat.EventCallbacks{
+		OnComplete:   onComplete,
+		OnLoopExit:   onLoopExit,
+		OnToolResult: func(tre *runtime.ToolResultEvent) {},
+		OnCompaction: func(ce *runtime.CompactionEvent) {},
+		OnToolErr:    func(tcee *runtime.ToolCallErrEvent) {},
+		OnEvent:      func(e runtime.Event) {},
+	}
+
+	// if sub agent loop exit with error
+	// agent alrady recieve message about issues
+	// cause alredy logged
+	s.chatExecutor.Chat(
 		ctx,
-		runtime.RunStramRequest{
-			Model:       model,
-			ToolServers: toolServers,
-			Sess:        sess,
-			Agent:       agt,
-			EvCh:        evCh,
-			Harness:     s.harness,
-			BuildContextRequest: runtime.BuildContextRequest{
-				IncludeMemory:       true,
-				IncludeSkills:       true,
-				AllowOptimizeImages: true,
-				AddInstuctions:      true,
-			},
+		chat.Request{
+			AgentID:        subAgentID,
+			SessionID:      sessID,
+			UserMessage:    agent.NewUserMessage(request),
+			EventCallbacks: eventCallbacks,
+			Logging:        false,
 		},
 	)
 
-	return lastAgentMessageContent, err
+	return lastAgentMessageContent, nil
+}
+
+type ctxKey struct{}
+
+type subAgentCall struct {
+	subagent agent.ID
+}
+
+func subAgentCallStack(ctx context.Context, s subAgentCall) (context.Context, bool) {
+	callStack, _ := ctx.Value(ctxKey{}).([]subAgentCall)
+	if len(callStack) >= maxSubAgentDepth {
+		return ctx, true
+	}
+	newStack := append([]subAgentCall{s}, callStack...)
+	return context.WithValue(ctx, ctxKey{}, newStack), false
 }

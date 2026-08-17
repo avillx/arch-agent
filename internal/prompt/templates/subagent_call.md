@@ -11,6 +11,3 @@ Execute the assigned task completely and return results to the orchestrator.
 
 ## Output format
 Return your result directly. Start with the result, not with "I will now...".
-
-## Task
-{{ .Task }}

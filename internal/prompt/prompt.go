@@ -51,6 +51,11 @@ var subAgentCallStackOverflowRaw string
 
 func SubAgentCallStackOverflowCaution() string { return subAgentCallStackOverflowRaw }
 
+//go:embed templates/subagent_call.md
+var subagentCallRaw string
+
+func SubAgentGuidance() string { return subagentCallRaw }
+
 //go:embed templates/consolidation_fs_instruction.md
 var consolidationFSinstructionRaw string
 var consolidationFSinstructionTempl = template.Must(template.New("consolidate_fs_inst").Parse(consolidationFSinstructionRaw))
@@ -118,19 +123,6 @@ func SkillGuidance(availableSkills string) string {
 	}
 
 	return mustExecute(skillGuidanceTmpl, vars)
-}
-
-//go:embed templates/subagent_call.md
-var subagentCallRaw string
-var subagentCallTmpl = template.Must(template.New("subagent_call").Parse(subagentCallRaw))
-
-func SubAgentGuidance(task string) string {
-
-	vars := map[string]any{
-		"Task": task,
-	}
-
-	return mustExecute(subagentCallTmpl, vars)
 }
 
 //go:embed templates/summary_explanation.md
