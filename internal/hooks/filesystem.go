@@ -12,7 +12,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
+
+	doublestar "github.com/bmatcuk/doublestar/v4"
 )
 
 const unixSeparator = "/"
@@ -46,15 +47,12 @@ type FileAccessHook struct {
 	cwd   string
 }
 
+// First rule match wins, so be accuracy with order
 func NewFileAccessHook(cwd string, rules ...Rule) (*FileAccessHook, error) {
 
 	// validate patterns
 	for _, r := range rules {
-		if strings.Contains(r.Pattern, "**") {
-			return nil, fmt.Errorf("rule '%s' :'**' is not supported", r.Pattern)
-		}
-
-		if _, err := path.Match(r.Pattern, ""); err != nil {
+		if _, err := doublestar.PathMatch(r.Pattern, ""); err != nil {
 			return nil, err
 		}
 	}
@@ -88,8 +86,8 @@ func (h *FileAccessHook) Apply(ctx context.Context, tc *agent.ToolCall) (*agent.
 func (h *FileAccessHook) verifyPath(toolName agent.ToolName, p string) error {
 
 	// /skills/test_note.md is abs for this validate
-	if !path.IsAbs(p) {
-		p = path.Join(h.cwd, p)
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(h.cwd, p)
 	}
 
 	// deny symlinks
@@ -104,10 +102,9 @@ func (h *FileAccessHook) verifyPath(toolName agent.ToolName, p string) error {
 	// ensure access
 	access := No
 	for _, r := range h.rules {
-		if match := matchPattern(r.Pattern, p); match {
+		// first match first wins
+		if match, _ := doublestar.PathMatch(r.Pattern, p); match {
 			access = r.Access
-
-			// rules sorted most-specific-first — first match wins
 			break
 		}
 	}
@@ -123,14 +120,6 @@ func (h *FileAccessHook) verifyPath(toolName agent.ToolName, p string) error {
 	}
 
 	return nil
-}
-
-func matchPattern(pattern, p string) bool {
-	if dir, ok := strings.CutSuffix(pattern, unixSeparator+"*"); ok {
-		return p == dir || strings.HasPrefix(p, dir+unixSeparator)
-	}
-	match, _ := filepath.Match(pattern, p)
-	return match
 }
 
 func isAllow(toolName agent.ToolName, a Access) bool {
@@ -245,34 +234,4 @@ func (h *OnlySupportedExtensionsHook) Apply(
 	}
 
 	return tc, nil
-}
-
-var _ runtime.CompletionHook = (*OnlyValidMemoryFrontmatterHook)(nil)
-
-type OnlyValidMemoryFrontmatterHook struct {
-	agentID agent.ID
-	indexer agent.MemoryIndexer
-}
-
-func (h *OnlyValidMemoryFrontmatterHook) Apply(
-	ctx context.Context,
-	c *agent.Completion,
-) (*agent.Completion, error) {
-
-	if !c.Done {
-		return c, nil
-	}
-
-	if _, err := h.indexer.MemoryIndex(h.agentID); err != nil {
-		if joinedErrs, ok := err.(interface{ Unwrap() []error }); ok {
-			var sb strings.Builder
-			for _, e := range joinedErrs.Unwrap() {
-				sb.WriteString(e.Error())
-			}
-			c.Done = false
-			return c, types.NewAgentMistakeError(sb.String())
-		}
-	}
-
-	return c, nil
 }

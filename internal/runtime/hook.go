@@ -7,7 +7,7 @@ import (
 
 type CompletionHook Hook[*agent.Completion]
 type ToolCallHook Hook[*agent.ToolCall]
-type ToolResultHook Hook[AfterToolCall]
+type ToolResultHook Hook[*AfterToolCall]
 
 type Hook[T any] interface {
 	Apply(context.Context, T) (T, error)

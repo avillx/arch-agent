@@ -145,6 +145,11 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 		activityRepo,
 	)
 
+	agentHooks, err := hooks.NewAgentHooks(fs, todoStorage)
+	if err != nil {
+		return nil, err
+	}
+
 	chatSvc := chat.NewService(
 		agentRepo,
 		sessSvc,
@@ -152,6 +157,7 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 		toolSvc,
 		contextAssembler,
 		observer,
+		agentHooks,
 	)
 
 	taskSvc, err := BuildTaskSvc(

@@ -2,7 +2,7 @@ package hooks
 
 import (
 	"arch-agent/internal/agent"
-	"fmt"
+	"path/filepath"
 )
 
 const _24kb = 24 * 1024
@@ -17,11 +17,11 @@ func NewAgentHooks(
 ) ([]any, error) {
 
 	accessRules := []Rule{
-		{Pattern: ".", Access: Write},
-		{Pattern: "./*/activity/*", Access: Read},
-		{Pattern: "./*/memory/*", Access: Read},
-		{Pattern: "./*/sessions", Access: No},
-		{Pattern: "./*/agent.md", Access: No},
+		{Pattern: filepath.Join(b.Cwd(), "*/agent.md"), Access: No},
+		{Pattern: filepath.Join(b.Cwd(), "*/sessions/**"), Access: No},
+		{Pattern: filepath.Join(b.Cwd(), "*/activity/**"), Access: Read},
+		{Pattern: filepath.Join(b.Cwd(), "*/memory/**"), Access: Read},
+		{Pattern: filepath.Join(b.Cwd(), "**"), Access: Write},
 	}
 
 	accessHook, err := NewFileAccessHook(b.Cwd(), accessRules...)
@@ -32,7 +32,7 @@ func NewAgentHooks(
 	return []any{
 		accessHook,
 		&EmptyAnswerHook{},
-		&UndoneTodoHook{storage: todoStorage},
+		NewUndoneTodoHook(todoStorage),
 		&OnlySupportedExtensionsHook{},
 		&ContentSizeLimitHook{limitBytes: _24kb},
 	}, nil
@@ -62,13 +62,17 @@ func NewMemoryHooks(
 	indexer agent.MemoryIndexer,
 ) ([]any, error) {
 
+	// Readability helper
+	// Concat cwd with pattern and inject agentID in
+	// also normalize with filepath
+	cwdAndAgentFolder := func(pattern string) string {
+		return filepath.Join(b.Cwd(), string(agentID), pattern)
+	}
+
 	accessRules := []Rule{
-		{Pattern: ".", Access: No},
-		{Pattern: fmt.Sprintf("./%s/*", agentID), Access: Read},
-		{Pattern: fmt.Sprintf("./%s/sessions", agentID), Access: No},
-		{Pattern: fmt.Sprintf("./%s/agent.md", agentID), Access: No},
-		{Pattern: fmt.Sprintf("./%s/memory/*", agentID), Access: Write},
-		{Pattern: fmt.Sprintf("./%s/activity/*", agentID), Access: Read},
+		{Pattern: cwdAndAgentFolder("activity/**"), Access: Read},
+		{Pattern: cwdAndAgentFolder("memory/**"), Access: Write},
+		{Pattern: cwdAndAgentFolder("agent.md"), Access: No},
 	}
 
 	accessHook, err := NewFileAccessHook(b.Cwd(), accessRules...)

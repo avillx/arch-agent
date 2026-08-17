@@ -92,6 +92,7 @@ type Service struct {
 	toolRegistry     agent.ToolRegistry
 	contextAssembler *ContextAssembler
 	observer         *memory.Observer
+	hooks            []any
 }
 
 func NewService(
@@ -101,6 +102,7 @@ func NewService(
 	toolRegistry agent.ToolRegistry,
 	contextAssembler *ContextAssembler,
 	observer *memory.Observer,
+	hooks []any,
 ) *Service {
 	return &Service{
 		agentRepo:        agentRepo,
@@ -109,6 +111,7 @@ func NewService(
 		toolRegistry:     toolRegistry,
 		observer:         observer,
 		contextAssembler: contextAssembler,
+		hooks:            hooks,
 	}
 }
 
@@ -183,8 +186,8 @@ func (s *Service) Chat(
 	agentContext = append(agentContext, sess.Messages()...)
 
 	// inject id's
-	withAgentID(ctx, r.AgentID)
-	withSessionID(ctx, r.SessionID)
+	ctx = withAgentID(ctx, r.AgentID)
+	ctx = withSessionID(ctx, r.SessionID)
 
 	// run
 	return runAgentLoopWithCallbacks(
@@ -193,6 +196,7 @@ func (s *Service) Chat(
 		agentContext,
 		extractTools(toolServers),
 		r.EventCallbacks,
+		s.hooks,
 	)
 }
 
@@ -294,6 +298,7 @@ func runAgentLoopWithCallbacks(
 	agentContext []agent.Message,
 	toolKit []agent.Tool,
 	evCallbacks EventCallbacks,
+	hooks []any,
 ) error {
 	// sink
 	evCh := make(chan runtime.Event, 16)
@@ -320,7 +325,7 @@ func runAgentLoopWithCallbacks(
 		agentContext,
 		toolKit,
 		evCh,
-		nil,
+		hooks,
 	)
 
 	// await of event processing
