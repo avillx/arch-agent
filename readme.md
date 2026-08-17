@@ -97,8 +97,6 @@ All memory stores in `/agent/data/...`
 - [ ] add validations
 - [ ] e2e tests 
 - [ ] from zero launch (preloaded agent, cli, skills)
-- [ ] chache safe summarize (in session request)
-- [ ] runtime session chaching
 
 **v1.1**
 - [ ] scheduled tasks with skill prefill
