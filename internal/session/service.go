@@ -30,8 +30,17 @@ func NewService(
 	}
 }
 
-func (s *Service) Create(agentID agent.ID) (ID, error) {
-	newSession := NewSession(ID(s.uuid.New()))
+func (s *Service) Create(agentID agent.ID, instruction string) (ID, error) {
+
+	newSessionID := ID(s.uuid.New())
+	newSession := NewSession(newSessionID)
+
+	if instruction != "" {
+		newExtras := map[string]any{
+			"instruction": instruction,
+		}
+		newSession.SetExtras(newExtras)
+	}
 
 	if err := s.repo.Save(agentID, newSession); err != nil {
 		return "", err

@@ -2,102 +2,353 @@ package chat
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/memory"
+	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
+	"arch-agent/internal/types"
 	"context"
-	"log/slog"
-	"sync"
+	"fmt"
+	"time"
 )
 
-type sessionKey struct {
-	AgentID   agent.ID
-	SessionID session.ID
+type EventCallbacks struct {
+	OnLoopExit   func(*runtime.LoopExitEvent)
+	OnComplete   func(*runtime.CompleteEvent)
+	OnToolResult func(*runtime.ToolResultEvent)
+	OnCompaction func(*runtime.CompactionEvent)
+	OnToolErr    func(*runtime.ToolCallErrEvent)
+	OnEvent      func(runtime.Event)
 }
 
-type requestProcessing struct {
-	cancel context.CancelFunc
-	done   chan struct{}
+type Request struct {
+	AgentID             agent.ID
+	SessionID           session.ID
+	UserMessage         *agent.UserMessage
+	ProvidedToolServers []agent.ToolServer
+	Logging             bool
+	EventCallbacks
+}
+
+func (r Request) validate() error {
+	if r.AgentID == "" {
+		return fmt.Errorf("completion request must include agentID")
+	}
+
+	if r.SessionID == "" {
+		return fmt.Errorf("completion request must include sessionID")
+	}
+
+	if r.UserMessage == nil {
+		return fmt.Errorf("completion request must include user message")
+	}
+
+	if len(r.UserMessage.Content()) <= 0 {
+		return fmt.Errorf("user message must has content")
+	}
+
+	for _, c := range r.UserMessage.Content() {
+		if c.ImageURL == "" && c.Text == "" {
+			return fmt.Errorf("user message must has no empty content parts")
+		}
+	}
+
+	if r.OnCompaction == nil {
+		return fmt.Errorf("on compaction callback is empty")
+	}
+
+	if r.OnComplete == nil {
+		return fmt.Errorf("on complete callback is empty")
+	}
+
+	if r.OnEvent == nil {
+		return fmt.Errorf("on event callback is empty")
+	}
+
+	if r.OnLoopExit == nil {
+		return fmt.Errorf("on loop exit callback is empty")
+	}
+
+	if r.OnToolErr == nil {
+		return fmt.Errorf("on tool error callback is empty")
+	}
+
+	if r.OnToolResult == nil {
+		return fmt.Errorf("on tool result callback is empty")
+	}
+
+	return nil
 }
 
 type Service struct {
-	executor  *executor
-	processes map[sessionKey]*requestProcessing
-	mu        sync.Mutex
+	agentRepo        agent.Repo
+	sessionSvc       *session.Service
+	modelRepo        agent.ModelRegistry
+	toolRegistry     agent.ToolRegistry
+	contextAssembler *ContextAssembler
+	observer         *memory.Observer
 }
 
-func NewService(e *executor) *Service {
+func NewService(
+	agentRepo agent.Repo,
+	sessionSvc *session.Service,
+	modelRepo agent.ModelRegistry,
+	toolRegistry agent.ToolRegistry,
+	contextAssembler *ContextAssembler,
+	observer *memory.Observer,
+) *Service {
 	return &Service{
-		executor:  e,
-		processes: map[sessionKey]*requestProcessing{},
+		agentRepo:        agentRepo,
+		sessionSvc:       sessionSvc,
+		modelRepo:        modelRepo,
+		toolRegistry:     toolRegistry,
+		observer:         observer,
+		contextAssembler: contextAssembler,
 	}
 }
 
-func (s *Service) Chat(ctx context.Context, r Request) error {
+func (s *Service) Chat(
+	ctx context.Context,
+	r Request,
+) error {
 
+	// validate request
 	if err := r.validate(); err != nil {
 		return err
 	}
 
-	return s.dispatch(ctx, r)
+	//agent
+	agt, err := s.agentRepo.Get(r.AgentID)
+	if err != nil {
+		return err
+	}
+
+	// model
+	model, err := s.modelRepo.Get(agt.Model())
+	if err != nil {
+		return err
+	}
+
+	// tools
+	toolServers, err := resolveToolServers(s.toolRegistry, agt, r.ProvidedToolServers)
+	if err != nil {
+		return err
+	}
+
+	// session
+	sess, err := s.sessionSvc.Get(agt.ID(), r.SessionID)
+	if err != nil {
+		return err
+	}
+
+	sess.AddMessages(r.UserMessage)
+
+	r.EventCallbacks, err = s.attachSession(
+		r.AgentID,
+		sess,
+		r.EventCallbacks,
+	)
+	if err != nil {
+		return err
+	}
+
+	// logging
+	if r.Logging {
+		r.EventCallbacks = s.attachLogging(
+			r.AgentID,
+			r.SessionID,
+			r.UserMessage,
+			r.EventCallbacks,
+		)
+	}
+
+	// build context
+	systemMessage, err := s.contextAssembler.BuildSystemMessage(
+		ctx,
+		agt,
+		toolServers,
+		sess,
+	)
+	if err != nil {
+		return err
+	}
+
+	agentContext := []agent.Message{}
+	agentContext = append(agentContext, systemMessage)
+	agentContext = append(agentContext, sess.Messages()...)
+
+	// inject id's
+	withAgentID(ctx, r.AgentID)
+	withSessionID(ctx, r.SessionID)
+
+	// run
+	return runAgentLoopWithCallbacks(
+		ctx,
+		model,
+		agentContext,
+		extractTools(toolServers),
+		r.EventCallbacks,
+	)
 }
 
-func (d *Service) Interrupt(sessID session.ID, agentID agent.ID) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+func (s *Service) attachSession(
+	agentID agent.ID,
+	sess session.Session,
+	eventCallbacks EventCallbacks,
+) (EventCallbacks, error) {
 
-	key := sessionKey{
-		AgentID:   agentID,
-		SessionID: sessID,
+	// wrap completion
+	wrappedOnComplete := eventCallbacks.OnComplete
+	eventCallbacks.OnComplete = func(ev *runtime.CompleteEvent) {
+		sess.ApplyCompletion(ev.Complete())
+
+		wrappedOnComplete(ev)
 	}
 
-	if prev := d.processes[key]; prev != nil {
-		prev.cancel()
-		<-prev.done
-		slog.Info("chat service: session interrupted", "session", key.SessionID, "agent", key.AgentID)
+	// wrap toolresult
+	wrappedOnToolResult := eventCallbacks.OnToolResult
+	eventCallbacks.OnToolResult = func(ev *runtime.ToolResultEvent) {
+		sess.AddMessages(agent.NewToolResultMessage(ev.Result()))
+
+		wrappedOnToolResult(ev)
+	}
+
+	// wrap compaction
+	wrappedOnCompaction := eventCallbacks.OnCompaction
+	eventCallbacks.OnCompaction = func(ev *runtime.CompactionEvent) {
+		sess.OverwriteMessages(0, ev.CompactedContext())
+
+		wrappedOnCompaction(ev)
+	}
+
+	// wrap loop exit
+	wrappedOnLoopExit := eventCallbacks.OnLoopExit
+	eventCallbacks.OnLoopExit = func(ev *runtime.LoopExitEvent) {
+		if err := s.sessionSvc.Save(agentID, sess); err != nil {
+			// log it
+		}
+		wrappedOnLoopExit(ev)
+	}
+
+	return eventCallbacks, nil
+}
+
+func (e *Service) attachLogging(
+	agentID agent.ID,
+	sessID session.ID,
+	userMessage agent.Message,
+	eventCallbacks EventCallbacks,
+) EventCallbacks {
+	// commit user message
+	e.observer.Commit(agentID, sessID, []agent.Message{userMessage})
+
+	// wrap on complete for log shit
+	wrappedOnComplete := eventCallbacks.OnComplete
+	eventCallbacks.OnComplete = func(ev *runtime.CompleteEvent) {
+		completion := ev.Complete()
+		msg := agent.NewAgentMessage(completion.Content, completion.ToolCalls)
+		msgs := []agent.Message{msg}
+		e.observer.Commit(agentID, sessID, msgs)
+
+		wrappedOnComplete(ev)
+	}
+
+	return eventCallbacks
+}
+
+func readEvents(
+	ch <-chan runtime.Event,
+	OnLoopExit func(*runtime.LoopExitEvent),
+	OnComplete func(*runtime.CompleteEvent),
+	OnToolResult func(*runtime.ToolResultEvent),
+	OnCompaction func(*runtime.CompactionEvent),
+	OnToolErr func(*runtime.ToolCallErrEvent),
+	OnEvent func(runtime.Event),
+) {
+	for ev := range ch {
+		OnEvent(ev)
+
+		switch typedEv := ev.(type) {
+		case *runtime.LoopExitEvent:
+			OnLoopExit(typedEv)
+		case *runtime.CompactionEvent:
+			OnCompaction(typedEv)
+		case *runtime.CompleteEvent:
+			OnComplete(typedEv)
+		case *runtime.ToolResultEvent:
+			OnToolResult(typedEv)
+		case *runtime.ToolCallErrEvent:
+			OnToolErr(typedEv)
+		}
 	}
 }
 
-func (d *Service) swap(key sessionKey, p *requestProcessing) *requestProcessing {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+func runAgentLoopWithCallbacks(
+	ctx context.Context,
+	model agent.Model,
+	agentContext []agent.Message,
+	toolKit []agent.Tool,
+	evCallbacks EventCallbacks,
+) error {
+	// sink
+	evCh := make(chan runtime.Event, 16)
+	defer close(evCh)
 
-	prev := d.processes[key]
-	d.processes[key] = p
-	return prev
-}
-
-func (d *Service) remove(key sessionKey, p *requestProcessing) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	if d.processes[key] == p {
-		delete(d.processes, key)
-	}
-}
-
-func (s *Service) dispatch(ctx context.Context, r Request) error {
-	key := sessionKey{
-		AgentID:   r.AgentID,
-		SessionID: r.SessionID,
-	}
-
-	ctx, cancel := context.WithCancel(ctx)
-	p := &requestProcessing{
-		cancel: cancel,
-		done:   make(chan struct{}),
-	}
-
-	if prev := s.swap(key, p); prev != nil {
-		prev.cancel()
-		<-prev.done
-	}
-
-	defer func() {
-		cancel()
-		close(p.done)
-		s.remove(key, p)
+	done := make(chan struct{})
+	go func() {
+		readEvents(
+			evCh,
+			evCallbacks.OnLoopExit,
+			evCallbacks.OnComplete,
+			evCallbacks.OnToolResult,
+			evCallbacks.OnCompaction,
+			evCallbacks.OnToolErr,
+			evCallbacks.OnEvent,
+		)
+		close(done)
 	}()
 
-	return s.executor.chat(ctx, r)
+	// run
+	loopErr := runtime.RunAgentLoop(
+		ctx,
+		model,
+		agentContext,
+		toolKit,
+		evCh,
+		nil,
+	)
+
+	// await of event processing
+	awaitCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	select {
+	case <-awaitCtx.Done():
+	case <-done:
+	}
+
+	return loopErr
+}
+
+func resolveToolServers(reg agent.ToolRegistry, agt agent.Agent, provided []agent.ToolServer) ([]agent.ToolServer, error) {
+	toolServers, err := reg.ToolServers(agt.ToolServers()...)
+	if err != nil {
+		if err := types.DistillErrNotExist(fmt.Sprintf("agent %s", err), err); err != nil {
+			return nil, err
+		}
+	}
+
+	if provided != nil {
+		toolServers = append(toolServers, provided...)
+	}
+
+	return toolServers, nil
+}
+
+func extractTools(toolServers []agent.ToolServer) []agent.Tool {
+	toolKit := []agent.Tool{}
+	for _, ts := range toolServers {
+		toolKit = append(toolKit, ts.Tools()...)
+	}
+	return toolKit
 }
 
 type agentIDCTXKey struct{}
