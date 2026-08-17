@@ -2,9 +2,10 @@ package files
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/types"
-	"errors"
+	"arch-agent/internal/chat"
+	"io/fs"
 	"log/slog"
+	"maps"
 	"path"
 	"path/filepath"
 	"sync"
@@ -13,7 +14,7 @@ import (
 const skillsFolder = "/skills"
 const skillFile = "SKILL.md"
 
-var _ agent.SkillRepo = (*SkillFiles)(nil)
+var _ chat.SkillsRepo = (*SkillFiles)(nil)
 
 type SkillFiles struct {
 	fs *FileSystem
@@ -29,8 +30,8 @@ func NewSkillFiles(fs *FileSystem) *SkillFiles {
 	return sf
 }
 
-func (f *SkillFiles) GetSkills(agentID agent.ID) ([]agent.SkillFrontmatter, error) {
-	skills := []agent.SkillFrontmatter{}
+func (f *SkillFiles) Skills(agentID agent.ID) (map[string]string, error) {
+	skillsIndex := map[string]string{}
 
 	// private skills
 	privateSkillsPath := path.Join(string(filepath.Separator), string(agentID), skillsFolder)
@@ -39,24 +40,24 @@ func (f *SkillFiles) GetSkills(agentID agent.ID) ([]agent.SkillFrontmatter, erro
 		return nil, err
 	}
 
-	if privateSkills != nil {
-		skills = append(skills, privateSkills...)
-	}
-
 	// shared skills
 	sharedSkills, err := f.loadSkills(skillsFolder)
 	if err != nil {
 		return nil, err
 	}
 
+	// unite shared and private in one index
+	if privateSkills != nil {
+		maps.Copy(skillsIndex, privateSkills)
+	}
 	if sharedSkills != nil {
-		skills = append(skills, sharedSkills...)
+		maps.Copy(skillsIndex, sharedSkills)
 	}
 
-	return skills, nil
+	return skillsIndex, nil
 }
 
-func (f *SkillFiles) loadSkills(p string) ([]agent.SkillFrontmatter, error) {
+func (f *SkillFiles) loadSkills(p string) (map[string]string, error) {
 
 	type skillFrontmatterDTO struct {
 		ID          string           `yaml:"name"`
@@ -64,35 +65,42 @@ func (f *SkillFiles) loadSkills(p string) ([]agent.SkillFrontmatter, error) {
 		Tools       []agent.ToolName `yaml:"allowed-tools,omitempty"`
 	}
 
-	entries, err := f.fs.ReadDir(p)
-	if err != nil {
-		if errors.Is(err, types.ErrIsNotExist) {
-			return nil, nil
+	skillIndex := map[string]string{}
+
+	walkDirFunc := func(currentPath string, d fs.DirEntry, err error) error {
+
+		// skip dirs
+		if d.IsDir() {
+			return nil
 		}
+
+		// skip non skill files
+		if d.Name() != skillFile {
+			return nil
+		}
+
+		// read file
+		data, err := f.fs.ReadFile(currentPath)
+		if err != nil {
+			return err
+		}
+
+		// extract frontmatter
+		dto, err := resolveFrontmatter[skillFrontmatterDTO](data)
+		if err != nil {
+			slog.Error("loading skills", "error", err, "path", currentPath)
+			return nil
+		}
+
+		// add to index
+		skillIndex[currentPath] = dto.Description
+
+		return nil
+	}
+
+	if err := f.fs.WalkDir(p, walkDirFunc); err != nil {
 		return nil, err
 	}
 
-	skills := []agent.SkillFrontmatter{}
-	for _, entry := range entries {
-		skillFilePath := path.Join(p, entry.Name(), skillFile)
-
-		data, err := f.fs.ReadFile(skillFilePath)
-		if err != nil {
-			return nil, err
-		}
-
-		dto, err := resolveFrontmatter[skillFrontmatterDTO](data)
-		if err != nil {
-			slog.Error("loading skills", "error", err, "skill folder", entry)
-			continue
-		}
-
-		skills = append(skills, agent.SkillFrontmatter{
-			ID:          dto.ID,
-			Description: dto.Description,
-			StoreHint:   path.Join("./", skillFilePath),
-		})
-	}
-
-	return skills, nil
+	return skillIndex, nil
 }
