@@ -28,17 +28,17 @@ func (r *InstructedFSServer) AgentInstruction(agt agent.Agent) string {
 }
 
 type Memory struct {
-	agentRepo  agent.Repo
-	toolServer []agent.ToolServer
-	model      agent.Model
-	hooks      []any
+	agentRepo    agent.Repo
+	toolServer   []agent.ToolServer
+	model        agent.Model
+	resolveHooks func(agent.ID) []any
 }
 
 func NewMemory(
 	agentRepo agent.Repo,
 	toolServer []agent.ToolServer,
 	model agent.Model,
-	hooks []any,
+	hooksReslover func(agent.ID) []any,
 ) (*Memory, error) {
 
 	if !(len(toolServer) > 0) {
@@ -54,17 +54,17 @@ func NewMemory(
 	}
 
 	return &Memory{
-		model:      model,
-		agentRepo:  agentRepo,
-		toolServer: toolServer,
-		hooks:      hooks,
+		model:        model,
+		agentRepo:    agentRepo,
+		toolServer:   toolServer,
+		resolveHooks: hooksReslover,
 	}, nil
 }
 
 func (m *Memory) ConsolidateImmidate(ctx context.Context, agentID agent.ID, evCh chan runtime.Event) error {
 	agt, err := m.agentRepo.Get(agentID)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	return m.consolidateMemoryFor(ctx, agt, evCh)
@@ -91,7 +91,7 @@ func (m *Memory) consolidateMemoryFor(ctx context.Context, agt agent.Agent, evCh
 		messages,
 		tools,
 		evCh,
-		m.hooks,
+		m.resolveHooks(agt.ID()),
 	)
 }
 
