@@ -15,6 +15,7 @@ const (
 	defaultTurnsLimit      = 100
 	defaultToolCallTimeout = 30 * time.Second
 	maxCompactApptempts    = 3
+	maxCompletionMistakes  = 3
 )
 
 // blocking
@@ -28,7 +29,7 @@ func RunAgentLoop(
 ) error {
 
 	slog.Info("agent loop running")
-
+	completionMistakes := 0
 	maxTurns := resolveMaxTurns(model.Settings())
 	for i := 0; i < maxTurns; i++ {
 		select {
@@ -53,6 +54,27 @@ func RunAgentLoop(
 				continue
 			}
 
+			// agent mistake handling
+			// TODO: create special event type for this case
+			var mistakeErr *types.AgentMistakeError
+			if errors.As(err, &mistakeErr) {
+				completionMistakes++
+
+				if completionMistakes > maxCompletionMistakes {
+					err := fmt.Errorf("agent can't finish loop: %w", err)
+					evCh <- NewLoopExitEvent(err)
+					return err
+				}
+
+				agentMsg := agent.NewAgentMessage(completion.Content, nil)
+				messages = append(messages, agentMsg)
+
+				cautionMsg := agent.NewUserMessage(mistakeErr.Message())
+				messages = append(messages, cautionMsg)
+
+				continue
+			}
+
 			err := fmt.Errorf("completion processing: %w", err)
 			evCh <- NewLoopExitEvent(err)
 			return err
@@ -63,7 +85,11 @@ func RunAgentLoop(
 		messages = append(messages, agentMsg)
 
 		// compact if needed
-		if shouldCompact(completion.InputTokens, completion.CompletionTokens, model.ContextLimit()) {
+		if shouldCompact(
+			completion.InputTokens,
+			completion.CompletionTokens,
+			model.ContextLimit(),
+		) {
 			messages, err = doCompact(ctx, model, messages, evCh)
 			if err != nil {
 				err := fmt.Errorf("thereshold compaction: %w", err)
@@ -109,7 +135,7 @@ func processCompletion(
 	if len(hooks) > 0 {
 		completion, err = ApplyHooks(ctx, hooks, completion)
 		if err != nil {
-			return nil, err
+			return completion, err
 		}
 	}
 
@@ -224,7 +250,10 @@ func resolveCallSafely(
 	return agent.NewToolResult(call.ID, content), nil
 }
 
-func contextWithToolAwareTimeout(ctx context.Context, tool agent.Tool) (context.Context, context.CancelFunc) {
+func contextWithToolAwareTimeout(
+	ctx context.Context,
+	tool agent.Tool,
+) (context.Context, context.CancelFunc) {
 	timeout := defaultToolCallTimeout
 	if customTO, ok := tool.(interface{ TimeOut() time.Duration }); ok {
 		timeout = customTO.TimeOut()
@@ -240,7 +269,11 @@ func resolveMaxTurns(settings agent.ModelSettings) int {
 
 	maxTurns, ok := v.(int)
 	if !ok {
-		slog.Error("resolve max turns", "error", "bad value type", "used default value", defaultTurnsLimit)
+		slog.Error(
+			"resolve max turns",
+			"error", "bad value type",
+			"used default value", defaultTurnsLimit,
+		)
 		return defaultTurnsLimit
 	}
 
