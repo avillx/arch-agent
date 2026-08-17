@@ -11,7 +11,6 @@ import (
 	"arch-agent/internal/memory"
 	"arch-agent/internal/model"
 	"arch-agent/internal/openai"
-	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"arch-agent/internal/subagent"
 	"arch-agent/internal/task"
@@ -64,27 +63,24 @@ func BuildTaskSvc(
 
 func BuildMemoryConsolidator(
 	fs *files.FileSystem,
-	rt *runtime.AgentRuntime,
-	todoStorage todo.Store,
 	model agent.Model,
 	agentRepo agent.Repo,
-	additionalTools []agent.ToolServer,
 	indexer agent.MemoryIndexer,
 ) (*memory.Memory, error) {
 
+	// TODO: consolidation prompt is unreachible for memory consolidator
 	fsToolsSrv := memory.NewInstuctFS(fs.Cwd(), fstools.NewRawFileSystemToolServer(fs))
 
-	harness, err := hooks.NewMemoryHarness(fs, todoStorage, indexer)
+	memoryHooksResolver, err := hooks.NewMemoryHooksResolver(fs, indexer)
 	if err != nil {
 		return nil, fmt.Errorf("harness: %w", err)
 	}
 
 	memory, err := memory.NewMemory(
 		agentRepo,
-		rt,
-		append(additionalTools, fsToolsSrv),
+		[]agent.ToolServer{fsToolsSrv},
 		model,
-		harness,
+		memoryHooksResolver,
 	)
 	if err != nil {
 		return nil, err
@@ -118,7 +114,6 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 
 	agentRepo := files.NewAgentFiles(fs)
 
-	activityRepo := files.NewActivityFiles(fs)
 	sessSvc := session.NewService(
 		files.NewSessionFiles(fs),
 		uuid.NewUUIDGenerator(),
@@ -126,8 +121,7 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 
 	skillFiles := files.NewSkillFiles(fs)
 	memoryFiles := files.NewMemoryFiles(fs)
-	contextAssembler := runtime.NewContextAssembler(skillFiles, activityRepo, memoryFiles)
-	rt := runtime.NewAgentRuntime(contextAssembler)
+	contextAssembler := chat.NewContextAssembler(skillFiles, memoryFiles)
 
 	toolSvc := tools.NewService()
 
@@ -138,10 +132,6 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 	}
 
 	todoStorage := todo.NewInMemoryStore()
-	agentHarness, err := hooks.NewAgentHarness(fs, todoStorage)
-	if err != nil {
-		return nil, err
-	}
 
 	// chat service
 	observerModel, err := modelsSvc.Get(cfg.ObserverModel)
@@ -149,11 +139,20 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 		return nil, errors.New("has no observer model")
 	}
 
-	reporter := chat.NewActivityReporter(observerModel)
-	observer := chat.NewObserver(reporter, activityRepo)
+	activityRepo := files.NewActivityFiles(fs)
+	observer := memory.NewObserver(
+		memory.NewActivityReporter(observerModel),
+		activityRepo,
+	)
 
-	chatExecutor := chat.NewExecutor(agentRepo, sessSvc, modelsSvc, toolSvc, rt, agentHarness, observer)
-	chatSvc := chat.NewService(chatExecutor)
+	chatSvc := chat.NewService(
+		agentRepo,
+		sessSvc,
+		modelsSvc,
+		toolSvc,
+		contextAssembler,
+		observer,
+	)
 
 	taskSvc, err := BuildTaskSvc(
 		ctx,
@@ -166,15 +165,13 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 		return nil, err
 	}
 
-	subagentSvc := subagent.NewService(agentHarness, rt, toolSvc, agentRepo, modelsSvc)
-
 	toolSvc.Connect("filesystem", fstools.NewFileSystemToolServer(fs))
 	toolSvc.Connect("tasks", tasktools.NewTasksToolServer(taskSvc))
 	toolSvc.Connect("shell", shell.NewShellToolServer(fs.Cwd()))
 	toolSvc.Connect("web", fetch.NewFetchToolServer())
+	toolSvc.Connect("todo", todo.NewTodoToolServer(todoStorage))
+	subagentSvc := subagent.NewService(chatSvc)
 	toolSvc.Connect("agent", tools.NewCallAgentToolServer(subagentSvc, agentRepo))
-	todoToolSrv := todo.NewTodoToolServer(todoStorage)
-	toolSvc.Connect("todo", todoToolSrv)
 
 	consolidatorModel, err := modelsSvc.Get(cfg.ConsolidationModel)
 	if err != nil {
@@ -183,11 +180,8 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 
 	memoryConsolidator, err := BuildMemoryConsolidator(
 		fs,
-		rt,
-		todoStorage,
 		consolidatorModel,
 		agentRepo,
-		[]agent.ToolServer{todoToolSrv},
 		memoryFiles,
 	)
 	if err != nil {
@@ -195,9 +189,11 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 	}
 	go memoryConsolidator.Run(ctx)
 
+	chatDispatcher := chat.NewDispatcher(chatSvc)
+
 	return api.NewServer(
 		taskSvc,
-		chatSvc,
+		chatDispatcher,
 		sessSvc,
 		toolSvc,
 		mcpSvc,
