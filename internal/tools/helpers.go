@@ -2,7 +2,7 @@ package tools
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/runtime"
+	"arch-agent/internal/chat"
 	"arch-agent/internal/session"
 	"arch-agent/internal/types"
 	"context"
@@ -62,7 +62,7 @@ func UnwrapValidArgs[T types.Validator](ctx context.Context, raw agent.ToolArgum
 }
 
 func MustAgentID(ctx context.Context) agent.ID {
-	agentID, ok := runtime.AgentIDFromContext(ctx)
+	agentID, ok := chat.AgentIDFromContext(ctx)
 	if !ok {
 		slog.Error("critical error context has no agentID")
 	}
@@ -70,7 +70,7 @@ func MustAgentID(ctx context.Context) agent.ID {
 }
 
 func MustSessionID(ctx context.Context) session.ID {
-	sessionID, ok := runtime.SessionIDFromContext(ctx)
+	sessionID, ok := chat.SessionIDFromContext(ctx)
 	if !ok {
 		slog.Error("critical error context has no sessionID")
 	}
