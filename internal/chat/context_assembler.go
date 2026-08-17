@@ -93,10 +93,16 @@ type MemoryPart struct {
 }
 
 func (i *MemoryPart) Part(ctx context.Context) (string, error) {
+
 	// load persistent memory prompt
 	idx, err := i.repo.MemoryIndex(i.agentID)
 	if err != nil {
 		return "", fmt.Errorf("agent %s memory index is not reached: %w", i.agentID, err)
+	}
+
+	// has no memories, no need to guide it
+	if len(idx) <= 0 {
+		return "", nil
 	}
 
 	var sb strings.Builder
@@ -126,7 +132,9 @@ func (i *SkillPart) Part(ctx context.Context) (string, error) {
 	if err != nil {
 		slog.Error("skill load", "error", err)
 	}
-	if !(len(skills) > 0) {
+
+	// has no skills no need to guide it
+	if len(skills) <= 0 {
 		return "", nil
 	}
 
@@ -156,6 +164,12 @@ type ToolAwarePart struct {
 }
 
 func (i *ToolAwarePart) Part(ctx context.Context) (string, error) {
+
+	// if has no tools no need to guide it
+	if len(i.toolServers) <= 0 {
+		return "", nil
+	}
+
 	instructions := []string{}
 
 	if len(i.toolServers) > 0 {
