@@ -150,11 +150,11 @@ func (i *SkillPart) Part(ctx context.Context) (string, error) {
 // tool aware behaviour
 var _ SystemMessageParticipant = (*ToolAwarePart)(nil)
 
-type Instructed interface {
+type ToolInstructer interface {
 	Instruction() string
 }
 
-type PerAgentInstructed interface {
+type PerAgentToolInstructer interface {
 	AgentInstruction(agent.Agent) string
 }
 
@@ -177,10 +177,10 @@ func (i *ToolAwarePart) Part(ctx context.Context) (string, error) {
 	}
 
 	for _, t := range i.toolServers {
-		if instructedTool, ok := t.(Instructed); ok {
+		if instructedTool, ok := t.(ToolInstructer); ok {
 			instructions = append(instructions, instructedTool.Instruction())
 		}
-		if agentInstructedTool, ok := t.(PerAgentInstructed); ok {
+		if agentInstructedTool, ok := t.(PerAgentToolInstructer); ok {
 			instructions = append(instructions, agentInstructedTool.AgentInstruction(i.agt))
 		}
 	}
