@@ -3,6 +3,7 @@ package files
 import (
 	"arch-agent/internal/types"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -31,6 +32,10 @@ func (fs *FileSystem) ReadDir(path string) ([]os.DirEntry, error) {
 
 	res, err := os.ReadDir(fs.resolveAbsolutePath(path))
 	return res, toInternalNotExist(err)
+}
+
+func (f *FileSystem) WalkDir(root string, fn fs.WalkDirFunc) error {
+	return fs.WalkDir(os.DirFS(f.dir), root, fn)
 }
 
 func (fs *FileSystem) ReadFile(path string) ([]byte, error) {
