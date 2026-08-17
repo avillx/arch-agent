@@ -2,10 +2,15 @@ package runtime
 
 import (
 	"arch-agent/internal/agent"
+	"context"
 )
 
+type CompletionHook Hook[*agent.Completion]
+type ToolCallHook Hook[*agent.ToolCall]
+type ToolResultHook Hook[AfterToolCall]
+
 type Hook[T any] interface {
-	Apply(T) (T, error)
+	Apply(context.Context, T) (T, error)
 }
 
 type AfterToolCall struct {
@@ -13,13 +18,7 @@ type AfterToolCall struct {
 	*agent.ToolResult
 }
 
-type Harness struct {
-	OnToolCall              []Hook[*agent.ToolCall]
-	OnToolCallResultMessage []Hook[*AfterToolCall]
-	OnComplete              []Hook[*agent.Completion]
-}
-
-func ApplyHooks[T any](hooks []any, event T) (T, error) {
+func ApplyHooks[T any](ctx context.Context, hooks []any, event T) (T, error) {
 
 	for _, h := range hooks {
 
@@ -28,7 +27,7 @@ func ApplyHooks[T any](hooks []any, event T) (T, error) {
 			continue
 		}
 
-		new, err := typedHook.Apply(event)
+		new, err := typedHook.Apply(ctx, event)
 		if err != nil {
 			return new, err
 		}

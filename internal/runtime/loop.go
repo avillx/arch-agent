@@ -107,7 +107,7 @@ func processCompletion(
 	}
 
 	if len(hooks) > 0 {
-		completion, err = ApplyHooks(hooks, completion)
+		completion, err = ApplyHooks(ctx, hooks, completion)
 		if err != nil {
 			return nil, err
 		}
@@ -174,7 +174,7 @@ func processToolCall(
 	// apply pre call hooks
 	if len(hooks) > 0 {
 		var err error
-		call, err = ApplyHooks(hooks, call)
+		call, err = ApplyHooks(ctx, hooks, call)
 		if err != nil {
 			return nil, err
 		}
@@ -187,10 +187,16 @@ func processToolCall(
 
 	// apply post call hooks
 	if len(hooks) > 0 {
-		result, err = ApplyHooks(hooks, result)
+		afterToolCall := &AfterToolCall{
+			ToolCall:   call,
+			ToolResult: result,
+		}
+		afterToolCall, err = ApplyHooks(ctx, hooks, afterToolCall)
 		if err != nil {
 			return nil, err
 		}
+
+		result = afterToolCall.ToolResult
 	}
 
 	return result, err

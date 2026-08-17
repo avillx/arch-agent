@@ -3,23 +3,18 @@ package hooks
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/runtime"
-	"arch-agent/internal/session"
 	"arch-agent/internal/types"
+	"context"
 )
 
-type ContentSizeLimitHook struct {
-	limitBytes int // in bytes
-}
+var _ runtime.ToolResultHook = (*ContentSizeLimitHook)(nil)
 
-func NewContentSizeLimitHook(limit int) *ContentSizeLimitHook {
-	return &ContentSizeLimitHook{
-		limitBytes: limit * 1024,
-	}
+type ContentSizeLimitHook struct {
+	limitBytes int
 }
 
 func (h *ContentSizeLimitHook) Apply(
-	_ session.ID,
-	_ agent.Agent,
+	ctx context.Context,
 	tc *runtime.AfterToolCall,
 ) (*runtime.AfterToolCall, error) {
 
