@@ -8,6 +8,8 @@ import (
 	"sync"
 )
 
+var _ ChatExecutor = (*Dispatcher)(nil)
+
 type sessionKey struct {
 	AgentID   agent.ID
 	SessionID session.ID

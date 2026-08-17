@@ -79,6 +79,12 @@ func (r Request) validate() error {
 	return nil
 }
 
+var _ ChatExecutor = (*Service)(nil)
+
+type ChatExecutor interface {
+	Chat(ctx context.Context, r Request) error
+}
+
 type Service struct {
 	agentRepo        agent.Repo
 	sessionSvc       *session.Service
