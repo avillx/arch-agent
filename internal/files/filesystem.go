@@ -112,3 +112,19 @@ func toInternalNotExist(err error) error {
 	}
 	return err
 }
+
+func ensureFilePlaceholder(
+	fs *FileSystem,
+	pathToFile string,
+	defaultEntry []byte,
+) error {
+	if _, err := fs.ReadFile(pathToFile); err != nil {
+		if !errors.Is(err, types.ErrIsNotExist) {
+			return err
+		}
+		if err := fs.WriteToFile(TaskFile, defaultEntry); err != nil {
+			return err
+		}
+	}
+	return nil
+}

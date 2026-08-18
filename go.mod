@@ -23,6 +23,7 @@ require (
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect

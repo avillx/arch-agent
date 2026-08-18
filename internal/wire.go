@@ -105,7 +105,10 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 
 	modelsSvc := model.NewModelService(openaiFactory)
 
-	providerFiles := files.NewProviderFiles(fs)
+	providerFiles, err := files.NewProviderFiles(fs)
+	if err != nil {
+		return nil, err
+	}
 
 	providerSvc, err := model.NewProviderService(modelsSvc, providerFiles)
 	if err != nil {
@@ -125,7 +128,10 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 
 	toolSvc := tools.NewService()
 
-	mcpRepo := files.NewMCPFiles(fs)
+	mcpRepo, err := files.NewMCPFiles(fs)
+	if err != nil {
+		return nil, err
+	}
 	mcpSvc, err := mcp.NewService(ctx, toolSvc, mcpRepo)
 	if err != nil {
 		return nil, fmt.Errorf("build mcp service: %w", err)

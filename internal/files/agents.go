@@ -92,7 +92,7 @@ const sharedFolder = "shared"
 func validateAgentName(agentName string) error {
 	reservedNames := []string{
 		mcpServersFile,
-		providersFile,
+		modelsFile,
 		TaskFile,
 		SecretsFile,
 		skillsFolder,

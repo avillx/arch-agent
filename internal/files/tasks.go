@@ -1,16 +1,51 @@
 package files
 
 import (
+	"arch-agent/internal/agent"
 	"arch-agent/internal/task"
 	"arch-agent/internal/types"
-	"encoding/json"
-	"errors"
+	"bytes"
 	"fmt"
 	"os"
 	"sync"
+
+	toml "github.com/pelletier/go-toml/v2"
 )
 
-const TaskFile = "tasks.json"
+const TaskFile = "tasks.toml"
+const taskConfigDoc = `# Cron tasks config
+
+# Tasks are planned requests sent to agent recipients on a cron schedule.
+# When a recipient receives a request, it works autonomously.
+
+# Task example:
+
+# unique task name
+# [task_name]
+
+# Short, one line description of task
+# description="short task description"
+
+# Agent recipients
+# recipients=["agent_id1","agent_id2"]
+
+# Cron schedule
+# schedule="* * * * *"
+
+# Active field defines the state
+# * true - task enabled
+# * false - task disabled
+# active=true
+
+# When once is true, the task will disappear after its first execution
+# once=true
+
+# Exhaustive request that the recipient will receive on schedule
+# request="""
+# Use your skill /some/path
+# do ...
+# Confirm result
+# """`
 
 type TaskFiles struct {
 	mu sync.RWMutex
@@ -19,13 +54,8 @@ type TaskFiles struct {
 
 func NewTaskFiles(fs *FileSystem) (*TaskFiles, error) {
 
-	if _, err := fs.ReadFile(TaskFile); err != nil {
-		if !errors.Is(err, types.ErrIsNotExist) {
-			return nil, err
-		}
-		if err := fs.WriteToFile(TaskFile, []byte("[]")); err != nil {
-			return nil, err
-		}
+	if err := ensureFilePlaceholder(fs, TaskFile, []byte(taskConfigDoc)); err != nil {
+		return nil, err
 	}
 
 	return &TaskFiles{
@@ -91,40 +121,6 @@ func (tf *TaskFiles) Delete(id string) error {
 	return flush(tf.fs, tasks)
 }
 
-func flush(fs *FileSystem, tasks map[string]task.TaskConfig) error {
-	data, err := marshalTasks(tasks)
-	if err != nil {
-		return err
-	}
-	return fs.WriteToFile(TaskFile, data)
-}
-
-func unmarshalTasks(data []byte) (map[string]task.TaskConfig, error) {
-
-	var dtos []task.TaskConfig
-	if err := json.Unmarshal(data, &dtos); err != nil {
-		return nil, err
-	}
-
-	tasks := make(map[string]task.TaskConfig, len(dtos))
-
-	for _, dto := range dtos {
-		tasks[dto.Name] = dto
-	}
-
-	return tasks, nil
-}
-
-func marshalTasks(tasks map[string]task.TaskConfig) ([]byte, error) {
-
-	dtos := make([]task.TaskConfig, 0, len(tasks))
-	for _, t := range tasks {
-		dtos = append(dtos, t)
-	}
-
-	return json.MarshalIndent(dtos, "", "	")
-}
-
 func loadTasks(fs *FileSystem) (map[string]task.TaskConfig, error) {
 	data, err := fs.ReadFile(TaskFile)
 	if err != nil {
@@ -137,5 +133,71 @@ func loadTasks(fs *FileSystem) (map[string]task.TaskConfig, error) {
 		return map[string]task.TaskConfig{}, nil
 	}
 
-	return unmarshalTasks(data)
+	return UnmarshalTasks(data)
+}
+
+func flush(fs *FileSystem, tasks map[string]task.TaskConfig) error {
+	data, err := MarshalTasks(tasks)
+	if err != nil {
+		return err
+	}
+	return fs.WriteToFile(TaskFile, data)
+}
+
+type TaskDTO struct {
+	Description string     `toml:"description"`
+	Recipients  []agent.ID `toml:"recipients"`
+	Reglament   string     `toml:"schedule"`
+	Active      bool       `toml:"active"`
+	Oneshot     bool       `toml:"once"`
+	Request     string     `toml:"request,multiline"`
+}
+
+func UnmarshalTasks(data []byte) (map[string]task.TaskConfig, error) {
+
+	var dtos map[string]TaskDTO
+	if err := toml.Unmarshal(data, &dtos); err != nil {
+		return nil, err
+	}
+
+	tasks := make(map[string]task.TaskConfig, len(dtos))
+	for k, v := range dtos {
+		tasks[k] = task.TaskConfig{
+			Name:        k,
+			Description: v.Description,
+			Recipients:  v.Recipients,
+			Reglament:   v.Reglament,
+			Active:      v.Active,
+			Oneshot:     v.Oneshot,
+			Request:     v.Request,
+		}
+	}
+
+	return tasks, nil
+}
+
+func MarshalTasks(tasks map[string]task.TaskConfig) ([]byte, error) {
+
+	dtos := map[string]TaskDTO{}
+
+	for _, v := range tasks {
+		dtos[v.Name] = TaskDTO{
+			Description: v.Description,
+			Recipients:  v.Recipients,
+			Reglament:   v.Reglament,
+			Active:      v.Active,
+			Oneshot:     v.Oneshot,
+			Request:     v.Request,
+		}
+	}
+
+	rawData, err := toml.Marshal(dtos)
+	if err != nil {
+		return nil, err
+	}
+
+	return bytes.Join(
+		[][]byte{[]byte(taskConfigDoc), rawData},
+		[]byte("\n\n"),
+	), nil
 }
