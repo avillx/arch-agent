@@ -4,8 +4,9 @@ import (
 	"arch-agent/internal/model"
 	"arch-agent/internal/types"
 	"bytes"
-	"encoding/json"
 	"sync"
+
+	toml "github.com/pelletier/go-toml/v2"
 )
 
 const modelsFile = "models.toml"
@@ -163,7 +164,7 @@ func (f *ProviderFiles) loadConfig() (modelsConfigDTO, error) {
 		return dto, err
 	}
 
-	if err := json.Unmarshal(data, &dto); err != nil {
+	if err := toml.Unmarshal(data, &dto); err != nil {
 		return dto, err
 	}
 
@@ -172,7 +173,7 @@ func (f *ProviderFiles) loadConfig() (modelsConfigDTO, error) {
 
 func (f *ProviderFiles) saveConfig(dto modelsConfigDTO) error {
 
-	data, err := json.Marshal(dto)
+	data, err := toml.Marshal(dto)
 	if err != nil {
 		return err
 	}

@@ -2,7 +2,6 @@ package files
 
 import (
 	"bytes"
-	"encoding/json"
 	"maps"
 	"os"
 	"slices"
@@ -84,7 +83,7 @@ func (sf *SecretsFiles) load() error {
 	if err != nil {
 		return err
 	}
-	if err := json.Unmarshal(data, &sf.secrets); err != nil {
+	if err := toml.Unmarshal(data, &sf.secrets); err != nil {
 		return err
 	}
 	return nil

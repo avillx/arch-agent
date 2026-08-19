@@ -150,7 +150,7 @@ type TaskDTO struct {
 	Reglament   string     `toml:"schedule"`
 	Active      bool       `toml:"active"`
 	Oneshot     bool       `toml:"once"`
-	Request     string     `toml:"request,multiline"`
+	Request     string     `toml:"request" multiline:"true"`
 }
 
 func UnmarshalTasks(data []byte) (map[string]task.TaskConfig, error) {

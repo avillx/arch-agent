@@ -17,6 +17,10 @@ func NewAgentHooks(
 ) ([]any, error) {
 
 	accessRules := []Rule{
+		{Pattern: filepath.Join(b.Cwd(), "tasks.toml"), Access: Read},
+		{Pattern: filepath.Join(b.Cwd(), "secrets.toml"), Access: Read},
+		{Pattern: filepath.Join(b.Cwd(), "models.toml"), Access: Read},
+		{Pattern: filepath.Join(b.Cwd(), "mcp.toml"), Access: Read},
 		{Pattern: filepath.Join(b.Cwd(), "*/agent.md"), Access: No},
 		{Pattern: filepath.Join(b.Cwd(), "*/sessions/**"), Access: No},
 		{Pattern: filepath.Join(b.Cwd(), "*/activity/**"), Access: Read},
