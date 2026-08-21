@@ -69,7 +69,8 @@ Example in `example.config.toml`
 
 ### ENV
 Accepts unneccecary vars:
-LOG_PRETTY (true/false)
+LOG_INDEND (true/false)
+LOG_SOURCE (true/false)
 LOG_LEVEL (debug/info/warn/error)
 
 ### For compose

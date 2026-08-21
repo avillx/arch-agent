@@ -7,6 +7,7 @@ import (
 	"arch-agent/internal/cron"
 	"arch-agent/internal/files"
 	"arch-agent/internal/hooks"
+	"arch-agent/internal/logging"
 	"arch-agent/internal/mcp"
 	"arch-agent/internal/memory"
 	"arch-agent/internal/model"
@@ -33,6 +34,7 @@ type Config struct {
 	ConsolidationModel string
 	ObserverModel      string
 	ShellEnv           []string
+	LoggerConfig       logging.LoggerConfig
 }
 
 func BuildTaskSvc(
@@ -90,6 +92,8 @@ func BuildMemoryConsolidator(
 }
 
 func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
+
+	// logger := logging.NewLogger(cfg.LoggerConfig)
 
 	fs, err := files.NewFS(cfg.DataPath)
 	if err != nil {

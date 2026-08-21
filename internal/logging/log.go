@@ -11,24 +11,29 @@ import (
 	"strings"
 )
 
-func Set(isPretty bool, level slog.Level) {
+type LoggerConfig struct {
+	Level     slog.Level
+	AddSource bool
+	Indented  bool
+}
+
+func NewLogger(cfg LoggerConfig) *slog.Logger {
 
 	opt := &slog.HandlerOptions{
-		Level:       level,
-		AddSource:   true,
+		Level:       cfg.Level,
+		AddSource:   cfg.AddSource,
 		ReplaceAttr: replaceAttrs,
 	}
 
 	var handler slog.Handler
 	switch {
-	case isPretty:
+	case cfg.Indented:
 		handler = slog.NewJSONHandler(&prettyWriter{os.Stdout}, opt)
 	default:
-		handler = slog.NewJSONHandler(os.Stdout, opt)
+		handler = slog.NewTextHandler(os.Stdout, opt)
 	}
 
-	logger := slog.New(handler)
-	slog.SetDefault(logger)
+	return slog.New(handler)
 }
 
 type prettyWriter struct {
@@ -61,12 +66,15 @@ func ToLogLevel(level string) (slog.Level, error) {
 
 func replaceAttrs(groups []string, a slog.Attr) slog.Attr {
 	switch v := a.Value.Any().(type) {
+	// message
 	case []agent.Message:
 		attrs := []slog.Attr{}
 		for i, m := range v {
 			attrs = append(attrs, contentPartsToAtts(fmt.Sprintf("%d", i), m.Content()))
 		}
 		return slog.GroupAttrs(a.Key, attrs...)
+
+	// contentPart
 	case []agent.ContentPart:
 		return contentPartsToAtts(a.Key, v)
 	default:

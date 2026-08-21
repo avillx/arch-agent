@@ -18,8 +18,9 @@ type RunParameters struct {
 	ConsolidationModel string
 	ObserverModel      string
 	Port               string
-	LogPretty          string
-	LogLevel           string
+	LogIndented        bool
+	LogSource          bool
+	LogLevel           slog.Level
 }
 
 func NewRunParameters(
@@ -27,7 +28,8 @@ func NewRunParameters(
 	consolidationModel string,
 	observerModel string,
 	port string,
-	logPretty string,
+	logIndented string,
+	logSource string,
 	logLevel string,
 ) (RunParameters, error) {
 
@@ -39,12 +41,31 @@ func NewRunParameters(
 		port = "8080"
 	}
 
-	if logPretty == "" {
-		logPretty = "false"
+	if logIndented == "" {
+		logIndented = "false"
+	}
+
+	if logSource == "" {
+		logSource = "false"
 	}
 
 	if logLevel == "" {
 		logLevel = "error"
+	}
+
+	logSourceBool, err := strconv.ParseBool(logSource)
+	if err != nil {
+		return RunParameters{}, err
+	}
+
+	logIndentedBool, err := strconv.ParseBool(logIndented)
+	if err != nil {
+		return RunParameters{}, err
+	}
+
+	logLevelTyped, err := logging.ToLogLevel(logLevel)
+	if err != nil {
+		return RunParameters{}, err
 	}
 
 	if consolidationModel == "" {
@@ -60,8 +81,9 @@ func NewRunParameters(
 		ConsolidationModel: consolidationModel,
 		ObserverModel:      observerModel,
 		Port:               port,
-		LogPretty:          logPretty,
-		LogLevel:           logLevel,
+		LogIndented:        logIndentedBool,
+		LogSource:          logSourceBool,
+		LogLevel:           logLevelTyped,
 	}, nil
 }
 
@@ -82,31 +104,26 @@ func run(
 		getENV("CONSOLIDATION_MODEL"),
 		getENV("OBSERVER_MODEL"),
 		getENV("PORT"),
-		getENV("LOG_PRETTY"),
+		getENV("LOG_INDENTED"),
+		getENV("LOG_SOURCE"),
 		getENV("LOG_LEVEL"),
 	)
 	if err != nil {
 		return fmt.Errorf("bad envirement variable: %w", err)
 	}
 
-	// logging
-	logPrettyBool, err := strconv.ParseBool(params.LogPretty)
-	if err != nil {
-		return err
-	}
-
-	logLevel, err := logging.ToLogLevel(params.LogLevel)
-	if err != nil {
-		return err
-	}
-
-	logging.Set(logPrettyBool, logLevel)
-
 	// App composing
 	srv, err := wire.BuildServer(ctx, wire.Config{
+
 		DataPath:           params.DataPath,
 		ConsolidationModel: params.ConsolidationModel,
 		ObserverModel:      params.ObserverModel,
+
+		LoggerConfig: logging.LoggerConfig{
+			Level:     params.LogLevel,
+			Indented:  params.LogIndented,
+			AddSource: params.LogSource,
+		},
 	})
 	if err != nil {
 		return err
