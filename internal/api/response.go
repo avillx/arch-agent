@@ -3,125 +3,174 @@ package api
 import (
 	"arch-agent/internal/types"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strings"
 	"sync"
 )
 
-type apiError interface {
-	error
-	Status() int
-	Body() any
+// Wrapper for simple status code response
+type Response interface {
+	StatusCode() int
 }
 
-type errStatus struct {
-	status int
-	msg    map[string]any
-	err    error
+type response struct {
+	statusCode int
 }
 
-func (e *errStatus) Error() string {
-	var sb strings.Builder
-	for k, v := range e.msg {
-		fmt.Fprintf(&sb, "%s:%v\n", k, v)
-	}
-	return sb.String()
-}
-func (e *errStatus) Unwrap() error { return e.err }
-
-func internal(cause error) *errStatus {
-	return &errStatus{
-		status: http.StatusInternalServerError,
-		msg:    map[string]any{"error": "internal error"},
-		err:    cause,
+func NewResponse(code int) response {
+	return response{
+		statusCode: code,
 	}
 }
 
-func badRequest(msg string) *errStatus {
-	return &errStatus{
-		status: http.StatusBadRequest,
-		msg:    map[string]any{"error": msg},
+func (r response) StatusCode() int {
+	return r.statusCode
+}
+
+// Wrapper for json responses
+type JSONResponse interface {
+	Response
+	Content() map[string]any
+}
+
+type jsonResponse struct {
+	response
+	content any
+}
+
+func (r *jsonResponse) Content() any {
+	return r.content
+}
+
+// content should be sended as response
+// string wrapped as { "message" : "..." }
+func NewJSONResponse[T string | any](code int, msg T) *jsonResponse {
+
+	var s any
+	s = msg
+
+	if stringMessage, ok := any(msg).(string); ok {
+		s = map[string]any{
+			"message": stringMessage,
+		}
+	}
+
+	return &jsonResponse{
+		response: NewResponse(code),
+		content:  s,
 	}
 }
 
-// validation failed
-func invalidRequest(problems map[string]string) *errStatus {
-	return &errStatus{
-		status: http.StatusBadRequest,
-		msg:    map[string]any{"problems": problems},
+type internalError struct {
+	response
+	cause error
+}
+
+// error shouldn't be sended. only logged. respond 500
+func NewInternalError(cause error) Response {
+	return &internalError{
+		response: NewResponse(http.StatusInternalServerError),
+		cause:    cause,
 	}
 }
 
-func notFound(msg string) *errStatus {
-	return &errStatus{
-		status: http.StatusNotFound,
-		msg:    map[string]any{"error": msg},
+// TODO: Err?
+func (e *internalError) Error() string {
+	return e.Error()
+}
+
+func NewBadRequest[T string | map[string]any](msg T) Response {
+	return NewJSONResponse(http.StatusBadRequest, msg)
+}
+
+// send error as 400
+// error message will be sended as respond
+// unwrap validation error
+// e.g. { "problems" : "..." }
+func NewInvalidRequest(err error) Response {
+
+	var r map[string]any
+
+	if problems := types.ResovleValidationProblems(err); len(problems) > 0 {
+		r = map[string]any{
+			"problems": problems,
+		}
+	}
+
+	if r == nil {
+		r = map[string]any{
+			"problems": err.Error(),
+		}
+	}
+
+	return NewJSONResponse(http.StatusBadRequest, r)
+}
+
+func NewNotFound(cause string) Response {
+	if cause != "" {
+		return NewJSONResponse(http.StatusNotFound, cause)
+	}
+	return NewResponse(http.StatusNotFound)
+}
+
+// Responder
+type APIResponder struct {
+	*http.ServeMux
+	logger *slog.Logger
+}
+
+func NewAPIResponder(logger *slog.Logger) *APIResponder {
+	return &APIResponder{
+		logger:   logger.WithGroup("api"),
+		ServeMux: http.NewServeMux(),
 	}
 }
 
-func wrap(h func(w http.ResponseWriter, r *http.Request) error) http.HandlerFunc {
+func (rs *APIResponder) HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request) Response) {
+	rs.ServeMux.HandleFunc(pattern, rs.wrap(handler))
+}
+
+func (rs *APIResponder) wrap(h func(w http.ResponseWriter, r *http.Request) Response) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		err := h(w, r)
-		if err == nil {
+		response := h(w, r)
+
+		rs.logger.Info("request", "status", response.StatusCode(), "path", r.URL.Path)
+
+		// log error
+		if err, ok := response.(error); ok {
+			rs.logger.Error("internal", "error", err)
+		}
+
+		// respond json
+		if jr, ok := response.(JSONResponse); ok {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(jr.StatusCode())
+			enc := json.NewEncoder(w)
+			if err := enc.Encode(jr.Content()); err != nil {
+				rs.logger.Error("response encoding", "error", err)
+			}
 			return
 		}
 
-		var es *errStatus
-		if !errors.As(err, &es) {
-			es = internal(err)
-		}
-
-		if es.err != nil {
-			slog.Error("unhandled", "error", err)
-		}
-
-		if err := respond(w, es.status, es.msg); err != nil {
-			slog.Error("response error", "error", err)
-		}
+		// respond status code
+		w.WriteHeader(response.StatusCode())
 	}
 }
 
 func decode[T any](r *http.Request) (T, error) {
 	var v T
 	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
-		return v, badRequest(fmt.Sprintf("decode json: %s", err.Error()))
+		return v, fmt.Errorf("broken json")
 	}
-	return v, nil
-}
 
-func decodeValid[T types.Validator](r *http.Request) (T, error) {
-	var v T
-	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
-		return v, badRequest(fmt.Sprintf("decode json: %s", err.Error()))
-	}
-	if err := v.Validate(r.Context()); err != nil {
-
-		if problems := types.ResovleValidationProblems(err); len(problems) > 0 {
-			return v, invalidRequest(problems)
+	if validator, ok := any(v).(types.Validator); ok {
+		if err := validator.Validate(r.Context()); err != nil {
+			return v, err
 		}
-
-		return v, err
 	}
 
 	return v, nil
-}
-
-func respond[T any](w http.ResponseWriter, status int, v T) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		return err
-	}
-	return nil
-}
-
-func message(content string) map[string]string {
-	return map[string]string{
-		"message": content,
-	}
 }
 
 type Stream struct {
@@ -145,11 +194,9 @@ func (s *Stream) send(v any) {
 	if err != nil {
 		return
 	}
-	_, _ = fmt.Fprintf(s.w, "data: %s\n\n", data)
+	fmt.Fprintf(s.w, "data: %s\n\n", data)
 	if f, ok := s.w.(http.Flusher); ok {
 		f.Flush()
-	} else {
-		slog.Error("stream", "error", "writer is not support flush")
 	}
 }
 
@@ -157,7 +204,7 @@ func (s *Stream) close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, _ = fmt.Fprint(s.w, "data: [DONE]\n\n")
+	fmt.Fprint(s.w, "data: [DONE]\n\n")
 	if f, ok := s.w.(http.Flusher); ok {
 		f.Flush()
 	}
