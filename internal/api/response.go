@@ -4,7 +4,6 @@ import (
 	"arch-agent/internal/types"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"sync"
 )
@@ -112,50 +111,6 @@ func NewNotFound(cause string) Response {
 		return NewJSONResponse(http.StatusNotFound, cause)
 	}
 	return NewResponse(http.StatusNotFound)
-}
-
-// Responder
-type APIResponder struct {
-	*http.ServeMux
-	logger *slog.Logger
-}
-
-func NewAPIResponder(logger *slog.Logger) *APIResponder {
-	return &APIResponder{
-		logger:   logger.WithGroup("api"),
-		ServeMux: http.NewServeMux(),
-	}
-}
-
-func (rs *APIResponder) HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request) Response) {
-	rs.ServeMux.HandleFunc(pattern, rs.wrap(handler))
-}
-
-func (rs *APIResponder) wrap(h func(w http.ResponseWriter, r *http.Request) Response) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		response := h(w, r)
-
-		rs.logger.Info("request", "status", response.StatusCode(), "path", r.URL.Path)
-
-		// log error
-		if err, ok := response.(error); ok {
-			rs.logger.Error("internal", "error", err)
-		}
-
-		// respond json
-		if jr, ok := response.(JSONResponse); ok {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(jr.StatusCode())
-			enc := json.NewEncoder(w)
-			if err := enc.Encode(jr.Content()); err != nil {
-				rs.logger.Error("response encoding", "error", err)
-			}
-			return
-		}
-
-		// respond status code
-		w.WriteHeader(response.StatusCode())
-	}
 }
 
 func decode[T any](r *http.Request) (T, error) {

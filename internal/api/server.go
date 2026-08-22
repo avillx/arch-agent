@@ -9,11 +9,30 @@ import (
 	"arch-agent/internal/session"
 	"arch-agent/internal/task"
 	"arch-agent/internal/tools"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 )
 
-func NewServer(
+// Responder
+type HTTPServer struct {
+	*http.ServeMux
+	logger        *slog.Logger
+	taskSvc       *task.Service
+	chatSvc       *chat.Dispatcher
+	sessSvc       *session.Service
+	toolsSvc      *tools.Service
+	mcpSvc        *mcp.Service
+	memoryRepo    agent.MemoryRepo
+	memoryIndexer agent.MemoryIndexer
+	memorySvc     *memory.Memory
+	activityStore activityStore
+	agentRepo     agent.Repo
+	providerSvc   *model.ProviderService
+}
+
+func NewHTTPServer(
+	logger *slog.Logger,
 	taskSvc *task.Service,
 	chatSvc *chat.Dispatcher,
 	sessSvc *session.Service,
@@ -25,61 +44,110 @@ func NewServer(
 	activityStore activityStore,
 	agentRepo agent.Repo,
 	providerSvc *model.ProviderService,
-) *http.ServeMux {
+) http.Handler {
 
-	h := NewAPIResponder(slog.Default())
+	srv := &HTTPServer{
+		logger:        logger.WithGroup("api"),
+		ServeMux:      http.NewServeMux(),
+		taskSvc:       taskSvc,
+		chatSvc:       chatSvc,
+		sessSvc:       sessSvc,
+		toolsSvc:      toolsSvc,
+		mcpSvc:        mcpSvc,
+		memoryRepo:    memoryRepo,
+		memoryIndexer: memoryIndexer,
+		memorySvc:     memorySvc,
+		activityStore: activityStore,
+		agentRepo:     agentRepo,
+		providerSvc:   providerSvc,
+	}
 
-	taskHandler := &taskHandler{taskSvc: taskSvc}
-	h.HandleFunc("GET /task/all", taskHandler.List)
-	h.HandleFunc("POST /task/{name}", taskHandler.Create)
-	h.HandleFunc("DELETE /task/{name}", taskHandler.Delete)
-	h.HandleFunc("PATCH /task/{name}", taskHandler.Patch)
+	srv.registerRoutes()
 
-	sessHandler := &sessionHandler{sessSvc: sessSvc}
-	h.HandleFunc("POST /session/{agent}", sessHandler.Create)
-	h.HandleFunc("GET /session/{agent}", sessHandler.List)
-	h.HandleFunc("GET /session/{agent}/{session_id}", sessHandler.Get)
-	h.HandleFunc("DELETE /session/{agent}/{session_id}", sessHandler.Delete)
+	return srv
+}
 
-	toolsHandler := &toolsHandler{toolSvc: toolsSvc}
-	h.HandleFunc("GET /tools", toolsHandler.List)
+func (s *HTTPServer) registerRoutes() {
+	taskHandler := &taskHandler{taskSvc: s.taskSvc}
+	s.HandleFunc("GET /task/all", taskHandler.List)
+	s.HandleFunc("POST /task/{name}", taskHandler.Create)
+	s.HandleFunc("DELETE /task/{name}", taskHandler.Delete)
+	s.HandleFunc("PATCH /task/{name}", taskHandler.Patch)
 
-	mcpHandler := &mcpHandler{mcpSvc: mcpSvc}
-	h.HandleFunc("PATCH /mcp/reload", mcpHandler.Reload)
-	h.HandleFunc("POST /mcp/disconnect/{id}", mcpHandler.Disconnect)
-	h.HandleFunc("POST /mcp/connect", mcpHandler.Connect)
-	h.HandleFunc("GET /mcp/list", mcpHandler.List)
+	sessHandler := &sessionHandler{sessSvc: s.sessSvc}
+	s.HandleFunc("POST /session/{agent}", sessHandler.Create)
+	s.HandleFunc("GET /session/{agent}", sessHandler.List)
+	s.HandleFunc("GET /session/{agent}/{session_id}", sessHandler.Get)
+	s.HandleFunc("DELETE /session/{agent}/{session_id}", sessHandler.Delete)
 
-	memoryHandler := NewMemoryHandler(memorySvc, memoryIndexer, memoryRepo)
-	h.HandleFunc("POST /memory/{agent}/consolidate", memoryHandler.Consolidate)
-	h.HandleFunc("GET /memory/{agent}/{memory_name}", memoryHandler.Get)
-	h.HandleFunc("GET /memory/{agent}", memoryHandler.List)
+	toolsHandler := &toolsHandler{toolSvc: s.toolsSvc}
+	s.HandleFunc("GET /tools", toolsHandler.List)
+
+	mcpHandler := &mcpHandler{mcpSvc: s.mcpSvc}
+	s.HandleFunc("PATCH /mcp/reload", mcpHandler.Reload)
+	s.HandleFunc("POST /mcp/disconnect/{id}", mcpHandler.Disconnect)
+	s.HandleFunc("POST /mcp/connect", mcpHandler.Connect)
+	s.HandleFunc("GET /mcp/list", mcpHandler.List)
+
+	memoryHandler := NewMemoryHandler(s.memorySvc, s.memoryIndexer, s.memoryRepo)
+	s.HandleFunc("POST /memory/{agent}/consolidate", memoryHandler.Consolidate)
+	s.HandleFunc("GET /memory/{agent}/{memory_name}", memoryHandler.Get)
+	s.HandleFunc("GET /memory/{agent}", memoryHandler.List)
 
 	provToolHandler := NewProvidedToolsRouter()
-	h.HandleFunc("POST /toolresult/{id}", provToolHandler.ResolveCall)
+	s.HandleFunc("POST /toolresult/{id}", provToolHandler.ResolveCall)
 
-	chatHandler := &chatHandler{provToolRegister: provToolHandler, chatDispatcher: chatSvc}
-	h.HandleFunc("POST /chat", chatHandler.Chat)
-	h.HandleFunc("POST /chat/{agent}/{session}/interrupt", chatHandler.Interrupt)
+	chatHandler := &chatHandler{provToolRegister: provToolHandler, chatDispatcher: s.chatSvc}
+	s.HandleFunc("POST /chat", chatHandler.Chat)
+	s.HandleFunc("POST /chat/{agent}/{session}/interrupt", chatHandler.Interrupt)
 
-	activityHandler := &activityHandler{store: activityStore}
-	h.HandleFunc("GET /activity", activityHandler.Activity)
+	activityHandler := &activityHandler{store: s.activityStore}
+	s.HandleFunc("GET /activity", activityHandler.Activity)
 
-	agentHandler := &agentHandler{repo: agentRepo}
-	h.HandleFunc("GET /agent/list", agentHandler.List)
-	h.HandleFunc("GET /agent/{id}", agentHandler.Read)
-	h.HandleFunc("POST /agent/{id}", agentHandler.Create)
-	h.HandleFunc("PUT /agent/{id}", agentHandler.Update)
-	h.HandleFunc("DELETE /agent/{id}", agentHandler.Delete)
+	agentHandler := &agentHandler{repo: s.agentRepo}
+	s.HandleFunc("GET /agent/list", agentHandler.List)
+	s.HandleFunc("GET /agent/{id}", agentHandler.Read)
+	s.HandleFunc("POST /agent/{id}", agentHandler.Create)
+	s.HandleFunc("PUT /agent/{id}", agentHandler.Update)
+	s.HandleFunc("DELETE /agent/{id}", agentHandler.Delete)
 
-	providerHandler := &providerHandler{providerSvc: providerSvc}
-	h.HandleFunc("GET /providers", providerHandler.GetAll)
-	h.HandleFunc("GET /providers/{name}", providerHandler.GetProvider)
-	h.HandleFunc("POST /providers", providerHandler.AddProvider)
-	h.HandleFunc("PATCH /providers/{name}", providerHandler.UpdateProvider)
-	h.HandleFunc("DELETE /providers/{name}", providerHandler.DeleteProvider)
-	h.HandleFunc("DELETE /providers/{name}/models/{model}", providerHandler.DeleteModel)
-	h.HandleFunc("POST /providers/{name}/models/{model}", providerHandler.SetModel)
+	providerHandler := &providerHandler{providerSvc: s.providerSvc}
+	s.HandleFunc("GET /providers", providerHandler.GetAll)
+	s.HandleFunc("GET /providers/{name}", providerHandler.GetProvider)
+	s.HandleFunc("POST /providers", providerHandler.AddProvider)
+	s.HandleFunc("PATCH /providers/{name}", providerHandler.UpdateProvider)
+	s.HandleFunc("DELETE /providers/{name}", providerHandler.DeleteProvider)
+	s.HandleFunc("DELETE /providers/{name}/models/{model}", providerHandler.DeleteModel)
+	s.HandleFunc("POST /providers/{name}/models/{model}", providerHandler.SetModel)
+}
 
-	return v1
+func (s *HTTPServer) HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request) Response) {
+	s.ServeMux.HandleFunc(pattern, s.wrapResponse(handler))
+}
+
+func (s *HTTPServer) wrapResponse(h func(w http.ResponseWriter, r *http.Request) Response) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		response := h(w, r)
+
+		s.logger.Info("request", "status", response.StatusCode(), "path", r.URL.Path)
+
+		// log error
+		if err, ok := response.(error); ok {
+			s.logger.Error("internal", "error", err)
+		}
+
+		// respond json
+		if jr, ok := response.(JSONResponse); ok {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(jr.StatusCode())
+			enc := json.NewEncoder(w)
+			if err := enc.Encode(jr.Content()); err != nil {
+				s.logger.Error("response encoding", "error", err)
+			}
+			return
+		}
+
+		// respond status code
+		w.WriteHeader(response.StatusCode())
+	}
 }
