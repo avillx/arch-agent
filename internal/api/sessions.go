@@ -34,7 +34,7 @@ type sessionHandler struct {
 	sessSvc *session.Service
 }
 
-func (h *sessionHandler) Get(w http.ResponseWriter, r *http.Request) error {
+func (h *sessionHandler) Get(w http.ResponseWriter, r *http.Request) Response {
 
 	type SessionDTO struct {
 		ID           session.ID     `json:"session_id"`
@@ -51,7 +51,11 @@ func (h *sessionHandler) Get(w http.ResponseWriter, r *http.Request) error {
 
 	sess, err := h.sessSvc.Get(agentID, sessID)
 	if err != nil {
-		return err
+		if errors.Is(err, types.ErrIsNotExist) {
+			return NewBadRequest("is not exist")
+		}
+
+		return NewInternalError(err)
 	}
 
 	dto := SessionDTO{
@@ -64,50 +68,49 @@ func (h *sessionHandler) Get(w http.ResponseWriter, r *http.Request) error {
 		Messages:     messagesToDTO(sess.Messages()),
 	}
 
-	return respond(w, http.StatusOK, dto)
+	return NewJSONResponse(http.StatusOK, dto)
 }
 
-func (h *sessionHandler) List(w http.ResponseWriter, r *http.Request) error {
+func (h *sessionHandler) List(w http.ResponseWriter, r *http.Request) Response {
 	agentID := r.PathValue("agent")
 
 	sessions, err := h.sessSvc.List(agent.ID(agentID))
 	if err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
-			return badRequest("is not exist")
+			return NewBadRequest("is not exist")
 		}
-		return err
+		return NewInternalError(err)
 	}
 
-	return respond(w, http.StatusOK, map[string]any{
-		"sessions": sessions,
-	})
+	return NewJSONResponse(http.StatusOK, sessions)
 }
 
-func (h *sessionHandler) Create(w http.ResponseWriter, r *http.Request) error {
+func (h *sessionHandler) Create(w http.ResponseWriter, r *http.Request) Response {
 	agentID := r.PathValue("agent")
 
 	// TODO: update API to insert instruction for session
 	sessID, err := h.sessSvc.Create(agent.ID(agentID), "")
 	if err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
-			return badRequest("is not exist")
+			return NewBadRequest("is not exist")
 		}
-		return err
+		return NewInternalError(err)
 	}
 
-	return respond(w, http.StatusCreated, map[string]any{
+	dto := map[string]any{
 		"id": sessID,
-	})
+	}
+
+	return NewJSONResponse(http.StatusOK, dto)
 }
 
-func (h *sessionHandler) Delete(w http.ResponseWriter, r *http.Request) error {
+func (h *sessionHandler) Delete(w http.ResponseWriter, r *http.Request) Response {
 	agentID := r.PathValue("agent")
 	sessID := r.PathValue("session_id")
 
 	if err := h.sessSvc.Delete(agent.ID(agentID), session.ID(sessID)); err != nil {
-		return err
+		return NewInternalError(err)
 	}
 
-	w.WriteHeader(http.StatusOK)
-	return nil
+	return NewResponse(http.StatusOK)
 }

@@ -36,15 +36,15 @@ type chatHandler struct {
 	provToolRegister providedToolRegister
 }
 
-func (h *chatHandler) Interrupt(w http.ResponseWriter, r *http.Request) error {
+func (h *chatHandler) Interrupt(w http.ResponseWriter, r *http.Request) Response {
 	agentID := agent.ID(r.PathValue("agent"))
 	sessionID := session.ID(r.PathValue("session"))
 	h.chatDispatcher.Interrupt(sessionID, agentID)
 	w.WriteHeader(http.StatusAccepted)
-	return nil
+	return NewResponse(http.StatusOK)
 }
 
-func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) error {
+func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) Response {
 
 	type RequestDTO struct {
 		AgentID             agent.ID                `json:"agent_id"`
@@ -60,7 +60,7 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) error {
 
 	chatReqDTO, err := decode[RequestDTO](r)
 	if err != nil {
-		return badRequest("invalid format")
+		return NewInvalidRequest(err)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -73,7 +73,7 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) error {
 	)
 	defer unregisterProvidedTools()
 
-	return h.chatDispatcher.Chat(r.Context(), chat.Request{
+	err = h.chatDispatcher.Chat(r.Context(), chat.Request{
 		AgentID:             chatReqDTO.AgentID,
 		SessionID:           chatReqDTO.SessionID,
 		UserMessage:         agent.NewUserMessage(chatReqDTO.UserRequest),
@@ -81,6 +81,12 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) error {
 		ProvidedToolServers: toolSevrvers,
 		EventCallbacks:      newEventCallbacks(stream),
 	})
+
+	if err != nil {
+		return NewInternalError(err)
+	}
+
+	return NewResponse(http.StatusOK)
 }
 
 func newEventCallbacks(stream *Stream) chat.EventCallbacks {

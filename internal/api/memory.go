@@ -17,8 +17,20 @@ type memoryHandler struct {
 	memoryRepo    agent.MemoryRepo
 }
 
+func NewMemoryHandler(
+	memorySvc *memory.Memory,
+	memoryIndexer agent.MemoryIndexer,
+	memoryRepo agent.MemoryRepo,
+) *memoryHandler {
+	return &memoryHandler{
+		memorySvc:     memorySvc,
+		memoryIndexer: memoryIndexer,
+		memoryRepo:    memoryRepo,
+	}
+}
+
 // GET /memory/{agent}
-func (h *memoryHandler) List(w http.ResponseWriter, r *http.Request) error {
+func (h *memoryHandler) List(w http.ResponseWriter, r *http.Request) Response {
 
 	type MemoryRecordDTO struct {
 		Name        string `json:"name"`
@@ -34,7 +46,7 @@ func (h *memoryHandler) List(w http.ResponseWriter, r *http.Request) error {
 
 	idx, err := h.memoryIndexer.MemoryIndex(agentID)
 	if err != nil {
-		return internal(err)
+		return NewInternalError(err)
 	}
 
 	memories := []MemoryRecordDTO{}
@@ -50,11 +62,11 @@ func (h *memoryHandler) List(w http.ResponseWriter, r *http.Request) error {
 		Records: memories,
 	}
 
-	return respond(w, http.StatusOK, dto)
+	return NewJSONResponse(http.StatusOK, dto)
 }
 
 // GET /memory/{agent}/{memory_name}
-func (h *memoryHandler) Get(w http.ResponseWriter, r *http.Request) error {
+func (h *memoryHandler) Get(w http.ResponseWriter, r *http.Request) Response {
 
 	type MemoryDTO struct {
 		Agent   agent.ID `json:"agent"`
@@ -67,7 +79,12 @@ func (h *memoryHandler) Get(w http.ResponseWriter, r *http.Request) error {
 
 	content, err := h.memoryRepo.GetMemory(agentID, memoryName)
 	if err != nil {
-		return internal(err)
+
+		// TODO: agent not found
+
+		// TODO: memory not found
+
+		return NewInternalError(err)
 	}
 
 	dto := MemoryDTO{
@@ -76,11 +93,11 @@ func (h *memoryHandler) Get(w http.ResponseWriter, r *http.Request) error {
 		Content: content,
 	}
 
-	return respond(w, http.StatusOK, dto)
+	return NewJSONResponse(http.StatusOK, dto)
 }
 
 // POST /memory/{agent}/consolidate
-func (h *memoryHandler) Consolidate(w http.ResponseWriter, r *http.Request) error {
+func (h *memoryHandler) Consolidate(w http.ResponseWriter, r *http.Request) Response {
 	agentID := agent.ID(r.PathValue("agent"))
 
 	stream := newStream(w)
@@ -105,9 +122,9 @@ func (h *memoryHandler) Consolidate(w http.ResponseWriter, r *http.Request) erro
 
 	if err := h.memorySvc.ConsolidateImmidate(r.Context(), agentID, evCh); err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
-			return badRequest("agent is not exist")
+			return NewNotFound("agent is not exist")
 		}
-		return internal(err)
+		return NewInternalError(err)
 	}
 
 	return nil

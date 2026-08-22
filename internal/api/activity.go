@@ -14,7 +14,7 @@ type activityHandler struct {
 	store activityStore
 }
 
-func (h *activityHandler) Activity(w http.ResponseWriter, r *http.Request) error {
+func (h *activityHandler) Activity(w http.ResponseWriter, r *http.Request) Response {
 
 	type RequestDTO struct {
 		Agent agent.ID  `json:"agent"`
@@ -27,22 +27,14 @@ func (h *activityHandler) Activity(w http.ResponseWriter, r *http.Request) error
 		Content string `json:"content"`
 	}
 
-	type ActivityLogsDTO struct {
-		Logs []ActivityDTO `json:"activity"`
-	}
-
 	request, err := decode[RequestDTO](r)
 	if err != nil {
-		return badRequest(err.Error())
+		return NewInternalError(err)
 	}
 
 	logs, err := h.store.GetRange(request.Agent, request.From, request.To)
 	if err != nil {
-		return err
-	}
-
-	if !(len(logs) > 0) {
-		return respond(w, http.StatusOK, message("has no logs for period"))
+		return NewInternalError(err)
 	}
 
 	responseDTO := []ActivityDTO{}
@@ -53,5 +45,5 @@ func (h *activityHandler) Activity(w http.ResponseWriter, r *http.Request) error
 		})
 	}
 
-	return respond(w, http.StatusOK, ActivityLogsDTO{Logs: responseDTO})
+	return NewJSONResponse(http.StatusOK, responseDTO)
 }

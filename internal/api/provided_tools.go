@@ -35,20 +35,26 @@ type providedToolsRouter struct {
 	mu      sync.RWMutex
 }
 
+func NewProvidedToolsRouter() *providedToolsRouter {
+	return &providedToolsRouter{
+		waiters: map[string]chan ProvidedToolResultDTO{},
+	}
+}
+
 // POST /toolresult/{id}
-func (h *providedToolsRouter) ResolveCall(w http.ResponseWriter, r *http.Request) error {
+func (h *providedToolsRouter) ResolveCall(w http.ResponseWriter, r *http.Request) Response {
 	id := r.PathValue("id")
 
 	res, err := decode[ProvidedToolResultDTO](r)
 	if err != nil {
-		return badRequest("invalid json")
+		return NewBadRequest("invalid json")
 	}
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	resCh, ok := h.waiters[id]
 	if !ok {
-		return badRequest("tool id is not exist")
+		return NewBadRequest("tool id is not exist")
 	}
 
 	resCh <- res
@@ -57,10 +63,6 @@ func (h *providedToolsRouter) ResolveCall(w http.ResponseWriter, r *http.Request
 }
 
 type unregisterFunc func()
-
-const (
-	toolResultEndpoint = "toolresult"
-)
 
 func (h *providedToolsRouter) registerToolServer(t *ProvidedTool) unregisterFunc {
 	id := createID()

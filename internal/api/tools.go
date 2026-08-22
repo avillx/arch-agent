@@ -21,11 +21,7 @@ type ToolServerReprDTO struct {
 }
 
 // GET /tools
-func (h *toolsHandler) List(w http.ResponseWriter, _ *http.Request) error {
-
-	type ToolServersResponseDTO struct {
-		Servers []ToolServerReprDTO `json:"tool_servers"`
-	}
+func (h *toolsHandler) List(w http.ResponseWriter, _ *http.Request) Response {
 
 	toolServers := h.toolSvc.AllToolServers()
 
@@ -44,5 +40,5 @@ func (h *toolsHandler) List(w http.ResponseWriter, _ *http.Request) error {
 		})
 	}
 
-	return respond(w, http.StatusOK, ToolServersResponseDTO{Servers: toolServersDTO})
+	return NewJSONResponse(http.StatusOK, toolServersDTO)
 }

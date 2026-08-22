@@ -12,8 +12,8 @@ type mcpHandler struct {
 	mcpSvc *mcp.Service
 }
 
-// GET /api/v1/mcp/list
-func (h *mcpHandler) List(w http.ResponseWriter, _ *http.Request) error {
+// GET /mcp
+func (h *mcpHandler) List(w http.ResponseWriter, _ *http.Request) Response {
 
 	type MCPToolServerReprDTO struct {
 		Transport string `json:"transport"`
@@ -50,53 +50,52 @@ func (h *mcpHandler) List(w http.ResponseWriter, _ *http.Request) error {
 		Servers: toolServers,
 	}
 
-	return respond(w, http.StatusOK, dto)
+	return NewJSONResponse(http.StatusOK, dto)
 }
 
-// POST /api/v1/mcp/connect
-func (h *mcpHandler) Connect(w http.ResponseWriter, r *http.Request) error {
+// POST /mcp
+func (h *mcpHandler) Connect(w http.ResponseWriter, r *http.Request) Response {
 
 	gatewayConfig, err := decode[mcp.ServerGatewayConfig](r)
 	if err != nil {
-		return respond(w, http.StatusBadRequest, "invalid json")
+		return NewInvalidRequest(err)
 	}
 
 	id, err := h.mcpSvc.Connect(r.Context(), gatewayConfig)
 	if err != nil {
 		var validationErr *types.ValidationError
 		if errors.As(err, &validationErr) {
-			return invalidRequest(validationErr.Problems())
+			return NewInvalidRequest(err)
 		}
 		if errors.Is(err, types.ErrAlreadyExist) {
-			return badRequest("already exist")
+			return NewBadRequest("already exist")
 		}
 
-		return internal(err)
+		return NewInternalError(err)
 	}
 
-	return respond(w, http.StatusOK, map[string]string{
-		"msg":        "success",
+	return NewJSONResponse(http.StatusOK, map[string]string{
 		"created_id": string(id),
 	})
 }
 
-// GET /api/v1/mcp/disconnect/{id}
-func (h *mcpHandler) Disconnect(w http.ResponseWriter, r *http.Request) error {
+// DELETE /mcp/{id}
+func (h *mcpHandler) Disconnect(w http.ResponseWriter, r *http.Request) Response {
 	mcpID := r.PathValue("id")
 
 	if err := h.mcpSvc.Disconnect(mcp.MCPServerID(mcpID)); err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
-			return badRequest(err.Error())
+			return NewBadRequest(err.Error())
 		}
-		return internal(err)
+		return NewInternalError(err)
 	}
-	return respond(w, http.StatusOK, message("disconnected"))
+	return NewResponse(http.StatusOK)
 }
 
-// POST /api/v1/reload
-func (h *mcpHandler) Reload(w http.ResponseWriter, r *http.Request) error {
+// POST /mcp/reload
+func (h *mcpHandler) Reload(w http.ResponseWriter, r *http.Request) Response {
 	if err := h.mcpSvc.Reload(r.Context()); err != nil {
-		return internal(err)
+		return NewInternalError(err)
 	}
-	return respond(w, http.StatusOK, message("reloaded"))
+	return NewResponse(http.StatusOK)
 }
