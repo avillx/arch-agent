@@ -30,7 +30,7 @@ func (r response) StatusCode() int {
 // Wrapper for json responses
 type JSONResponse interface {
 	Response
-	Content() map[string]any
+	Content() any
 }
 
 type jsonResponse struct {
@@ -76,7 +76,7 @@ func NewInternalError(cause error) Response {
 
 // TODO: Err?
 func (e *internalError) Error() string {
-	return e.Error()
+	return e.cause.Error()
 }
 
 func NewBadRequest[T string | map[string]any](msg T) Response {
@@ -159,7 +159,7 @@ func (s *Stream) close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	fmt.Fprint(s.w, "data: [DONE]\n\n")
+	fmt.Fprint(s.w, "data: [DONE]")
 	if f, ok := s.w.(http.Flusher); ok {
 		f.Flush()
 	}

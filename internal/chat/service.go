@@ -222,7 +222,7 @@ func (s *Service) attachLogging(
 
 	logger := s.logger.With(
 		"agent", agentID,
-		"session", sess,
+		"session", sess.ID(),
 	)
 
 	// wrap completion

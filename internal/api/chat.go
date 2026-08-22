@@ -13,14 +13,13 @@ import (
 type EventType string
 
 const (
-	Error           EventType = "error"
 	Complete        EventType = "complete"
 	CompleteMistake EventType = "complete_mistake"
 	ToolResult      EventType = "tool_result"
 	ToolError       EventType = "tool_error"
 	Compaction      EventType = "compaction"
 	ProvidedCall    EventType = "provided_toolcall"
-	LoopExit        EventType = "tool_result"
+	LoopExit        EventType = "loop_exit"
 )
 
 type EventTypeDTO struct {
@@ -177,6 +176,7 @@ func newEventCallbacks(stream *Stream) chat.EventCallbacks {
 			EventTypeDTO: EventTypeDTO{
 				Type: Compaction,
 			},
+			// TODO: eliminate this shit
 			Message: "compaction has been proceed",
 			Result:  ev.Summary(),
 		}
@@ -184,11 +184,17 @@ func newEventCallbacks(stream *Stream) chat.EventCallbacks {
 	}
 
 	OnLoopExit := func(ev *runtime.LoopExitEvent) {
+
+		cause := ""
+		if err := ev.Err(); err != nil {
+			cause = err.Error()
+		}
+
 		data := LoopExitDTO{
 			EventTypeDTO: EventTypeDTO{
 				Type: LoopExit,
 			},
-			Cause: ev.Err().Error(),
+			Cause: cause,
 		}
 		stream.send(data)
 	}
