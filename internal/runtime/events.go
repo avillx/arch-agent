@@ -120,3 +120,20 @@ func NewLoopExitEvent(err error) *LoopExitEvent {
 func (e *LoopExitEvent) Err() error {
 	return e.err
 }
+
+// completion mistake event
+type CompletionMistakeEvent struct {
+	baseEvent
+	cause error
+}
+
+func NewCompletionMistakeEvent(cause error) *CompletionMistakeEvent {
+	return &CompletionMistakeEvent{
+		baseEvent: newBaseEvent(),
+		cause:     cause,
+	}
+}
+
+func (e *CompletionMistakeEvent) Err() error {
+	return e.cause
+}

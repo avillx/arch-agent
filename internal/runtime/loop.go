@@ -55,9 +55,9 @@ func RunAgentLoop(
 			}
 
 			// agent mistake handling
-			// TODO: create special event type for this case
 			var mistakeErr *types.AgentMistakeError
 			if errors.As(err, &mistakeErr) {
+				evCh <- NewCompletionMistakeEvent(err)
 				completionMistakes++
 
 				if completionMistakes > maxCompletionMistakes {
