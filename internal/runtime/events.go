@@ -100,7 +100,7 @@ func (e *ToolCallErrEvent) ToolArgs() agent.ToolArguments {
 	return e.toolArgs
 }
 
-func (e *ToolCallErrEvent) Error() error {
+func (e *ToolCallErrEvent) Err() error {
 	return e.err
 }
 

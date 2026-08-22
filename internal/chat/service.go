@@ -12,12 +12,13 @@ import (
 )
 
 type EventCallbacks struct {
-	OnLoopExit   func(*runtime.LoopExitEvent)
-	OnComplete   func(*runtime.CompleteEvent)
-	OnToolResult func(*runtime.ToolResultEvent)
-	OnCompaction func(*runtime.CompactionEvent)
-	OnToolErr    func(*runtime.ToolCallErrEvent)
-	OnEvent      func(runtime.Event)
+	OnLoopExit        func(*runtime.LoopExitEvent)
+	OnComplete        func(*runtime.CompleteEvent)
+	OnCompleteMistake func(*runtime.CompletionMistakeEvent)
+	OnToolResult      func(*runtime.ToolResultEvent)
+	OnCompaction      func(*runtime.CompactionEvent)
+	OnToolErr         func(*runtime.ToolCallErrEvent)
+	OnEvent           func(runtime.Event)
 }
 
 type Request struct {
@@ -30,6 +31,7 @@ type Request struct {
 }
 
 func (r Request) validate() error {
+
 	if r.AgentID == "" {
 		return fmt.Errorf("completion request must include agentID")
 	}
@@ -58,6 +60,10 @@ func (r Request) validate() error {
 
 	if r.OnComplete == nil {
 		return fmt.Errorf("on complete callback is empty")
+	}
+
+	if r.OnCompleteMistake == nil {
+		return fmt.Errorf("on complete mistake callback is empty")
 	}
 
 	if r.OnEvent == nil {
@@ -269,6 +275,7 @@ func readEvents(
 	ch <-chan runtime.Event,
 	OnLoopExit func(*runtime.LoopExitEvent),
 	OnComplete func(*runtime.CompleteEvent),
+	OnCompleteMistake func(*runtime.CompletionMistakeEvent),
 	OnToolResult func(*runtime.ToolResultEvent),
 	OnCompaction func(*runtime.CompactionEvent),
 	OnToolErr func(*runtime.ToolCallErrEvent),
@@ -284,6 +291,8 @@ func readEvents(
 			OnCompaction(typedEv)
 		case *runtime.CompleteEvent:
 			OnComplete(typedEv)
+		case *runtime.CompletionMistakeEvent:
+			OnCompleteMistake(typedEv)
 		case *runtime.ToolResultEvent:
 			OnToolResult(typedEv)
 		case *runtime.ToolCallErrEvent:
@@ -310,6 +319,7 @@ func runAgentLoopWithCallbacks(
 			evCh,
 			evCallbacks.OnLoopExit,
 			evCallbacks.OnComplete,
+			evCallbacks.OnCompleteMistake,
 			evCallbacks.OnToolResult,
 			evCallbacks.OnCompaction,
 			evCallbacks.OnToolErr,
