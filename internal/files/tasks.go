@@ -41,6 +41,7 @@ const taskConfigDoc = `# Cron tasks config
 # once=true
 
 # Exhaustive request that the recipient will receive on schedule
+# Prefer use multiline """...""" format over one line '...' 
 # request="""
 # Use your skill /some/path
 # do ...
