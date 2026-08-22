@@ -13,22 +13,30 @@ import (
 type EventType string
 
 const (
-	Error        EventType = "error"
-	Complete     EventType = "complete"
-	ToolResult   EventType = "tool_result"
-	Compaction   EventType = "compaction"
-	ProvidedCall EventType = "provided_toolcall"
+	Error           EventType = "error"
+	Complete        EventType = "complete"
+	CompleteMistake EventType = "complete_mistake"
+	ToolResult      EventType = "tool_result"
+	ToolError       EventType = "tool_error"
+	Compaction      EventType = "compaction"
+	ProvidedCall    EventType = "provided_toolcall"
+	LoopExit        EventType = "tool_result"
 )
 
-type Envelope struct {
-	Type    EventType `json:"type"`
-	Payload any       `json:"payload"`
+type EventTypeDTO struct {
+	Type EventType `json:"type"`
 }
 
 type CompletionDTO struct {
+	EventTypeDTO
 	Done      bool          `json:"done"`
 	Content   string        `json:"completion"`
 	ToolCalls []ToolCallDTO `json:"tool_calls"`
+}
+
+type CompletionMistakeDTO struct {
+	EventTypeDTO
+	Cause string `json:"error"`
 }
 
 type chatHandler struct {
@@ -91,79 +99,106 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) Response {
 
 func newEventCallbacks(stream *Stream) chat.EventCallbacks {
 
-	type ErrorDTO struct {
-		Cause     string     `json:"cause"`
-		SessionID session.ID `json:"session"`
-		AgentID   agent.ID   `json:"agent"`
+	type ToolErrorDTO struct {
+		EventTypeDTO
+		Cause    string              `json:"cause"`
+		ToolName agent.ToolName      `json:"tool_name"`
+		Args     agent.ToolArguments `json:"args"`
 	}
 
 	type CompactionDTO struct {
+		EventTypeDTO
 		Message string `json:"message"`
 		Result  string `json:"result"`
 	}
 
 	type ToolResultDTO struct {
+		EventTypeDTO
 		ID     string              `json:"id"`
 		Result []agent.ContentPart `json:"result"`
 	}
 
-	// TODO: on error depricated, should changed to tool error
-	onError := func(ev *runtime.ToolCallErrEvent) {
-
-		err := ev.Error()
-		data := Envelope{
-			Type: Error,
-			Payload: ErrorDTO{
-				Cause:     err.Error(),
-				SessionID: "",
-				AgentID:   "",
-			},
-		}
-		stream.send(data)
+	type LoopExitDTO struct {
+		EventTypeDTO
+		Cause string `json:"cause,omitempty"`
 	}
 
 	onComplete := func(ev *runtime.CompleteEvent) {
-
 		c := ev.Complete()
-		data := Envelope{
-			Type: Complete,
-			Payload: CompletionDTO{
-				Done:      c.Done,
-				Content:   c.Content,
-				ToolCalls: toolCallsToDTO(c.ToolCalls),
+		data := CompletionDTO{
+			EventTypeDTO: EventTypeDTO{
+				Type: Complete,
 			},
+			Done:      c.Done,
+			Content:   c.Content,
+			ToolCalls: toolCallsToDTO(c.ToolCalls),
 		}
 		stream.send(data)
 	}
+
+	onCompleteMistake := func(ev *runtime.CompletionMistakeEvent) {
+		data := CompletionMistakeDTO{
+			EventTypeDTO: EventTypeDTO{
+				Type: Complete,
+			},
+			Cause: ev.Err().Error(),
+		}
+		stream.send(data)
+	}
+
 	onToolResult := func(ev *runtime.ToolResultEvent) {
 		tr := ev.Result()
-		data := Envelope{
-			Type: ToolResult,
-			Payload: ToolResultDTO{
-				ID:     tr.ID,
-				Result: tr.Result,
+		data := ToolResultDTO{
+			EventTypeDTO: EventTypeDTO{
+				Type: ToolResult,
 			},
+			ID:     tr.ID,
+			Result: tr.Result,
 		}
 		stream.send(data)
 	}
-	onCompaction := func(ev *runtime.CompactionEvent) {
-		data := Envelope{
-			Type: Compaction,
-			Payload: CompactionDTO{
-				Message: "compaction has been proceed",
-				Result:  ev.Summary(),
+
+	onToolErr := func(ev *runtime.ToolCallErrEvent) {
+		data := ToolErrorDTO{
+			EventTypeDTO: EventTypeDTO{
+				Type: CompleteMistake,
 			},
+			Cause:    ev.Err().Error(),
+			ToolName: ev.ToolName(),
+			Args:     ev.ToolArgs(),
+		}
+		stream.send(data)
+	}
+
+	onCompaction := func(ev *runtime.CompactionEvent) {
+		data := CompactionDTO{
+			EventTypeDTO: EventTypeDTO{
+				Type: Compaction,
+			},
+			Message: "compaction has been proceed",
+			Result:  ev.Summary(),
+		}
+		stream.send(data)
+	}
+
+	OnLoopExit := func(ev *runtime.LoopExitEvent) {
+		data := LoopExitDTO{
+			EventTypeDTO: EventTypeDTO{
+				Type: LoopExit,
+			},
+			Cause: ev.Err().Error(),
 		}
 		stream.send(data)
 	}
 
 	return chat.EventCallbacks{
-		OnComplete:   onComplete,
-		OnToolResult: onToolResult,
-		OnCompaction: onCompaction,
-		OnToolErr:    onError,
-		OnLoopExit:   func(*runtime.LoopExitEvent) {},
-		OnEvent:      func(runtime.Event) {},
+		OnComplete:        onComplete,
+		OnCompleteMistake: onCompleteMistake,
+		OnToolResult:      onToolResult,
+		OnCompaction:      onCompaction,
+		OnToolErr:         onToolErr,
+		OnLoopExit:        OnLoopExit,
+		OnEvent:           func(runtime.Event) {},
 	}
 }
 

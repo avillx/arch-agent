@@ -173,7 +173,9 @@ func (t *ProvidedTool) Description() string  { return t.description }
 func (t *ProvidedTool) Schema() any          { return t.scheme }
 func (t *ProvidedTool) Call(ctx context.Context, args agent.ToolArguments) ([]agent.ContentPart, error) {
 
-	type ProvidedToolCall struct {
+	type ProvidedToolCallDTO struct {
+		EventTypeDTO
+
 		Name string         `json:"tool"`
 		Args map[string]any `json:"args,omitempty"`
 
@@ -202,15 +204,15 @@ func (t *ProvidedTool) Call(ctx context.Context, args agent.ToolArguments) ([]ag
 		return nil, fmt.Errorf("bad provided tool, has no stream to send request")
 	}
 
-	t.stream.send(Envelope{
-		Type: ProvidedCall,
-		Payload: ProvidedToolCall{
-			Name:      t.name,
-			Args:      parsedArgs,
-			ResultID:  t.id,
-			AgentID:   string(agentID),
-			SessionID: string(sessionID),
+	t.stream.send(ProvidedToolCallDTO{
+		EventTypeDTO: EventTypeDTO{
+			Type: ProvidedCall,
 		},
+		Name:      t.name,
+		Args:      parsedArgs,
+		ResultID:  t.id,
+		AgentID:   string(agentID),
+		SessionID: string(sessionID),
 	})
 
 	// await result
