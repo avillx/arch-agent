@@ -69,15 +69,15 @@ func NewHTTPServer(
 
 func (s *HTTPServer) registerRoutes() {
 	taskHandler := &taskHandler{taskSvc: s.taskSvc}
-	s.HandleFunc("GET /task/all", taskHandler.List)
+	s.HandleFunc("GET /task", taskHandler.List)
 	s.HandleFunc("POST /task/{name}", taskHandler.Create)
 	s.HandleFunc("DELETE /task/{name}", taskHandler.Delete)
 	s.HandleFunc("PATCH /task/{name}", taskHandler.Patch)
 
 	sessHandler := &sessionHandler{sessSvc: s.sessSvc}
-	s.HandleFunc("POST /session/{agent}", sessHandler.Create)
 	s.HandleFunc("GET /session/{agent}", sessHandler.List)
 	s.HandleFunc("GET /session/{agent}/{session_id}", sessHandler.Get)
+	s.HandleFunc("POST /session/{agent}", sessHandler.Create)
 	s.HandleFunc("DELETE /session/{agent}/{session_id}", sessHandler.Delete)
 
 	toolsHandler := &toolsHandler{toolSvc: s.toolsSvc}
@@ -86,8 +86,8 @@ func (s *HTTPServer) registerRoutes() {
 	mcpHandler := &mcpHandler{mcpSvc: s.mcpSvc}
 	s.HandleFunc("GET /mcp", mcpHandler.List)
 	s.HandleFunc("POST /mcp", mcpHandler.Connect)
-	s.HandleFunc("DELETE /mcp/{id}", mcpHandler.Disconnect)
 	s.HandleFunc("POST /mcp/reload", mcpHandler.Reload)
+	s.HandleFunc("DELETE /mcp/{id}", mcpHandler.Disconnect)
 
 	memoryHandler := NewMemoryHandler(s.memorySvc, s.memoryIndexer, s.memoryRepo)
 	s.HandleFunc("POST /memory/{agent}/consolidate", memoryHandler.Consolidate)
@@ -98,14 +98,14 @@ func (s *HTTPServer) registerRoutes() {
 	s.HandleFunc("POST /toolresult/{id}", provToolHandler.ResolveCall)
 
 	chatHandler := &chatHandler{provToolRegister: provToolHandler, chatDispatcher: s.chatSvc}
-	s.HandleFunc("POST /chat", chatHandler.Chat)
+	s.HandleFunc("POST /chat/{agent}/{session}", chatHandler.Chat)
 	s.HandleFunc("POST /chat/{agent}/{session}/interrupt", chatHandler.Interrupt)
 
 	activityHandler := &activityHandler{store: s.activityStore}
 	s.HandleFunc("GET /activity", activityHandler.Activity)
 
 	agentHandler := &agentHandler{repo: s.agentRepo}
-	s.HandleFunc("GET /agent/list", agentHandler.List)
+	s.HandleFunc("GET /agent", agentHandler.List)
 	s.HandleFunc("GET /agent/{id}", agentHandler.Read)
 	s.HandleFunc("POST /agent/{id}", agentHandler.Create)
 	s.HandleFunc("PUT /agent/{id}", agentHandler.Update)
@@ -117,8 +117,11 @@ func (s *HTTPServer) registerRoutes() {
 	s.HandleFunc("POST /providers", providerHandler.AddProvider)
 	s.HandleFunc("PATCH /providers/{name}", providerHandler.UpdateProvider)
 	s.HandleFunc("DELETE /providers/{name}", providerHandler.DeleteProvider)
-	s.HandleFunc("DELETE /providers/{name}/models/{model}", providerHandler.DeleteModel)
+
+	// models
 	s.HandleFunc("POST /providers/{name}/models/{model}", providerHandler.SetModel)
+	s.HandleFunc("DELETE /providers/{name}/models/{model}", providerHandler.DeleteModel)
+
 }
 
 func (s *HTTPServer) HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request) Response) {

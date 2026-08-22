@@ -19,7 +19,7 @@ type agentHandler struct {
 	repo agent.Repo
 }
 
-// get /agent/list
+// GET /agent
 func (h *agentHandler) List(w http.ResponseWriter, r *http.Request) Response {
 
 	type AgentListDTO struct {

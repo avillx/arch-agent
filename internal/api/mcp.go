@@ -81,9 +81,9 @@ func (h *mcpHandler) Connect(w http.ResponseWriter, r *http.Request) Response {
 
 // DELETE /mcp/{id}
 func (h *mcpHandler) Disconnect(w http.ResponseWriter, r *http.Request) Response {
-	mcpID := r.PathValue("id")
+	mcpID := mcp.MCPServerID(r.PathValue("id"))
 
-	if err := h.mcpSvc.Disconnect(mcp.MCPServerID(mcpID)); err != nil {
+	if err := h.mcpSvc.Disconnect(mcpID); err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
 			return NewBadRequest(err.Error())
 		}

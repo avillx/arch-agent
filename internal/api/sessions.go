@@ -72,9 +72,9 @@ func (h *sessionHandler) Get(w http.ResponseWriter, r *http.Request) Response {
 }
 
 func (h *sessionHandler) List(w http.ResponseWriter, r *http.Request) Response {
-	agentID := r.PathValue("agent")
+	agentID := agent.ID(r.PathValue("agent"))
 
-	sessions, err := h.sessSvc.List(agent.ID(agentID))
+	sessions, err := h.sessSvc.List(agentID)
 	if err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
 			return NewBadRequest("is not exist")
@@ -86,10 +86,19 @@ func (h *sessionHandler) List(w http.ResponseWriter, r *http.Request) Response {
 }
 
 func (h *sessionHandler) Create(w http.ResponseWriter, r *http.Request) Response {
-	agentID := r.PathValue("agent")
 
-	// TODO: update API to insert instruction for session
-	sessID, err := h.sessSvc.Create(agent.ID(agentID), "")
+	type SessionCreateDTO struct {
+		Instructon string `json:"instruction,omitempty"`
+	}
+
+	agentID := agent.ID(r.PathValue("agent"))
+
+	requestDTO, err := decode[SessionCreateDTO](r)
+	if err != nil {
+		return NewInvalidRequest(err)
+	}
+
+	sessID, err := h.sessSvc.Create(agentID, requestDTO.Instructon)
 	if err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
 			return NewBadRequest("is not exist")
@@ -105,10 +114,10 @@ func (h *sessionHandler) Create(w http.ResponseWriter, r *http.Request) Response
 }
 
 func (h *sessionHandler) Delete(w http.ResponseWriter, r *http.Request) Response {
-	agentID := r.PathValue("agent")
-	sessID := r.PathValue("session_id")
+	agentID := agent.ID(r.PathValue("agent"))
+	sessID := session.ID(r.PathValue("session_id"))
 
-	if err := h.sessSvc.Delete(agent.ID(agentID), session.ID(sessID)); err != nil {
+	if err := h.sessSvc.Delete(agentID, sessID); err != nil {
 		return NewInternalError(err)
 	}
 

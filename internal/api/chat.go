@@ -52,11 +52,13 @@ func (h *chatHandler) Interrupt(w http.ResponseWriter, r *http.Request) Response
 	return NewResponse(http.StatusOK)
 }
 
+// POST /chat/{agent}/{session}
 func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) Response {
 
+	agentID := agent.ID(r.PathValue("agent"))
+	sessionID := session.ID(r.PathValue("session"))
+
 	type RequestDTO struct {
-		AgentID             agent.ID                `json:"agent_id"`
-		SessionID           session.ID              `json:"session_id"`
 		UserRequest         []agent.ContentPart     `json:"user_request"`
 		Logging             bool                    `json:"logging,omitempty"`
 		AdditionalPrompt    string                  `json:"additional_prompt,omitempty"`
@@ -82,8 +84,8 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) Response {
 	defer unregisterProvidedTools()
 
 	err = h.chatDispatcher.Chat(r.Context(), chat.Request{
-		AgentID:             chatReqDTO.AgentID,
-		SessionID:           chatReqDTO.SessionID,
+		AgentID:             agentID,
+		SessionID:           sessionID,
 		UserMessage:         agent.NewUserMessage(chatReqDTO.UserRequest),
 		Logging:             chatReqDTO.Logging,
 		ProvidedToolServers: toolSevrvers,

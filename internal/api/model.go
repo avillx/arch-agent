@@ -14,6 +14,7 @@ type providerHandler struct {
 }
 
 func (h *providerHandler) AddProvider(w http.ResponseWriter, r *http.Request) Response {
+
 	cfg, err := decode[model.ProviderConfig](r)
 	if err != nil {
 		return NewInvalidRequest(err)
@@ -30,9 +31,9 @@ func (h *providerHandler) AddProvider(w http.ResponseWriter, r *http.Request) Re
 }
 
 func (h *providerHandler) DeleteProvider(w http.ResponseWriter, r *http.Request) Response {
-	name := r.PathValue("name")
+	providerID := model.ProviderID(r.PathValue("name"))
 
-	if err := h.providerSvc.DeleteProvider(model.ProviderID(name)); err != nil {
+	if err := h.providerSvc.DeleteProvider(providerID); err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
 			return NewNotFound("provider is not exist")
 		}
@@ -42,9 +43,9 @@ func (h *providerHandler) DeleteProvider(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *providerHandler) GetProvider(w http.ResponseWriter, r *http.Request) Response {
-	name := r.PathValue("name")
+	providerID := model.ProviderID(r.PathValue("name"))
 
-	cfg, err := h.providerSvc.GetProvider(model.ProviderID(name))
+	cfg, err := h.providerSvc.GetProvider(providerID)
 	if err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
 			return NewNotFound("provider is not exist")
@@ -57,14 +58,14 @@ func (h *providerHandler) GetProvider(w http.ResponseWriter, r *http.Request) Re
 
 func (h *providerHandler) UpdateProvider(w http.ResponseWriter, r *http.Request) Response {
 
-	name := r.PathValue("name")
+	providerID := model.ProviderID(r.PathValue("name"))
 
 	patch, err := decode[model.ProviderConfigPatch](r)
 	if err != nil {
 		return NewInvalidRequest(err)
 	}
 
-	if err := h.providerSvc.UpdateProvider(model.ProviderID(name), patch); err != nil {
+	if err := h.providerSvc.UpdateProvider(providerID, patch); err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
 			return NewNotFound("provider is not exist")
 		}
@@ -88,7 +89,7 @@ func (h *providerHandler) GetAll(w http.ResponseWriter, r *http.Request) Respons
 
 func (h *providerHandler) SetModel(w http.ResponseWriter, r *http.Request) Response {
 
-	name := r.PathValue("name")
+	providerID := model.ProviderID(r.PathValue("name"))
 	encodedModelName := r.PathValue("model")
 
 	modelNameData, err := base64.URLEncoding.DecodeString(encodedModelName)
@@ -101,7 +102,7 @@ func (h *providerHandler) SetModel(w http.ResponseWriter, r *http.Request) Respo
 		return NewInvalidRequest(err)
 	}
 
-	if err := h.providerSvc.SetModel(model.ProviderID(name), string(modelNameData), modelCfg); err != nil {
+	if err := h.providerSvc.SetModel(providerID, string(modelNameData), modelCfg); err != nil {
 
 		// TODO: validation errors in fact
 		switch {
@@ -118,7 +119,7 @@ func (h *providerHandler) SetModel(w http.ResponseWriter, r *http.Request) Respo
 }
 
 func (h *providerHandler) DeleteModel(w http.ResponseWriter, r *http.Request) Response {
-	name := r.PathValue("name")
+	providerID := model.ProviderID(r.PathValue("name"))
 	encodedModelName := r.PathValue("model")
 
 	modelNameData, err := base64.URLEncoding.DecodeString(encodedModelName)
@@ -126,7 +127,7 @@ func (h *providerHandler) DeleteModel(w http.ResponseWriter, r *http.Request) Re
 		return NewBadRequest("model_name bad encoding")
 	}
 
-	if err := h.providerSvc.DeleteModel(model.ProviderID(name), string(modelNameData)); err != nil {
+	if err := h.providerSvc.DeleteModel(providerID, string(modelNameData)); err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
 			return NewBadRequest("is not exist")
 		}
