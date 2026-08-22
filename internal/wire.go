@@ -42,34 +42,6 @@ type Config struct {
 	JSON      bool
 }
 
-func BuildTaskSvc(
-	ctx context.Context,
-	fs *files.FileSystem,
-	sessionSvc *session.Service,
-	chatSvc *chat.Service,
-	agentRepo agent.Repo,
-	logger *slog.Logger,
-) (*task.Service, error) {
-
-	taskRepo, err := files.NewTaskFiles(fs)
-	if err != nil {
-		return nil, err
-	}
-
-	executor := task.NewExecutor(
-		sessionSvc,
-		chatSvc,
-	)
-
-	return task.NewService(
-		taskRepo,
-		executor,
-		func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) },
-		agentRepo,
-		logger.WithGroup("tasks"),
-	)
-}
-
 func BuildMemoryConsolidator(
 	fs *files.FileSystem,
 	model agent.Model,
@@ -190,11 +162,20 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		logger,
 	)
 
-	taskSvc, err := BuildTaskSvc(
-		ctx,
-		fs,
+	taskRepo, err := files.NewTaskFiles(fs)
+	if err != nil {
+		return nil, err
+	}
+
+	executor := task.NewExecutor(
 		sessSvc,
 		chatSvc,
+	)
+
+	taskSvc, err := task.NewService(
+		taskRepo,
+		executor,
+		func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) },
 		agentRepo,
 		logger,
 	)

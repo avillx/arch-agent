@@ -41,7 +41,7 @@ func NewService(
 		cronFactory: cronFactory,
 		executor:    executor,
 		agentRepo:   agentRepo,
-		logger:      logger,
+		logger:      logger.WithGroup("tasks"),
 	}
 
 	tasks, err := repo.All()
