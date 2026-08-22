@@ -81,7 +81,7 @@ func applyPatch(cfg TaskConfig, patch TaskPatch) TaskConfig {
 	return cfg
 }
 
-func validateTaskConfig(cfg TaskConfig) error {
+func validateTaskConfig(cfg TaskConfig, cronFactory func(string) (Cron, error)) error {
 	problems := make(map[string]string)
 	if cfg.Name == "" {
 		problems["name"] = "must be not empty"
@@ -92,8 +92,13 @@ func validateTaskConfig(cfg TaskConfig) error {
 	if !(len(cfg.Recipients) > 0) {
 		problems["recipients"] = ErrNoRecipients.Error()
 	}
-	if !cronRegex.MatchString(cfg.Reglament) {
-		problems["reglament"] = "invalid format"
+	// TODO: eliminate graceffuly
+	// depricated fast check
+	// if !cronRegex.MatchString(cfg.Reglament) {
+	// 	problems["schedule"] = "invalid format"
+	// }
+	if _, err := cronFactory(cfg.Reglament); err != nil {
+		problems["schedule"] = "invalid cron"
 	}
 	if cfg.Request == "" {
 		problems["request"] = "must be not empty"

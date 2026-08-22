@@ -2,9 +2,9 @@ package task
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/types"
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"maps"
 	"slices"
@@ -126,30 +126,6 @@ func runLoop(ctx context.Context, cron Cron, cfg TaskConfig, onExecute func(cont
 	}
 }
 
-func (s *Service) validateRecipients(recipients []agent.ID) error {
-	if !(len(recipients) > 0) {
-		return ErrNoRecipients
-	}
-
-	for _, r := range recipients {
-		if _, err := s.agentRepo.Get(r); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *Service) validateIdentity(id string) error {
-	_, err := s.repo.Get(id)
-	if err != nil {
-		if errors.Is(err, ErrIsNotExist) {
-			return nil
-		}
-		return err
-	}
-	return fmt.Errorf("task %s: %w", id, ErrAlreadyExist)
-}
-
 func (s *Service) List() ([]TaskConfig, error) {
 
 	taskMap, err := s.repo.All()
@@ -167,7 +143,7 @@ func (s *Service) List() ([]TaskConfig, error) {
 
 func (s *Service) Add(cfg TaskConfig) error {
 
-	if err := validateTaskConfig(cfg); err != nil {
+	if err := validateTaskConfig(cfg, s.cronFactory); err != nil {
 		return err
 	}
 
@@ -203,7 +179,7 @@ func (s *Service) Patch(name string, patch TaskPatch) error {
 
 	next := applyPatch(cfg, patch)
 
-	if err := validateTaskConfig(next); err != nil {
+	if err := validateTaskConfig(next, s.cronFactory); err != nil {
 		return err
 	}
 
@@ -233,4 +209,34 @@ func (s *Service) Delete(name string) error {
 	s.stopRuntime(name)
 
 	return s.repo.Delete(name)
+}
+
+func (s *Service) validateRecipients(recipients []agent.ID) error {
+	problems := map[string]string{}
+	for _, r := range recipients {
+		if _, err := s.agentRepo.Get(r); err != nil {
+			if errors.Is(err, types.ErrIsNotExist) {
+				problems[string(r)] = "is not exist"
+				continue
+			}
+			return err
+		}
+	}
+
+	if len(problems) > 0 {
+		return types.NewValidationError(problems)
+	}
+
+	return nil
+}
+
+func (s *Service) validateIdentity(id string) error {
+	_, err := s.repo.Get(id)
+	if err != nil {
+		if errors.Is(err, ErrIsNotExist) {
+			return nil
+		}
+		return err
+	}
+	return types.NewValidationError(map[string]string{id: "already exist"})
 }

@@ -32,13 +32,6 @@ func (s *taskHandler) Create(w http.ResponseWriter, r *http.Request) Response {
 
 	if err := s.taskSvc.Add(cfg); err != nil {
 
-		// TODO: this stuff is already validation errors
-		// case errors.Is(err, task.ErrCron):
-		// 	return NewBadRequest(err.Error())
-		// case errors.Is(err, task.ErrNoRecipients):
-		// 	return NewBadRequest(err.Error())
-		// case errors.Is(err, task.ErrAlreadyExist):
-
 		if p := types.ResovleValidationProblems(err); len(p) > 0 {
 			return NewInvalidRequest(err)
 		}
@@ -77,9 +70,11 @@ func (s *taskHandler) Patch(w http.ResponseWriter, r *http.Request) Response {
 func (s *taskHandler) Delete(w http.ResponseWriter, r *http.Request) Response {
 	taskName := r.PathValue("name")
 	if err := s.taskSvc.Delete(taskName); err != nil {
+
 		if errors.Is(err, task.ErrIsNotExist) {
 			return NewNotFound("task is not exist")
 		}
+
 		return NewInternalError(err)
 	}
 	return NewResponse(http.StatusOK)
