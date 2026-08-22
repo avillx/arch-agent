@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -23,29 +22,26 @@ type Service struct {
 	toolSvc    *tools.Service
 	configRepo ConfigRepo
 	servers    map[MCPServerID]MCPServer
-	mu         sync.RWMutex
+	logger     *slog.Logger
+
+	mu sync.RWMutex
 }
 
-func NewService(ctx context.Context, toolSvc *tools.Service, repo ConfigRepo) (*Service, error) {
+func NewService(
+	ctx context.Context,
+	toolSvc *tools.Service,
+	repo ConfigRepo,
+	logger *slog.Logger,
+) (*Service, error) {
 	s := &Service{
 		toolSvc:    toolSvc,
 		configRepo: repo,
+		logger:     logger.WithGroup("mcp"),
 		servers:    make(map[MCPServerID]MCPServer),
 	}
 
-	cfgs, err := s.configRepo.Load()
-	if err != nil {
-		return nil, fmt.Errorf("mcp repo: %w", err)
-	}
-
-	if err := s.loadServers(ctx, cfgs); err != nil {
-		if wraped, ok := err.(interface{ Unwrap() []error }); ok {
-			for _, e := range wraped.Unwrap() {
-				slog.Error("mcp service: server init: config", "error", e)
-			}
-		} else {
-			slog.Error("mcp service: server init", "error", err)
-		}
+	if err := s.Reload(ctx); err != nil {
+		return nil, err
 	}
 
 	return s, nil
@@ -67,15 +63,15 @@ func (s *Service) Reload(ctx context.Context) error {
 		}
 	}()
 
-	return s.loadServers(ctx, cfgs)
+	s.loadServers(ctx, cfgs)
+
+	return nil
 }
 
-func (s *Service) loadServers(ctx context.Context, cfgs []ServerGatewayConfig) error {
+func (s *Service) loadServers(ctx context.Context, cfgs []ServerGatewayConfig) {
 
 	var (
-		wg   sync.WaitGroup
-		mu   sync.Mutex
-		errs = []error{}
+		wg sync.WaitGroup
 	)
 
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
@@ -85,18 +81,14 @@ func (s *Service) loadServers(ctx context.Context, cfgs []ServerGatewayConfig) e
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-
 			if _, err := s.Connect(ctx, cfg); err != nil {
-				mu.Lock()
-				defer mu.Unlock()
-				errs = append(errs, err)
+				// TODO: expose server name
+				s.logger.Error("connect server", "error", err)
 			}
 		}()
 	}
 
 	wg.Wait()
-
-	return errors.Join(errs...)
 }
 
 func (s *Service) List() []MCPServer {
@@ -107,6 +99,7 @@ func (s *Service) List() []MCPServer {
 }
 
 func (s *Service) Connect(ctx context.Context, cfg ServerGatewayConfig) (MCPServerID, error) {
+
 	srv, err := NewMCPServer(ctx, cfg)
 	if err != nil {
 		return "", fmt.Errorf("mcp: server initialization: %w", err)
@@ -132,13 +125,14 @@ func (s *Service) Connect(ctx context.Context, cfg ServerGatewayConfig) (MCPServ
 	go func() {
 		// blocking
 		if err := srv.Run(context.Background()); err != nil {
-			slog.Error("mcp server connection", "error", err)
+			s.logger.Error("connection", "server", srv.ID(), "error", err)
 		}
-		slog.Info("mcp server disconnected", "server", srv.ID, "error", err)
 
-		if terr := s.toolSvc.Disconnect(string(srv.ID())); terr != nil {
-			slog.Error("mcp disconnection", "error", terr)
+		if err := s.toolSvc.Disconnect(string(srv.ID())); err != nil {
+			s.logger.Error("server disconnection", "server", srv.ID(), "error", err)
 		}
+
+		s.logger.Info("server disconnected", "server", srv.ID())
 
 		if storedSrv, ok := s.servers[srv.ID()]; ok && storedSrv == srv {
 			s.mu.Lock()
@@ -147,6 +141,8 @@ func (s *Service) Connect(ctx context.Context, cfg ServerGatewayConfig) (MCPServ
 			delete(s.servers, srv.ID())
 		}
 	}()
+
+	s.logger.Info("server connected", "server", srv.ID())
 
 	return srv.ID(), nil
 }

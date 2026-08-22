@@ -10,7 +10,6 @@ import (
 	"arch-agent/internal/types"
 	"context"
 	"fmt"
-	"log/slog"
 	"strings"
 	"sync"
 )
@@ -113,14 +112,7 @@ func (h *UndoneTodoHook) Apply(
 		if h.isAgentCantHandle(sessID) {
 
 			h.dropAttempts(sessID)
-			slog.Warn(
-				"undone todo hook",
-				"cause", "agent handle with undone tasks",
-				"agent", agentID,
-				"session", sessID,
-				"tasks", taskList,
-			)
-			return c, nil
+			return c, fmt.Errorf("agent can't handle with undone tasks")
 		}
 
 		h.increaseAttempts(sessID)

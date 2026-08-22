@@ -63,14 +63,21 @@ type Observer struct {
 	reporter *ActivityReporter
 	repo     agent.ActivityRepo
 
+	logger *slog.Logger
+
 	mu sync.RWMutex
 }
 
-func NewObserver(reprter *ActivityReporter, repo agent.ActivityRepo) *Observer {
+func NewObserver(
+	reprter *ActivityReporter,
+	repo agent.ActivityRepo,
+	logger *slog.Logger,
+) *Observer {
 	return &Observer{
 		messageBuffers: map[sessionKey]*messageBuffer{},
 		flushTimer:     map[sessionKey]*time.Timer{},
 		reporter:       reprter,
+		logger:         logger.WithGroup("activity"),
 		repo:           repo,
 	}
 }
@@ -83,8 +90,12 @@ func (o *Observer) getBuffer(key sessionKey) *messageBuffer {
 	if !ok {
 		buf = newMessageBuffer()
 		timer := time.AfterFunc(flushInterval, func() {
+
+			logger := o.logger.With("agent", key.AgentID, "session", key.SessionID)
+
+			logger.Info("logging")
 			if err := o.flush(context.Background(), key); err != nil {
-				slog.Error("observer", "error", err)
+				logger.Error("logging", "error", err)
 			}
 		})
 		o.flushTimer[key] = timer

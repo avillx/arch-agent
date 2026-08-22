@@ -2,6 +2,7 @@ package session
 
 import (
 	"arch-agent/internal/agent"
+	"log/slog"
 )
 
 type SessionsRepo interface {
@@ -16,17 +17,20 @@ type UUIDGenerator interface {
 }
 
 type Service struct {
-	repo SessionsRepo
-	uuid UUIDGenerator
+	repo   SessionsRepo
+	uuid   UUIDGenerator
+	logger *slog.Logger
 }
 
 func NewService(
 	repo SessionsRepo,
 	uuid UUIDGenerator,
+	logger *slog.Logger,
 ) *Service {
 	return &Service{
-		repo: repo,
-		uuid: uuid,
+		repo:   repo,
+		uuid:   uuid,
+		logger: logger.WithGroup("sessions"),
 	}
 }
 
@@ -45,6 +49,8 @@ func (s *Service) Create(agentID agent.ID, instruction string) (ID, error) {
 	if err := s.repo.Save(agentID, newSession); err != nil {
 		return "", err
 	}
+
+	s.logger.Info("created new", "agent", agentID, "session id", newSession.ID())
 
 	return newSession.ID(), nil
 }

@@ -4,6 +4,7 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/types"
 	"errors"
+	"log/slog"
 	"path"
 	"sync"
 )
@@ -11,6 +12,7 @@ import (
 type ProviderService struct {
 	modelSvc *ModelService
 	repo     ProviderConfigRepo
+	logger   *slog.Logger
 
 	// technically service is already concurrent safe on memory level
 	// mutex here for guarantee concurrent safe on business logic level
@@ -30,9 +32,7 @@ func NewProviderService(modelSvc *ModelService, repo ProviderConfigRepo) (*Provi
 	}
 
 	for _, p := range providers {
-		if err := svc.loadModels(p); err != nil {
-			return nil, err
-		}
+		svc.loadModels(p)
 	}
 
 	return svc, nil
@@ -68,7 +68,9 @@ func (s *ProviderService) AddProvider(cfg ProviderConfig) error {
 		return err
 	}
 
-	return s.loadModels(cfg)
+	s.loadModels(cfg)
+
+	return nil
 }
 
 func (s *ProviderService) UpdateProvider(id ProviderID, patch ProviderConfigPatch) error {
@@ -111,7 +113,9 @@ func (s *ProviderService) UpdateProvider(id ProviderID, patch ProviderConfigPatc
 		return err
 	}
 
-	return s.loadModels(cfg)
+	s.loadModels(cfg)
+
+	return nil
 }
 
 func (s *ProviderService) DeleteProvider(id ProviderID) error {
@@ -180,7 +184,7 @@ func (s *ProviderService) SetModel(providerID ProviderID, modelName string, mode
 	return s.repo.Save(providerConf)
 }
 
-func (s *ProviderService) loadModels(cfg ProviderConfig) error {
+func (s *ProviderService) loadModels(cfg ProviderConfig) {
 	for modelName, modelCfg := range cfg.Models {
 		if err := s.modelSvc.add(
 			cfg.APIType,
@@ -189,11 +193,9 @@ func (s *ProviderService) loadModels(cfg ProviderConfig) error {
 			resolveModelID(cfg.Name, modelName),
 			newModelSettings(modelName, modelCfg),
 		); err != nil {
-			return err
+			s.logger.Error("load model", "model", modelName, "error", err)
 		}
 	}
-
-	return nil
 }
 
 func resolveModelID(providerName ProviderID, modelName string) ModelID {

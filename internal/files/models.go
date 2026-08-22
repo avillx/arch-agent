@@ -161,6 +161,7 @@ func (f *ProviderFiles) loadConfig() (modelsConfigDTO, error) {
 
 	data, err := f.fs.ReadFile(modelsFile)
 	if err != nil {
+		// TODO: create place holder if not exist
 		return dto, err
 	}
 

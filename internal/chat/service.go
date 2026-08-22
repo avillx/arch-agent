@@ -7,7 +7,9 @@ import (
 	"arch-agent/internal/session"
 	"arch-agent/internal/types"
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -99,6 +101,7 @@ type Service struct {
 	contextAssembler *ContextAssembler
 	observer         *memory.Observer
 	hooks            []any
+	logger           *slog.Logger
 }
 
 func NewService(
@@ -109,6 +112,7 @@ func NewService(
 	contextAssembler *ContextAssembler,
 	observer *memory.Observer,
 	hooks []any,
+	logger *slog.Logger,
 ) *Service {
 	return &Service{
 		agentRepo:        agentRepo,
@@ -118,6 +122,7 @@ func NewService(
 		observer:         observer,
 		contextAssembler: contextAssembler,
 		hooks:            hooks,
+		logger:           logger.WithGroup("chat"),
 	}
 }
 
@@ -166,15 +171,18 @@ func (s *Service) Chat(
 		return err
 	}
 
-	// logging
+	// observing
 	if r.Logging {
-		r.EventCallbacks = s.attachLogging(
+		r.EventCallbacks = s.attachObserver(
 			r.AgentID,
 			r.SessionID,
 			r.UserMessage,
 			r.EventCallbacks,
 		)
 	}
+
+	// attach logging
+	r.EventCallbacks = s.attachLogging(r.AgentID, sess, r.EventCallbacks)
 
 	// build context
 	systemMessage, err := s.contextAssembler.BuildSystemMessage(
@@ -204,6 +212,90 @@ func (s *Service) Chat(
 		r.EventCallbacks,
 		s.hooks,
 	)
+}
+
+func (s *Service) attachLogging(
+	agentID agent.ID,
+	sess session.Session,
+	eventCallbacks EventCallbacks,
+) EventCallbacks {
+
+	logger := s.logger.With(
+		"agent", agentID,
+		"session", sess,
+	)
+
+	// wrap completion
+	wrappedOnComplete := eventCallbacks.OnComplete
+	eventCallbacks.OnComplete = func(ev *runtime.CompleteEvent) {
+		c := ev.Complete()
+		logger.Info("compltion",
+			"tool calls", len(c.ToolCalls),
+			"input tokens", c.InputTokens,
+			"completion tokens", c.CompletionTokens,
+		)
+		wrappedOnComplete(ev)
+	}
+
+	// wrap loop exit
+	wrappedOnLoopExit := eventCallbacks.OnLoopExit
+	eventCallbacks.OnLoopExit = func(ev *runtime.LoopExitEvent) {
+		if err := ev.Err(); err != nil {
+			logger.Error("loop exit with error",
+				"error", err,
+			)
+		} else {
+			logger.Info("loop exit")
+		}
+
+		wrappedOnLoopExit(ev)
+	}
+
+	// wrap completion mistake
+	wrappedOnCompleteMistake := eventCallbacks.OnCompleteMistake
+	eventCallbacks.OnCompleteMistake = func(ev *runtime.CompletionMistakeEvent) {
+		logger.Info("compltion mistake",
+			"error", ev.Err(),
+		)
+		wrappedOnCompleteMistake(ev)
+	}
+
+	// wrap tool result
+	wrappedOnToolResult := eventCallbacks.OnToolResult
+	eventCallbacks.OnToolResult = func(ev *runtime.ToolResultEvent) {
+		logger.Info("tool result recivied",
+			"tool", ev.Call().ToolName,
+		)
+		wrappedOnToolResult(ev)
+	}
+
+	// OnToolErr         func(*runtime.ToolCallErrEvent)
+	wrappedOnToolErr := eventCallbacks.OnToolErr
+	eventCallbacks.OnToolErr = func(ev *runtime.ToolCallErrEvent) {
+		err := ev.Err()
+		var mistake *types.AgentMistakeError
+		if errors.As(err, &mistake) {
+			logger.Warn("bad tool call",
+				"tool", ev.ToolName(),
+			)
+		} else {
+			logger.Error("tool call error",
+				"tool", ev.ToolName(),
+				"error", ev.Err(),
+			)
+		}
+
+		wrappedOnToolErr(ev)
+	}
+
+	// OnCompaction
+	wrappedOnCompaction := eventCallbacks.OnCompaction
+	eventCallbacks.OnCompaction = func(ev *runtime.CompactionEvent) {
+		logger.Warn("session compacted")
+		wrappedOnCompaction(ev)
+	}
+
+	return eventCallbacks
 }
 
 func (s *Service) attachSession(
@@ -248,7 +340,7 @@ func (s *Service) attachSession(
 	return eventCallbacks, nil
 }
 
-func (e *Service) attachLogging(
+func (e *Service) attachObserver(
 	agentID agent.ID,
 	sessID session.ID,
 	userMessage agent.Message,

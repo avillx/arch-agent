@@ -32,6 +32,7 @@ type Memory struct {
 	toolServer   []agent.ToolServer
 	model        agent.Model
 	resolveHooks func(agent.ID) []any
+	logger       *slog.Logger
 }
 
 func NewMemory(
@@ -39,6 +40,7 @@ func NewMemory(
 	toolServer []agent.ToolServer,
 	model agent.Model,
 	hooksReslover func(agent.ID) []any,
+	logger *slog.Logger,
 ) (*Memory, error) {
 
 	if !(len(toolServer) > 0) {
@@ -58,6 +60,7 @@ func NewMemory(
 		agentRepo:    agentRepo,
 		toolServer:   toolServer,
 		resolveHooks: hooksReslover,
+		logger:       logger.WithGroup("memory"),
 	}, nil
 }
 
@@ -71,6 +74,8 @@ func (m *Memory) ConsolidateImmidate(ctx context.Context, agentID agent.ID, evCh
 }
 
 func (m *Memory) consolidateMemoryFor(ctx context.Context, agt agent.Agent, evCh chan runtime.Event) error {
+
+	m.logger.Info("consolidation started", "agent", agt.ID())
 
 	systemPrompt := prompt.Memorization(agt.ID())
 	systemMessage := agent.NewSystemMessage(systemPrompt)
@@ -133,15 +138,15 @@ func (m *Memory) Run(ctx context.Context) {
 		ticker := time.Tick(time.Until(nextExecution()))
 		select {
 		case <-ticker:
-			slog.Info("automatic memory consolidation started")
+			m.logger.Info("automatic consolidation started")
 
 			if m.model == nil {
-				slog.Warn("memorization declined", "warninig", "memory model is not setted")
+				m.logger.Warn("consolidation declined, model is not defined")
 				continue
 			}
 
 			if err := m.consolidateInBackground(ctx); err != nil {
-				slog.Error("memory consolidation", "error", err)
+				m.logger.Error("consolidation", "error", err)
 			}
 		case <-ctx.Done():
 			return

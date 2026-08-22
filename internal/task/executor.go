@@ -12,9 +12,9 @@ import (
 type executor struct {
 	sessionSvc   *session.Service
 	chatExecutor chat.ChatExecutor
+	logger       *slog.Logger
 }
 
-// executor
 func NewExecutor(
 	sessionSvc *session.Service,
 	chatExecutor chat.ChatExecutor,
@@ -26,16 +26,20 @@ func NewExecutor(
 }
 
 func (s *executor) execute(ctx context.Context, t TaskConfig) {
+
+	logger := s.logger.With("task", t.Name)
+
 	for _, r := range t.Recipients {
-		slog.Info("processing task", "agent", r, "task", t.Name)
-		if err := s.processRecipientTask(ctx, agent.ID(r), t.Name, t.Request); err != nil {
-			slog.Error("task processing", "agent", r, "task", t.Name, "error", err)
+		logger := logger.With("agent", r)
+
+		logger.Info("processing started")
+		if err := s.processRecipientTask(ctx, agent.ID(r), t.Request); err != nil {
+			logger.Error("processing", "error", err)
 		}
 	}
 }
 
-func (s *executor) processRecipientTask(ctx context.Context, agentID agent.ID, taskName, request string) error {
-	slog.Info("task executes in background", "task", taskName)
+func (s *executor) processRecipientTask(ctx context.Context, agentID agent.ID, request string) error {
 
 	sessID, err := s.sessionSvc.Create(agentID, prompt.GetAutonomusGuidance())
 	if err != nil {

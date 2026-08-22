@@ -5,60 +5,69 @@ import (
 	"arch-agent/internal/types"
 	"errors"
 	"fmt"
+	"io/fs"
+	"log/slog"
 	"path"
 	"path/filepath"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 var _ agent.MemoryIndexer = (*MemoryFiles)(nil)
 
 type MemoryFiles struct {
-	fs *FileSystem
+	fs     *FileSystem
+	logger *slog.Logger
 }
 
-func NewMemoryFiles(fs *FileSystem) *MemoryFiles {
-	return &MemoryFiles{fs: fs}
+func NewMemoryFiles(
+	fs *FileSystem,
+	logger *slog.Logger,
+) *MemoryFiles {
+	return &MemoryFiles{
+		fs:     fs,
+		logger: logger.WithGroup("memory files"),
+	}
 }
 
 func (f *MemoryFiles) MemoryIndex(agentID agent.ID) (map[string]string, error) {
 
 	memoryPath := resolveMemoryPath(agentID)
-
-	enties, err := f.fs.ReadDir(memoryPath)
-	if err != nil {
-		if errors.Is(err, types.ErrIsNotExist) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	var errs []error
 	index := map[string]string{}
-	for _, e := range enties {
-		if e.IsDir() {
-			continue
+
+	f.fs.WalkDir(memoryPath, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			f.logger.Error("walking dir", "path", p, "error", err)
+			return nil
 		}
 
-		currentMemoryPath := path.Join(memoryPath, e.Name())
-		data, err := f.fs.ReadFile(currentMemoryPath)
+		if d == nil {
+			return nil
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		data, err := f.fs.ReadFile(p)
 		if err != nil {
-			errs = append(errs, err)
-			continue
+			f.logger.Error("read file", "path", p, "error", err)
+			return nil
 		}
 
 		hook, err := resolveFrontmatter[struct {
 			Hook string `yaml:"hook"`
 		}](data)
 		if err != nil {
-			errs = append(errs, err)
+			f.logger.Error("resolve frontmatter", "path", p, "error", err)
+			return nil
 		}
 
-		index[path.Join("./", currentMemoryPath)] = hook.Hook
-	}
+		index[path.Join(p)] = hook.Hook
 
-	return index, errors.Join(errs...)
+		return nil
+	})
+
+	return index, nil
 }
 
 func (f *MemoryFiles) GetMemory(agentID agent.ID, name string) (string, error) {
@@ -87,27 +96,4 @@ func (f *MemoryFiles) GetMemory(agentID agent.ID, name string) (string, error) {
 
 func resolveMemoryPath(agentID agent.ID) string {
 	return filepath.Join(string(agentID), "memory")
-}
-
-func resolveFrontmatter[T any](data []byte) (T, error) {
-	var zero T
-	const delim = "---"
-	s := strings.ReplaceAll(string(data), "\r\n", "\n")
-
-	after, ok := strings.CutPrefix(s, delim+"\n")
-	if !ok {
-		return zero, fmt.Errorf("hook file must start with ---")
-	}
-
-	fmEnd := strings.Index(after, "\n"+delim)
-	if fmEnd == -1 {
-		return zero, fmt.Errorf("unclosed frontmatter")
-	}
-
-	var dto T
-	if err := yaml.Unmarshal([]byte(after[:fmEnd]), &dto); err != nil {
-		return zero, err
-	}
-
-	return dto, nil
 }

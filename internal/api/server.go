@@ -44,7 +44,7 @@ func NewHTTPServer(
 	activityStore activityStore,
 	agentRepo agent.Repo,
 	providerSvc *model.ProviderService,
-) http.Handler {
+) *HTTPServer {
 
 	srv := &HTTPServer{
 		logger:        logger.WithGroup("api"),

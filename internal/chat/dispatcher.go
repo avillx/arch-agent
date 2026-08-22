@@ -23,10 +23,13 @@ type requestProcessing struct {
 type Dispatcher struct {
 	*Service
 	processes map[sessionKey]*requestProcessing
+	logging   *slog.Logger
 	mu        sync.Mutex
 }
 
-func NewDispatcher(s *Service) *Dispatcher {
+func NewDispatcher(
+	s *Service,
+) *Dispatcher {
 	return &Dispatcher{
 		Service:   s,
 		processes: map[sessionKey]*requestProcessing{},
@@ -71,7 +74,7 @@ func (d *Dispatcher) Interrupt(sessID session.ID, agentID agent.ID) {
 	if prev := d.processes[key]; prev != nil {
 		prev.cancel()
 		<-prev.done
-		slog.Info("chat service: session interrupted", "session", key.SessionID, "agent", key.AgentID)
+		d.logger.Info("agent interrupted", "session", key.SessionID, "agent", key.AgentID)
 	}
 }
 

@@ -183,10 +183,9 @@ func monitorSession(ctx context.Context, sess *mcp.ClientSession) {
 		case <-ticker.C:
 			if sess == nil {
 				return
-				// return fmt.Errorf("no session: server %s", s.ID)
 			}
 			if err := sess.Ping(ctx, &mcpsdk.PingParams{}); err != nil {
-				// slog
+				// swallow ping error. cause it always dissconeciton
 				return
 			}
 		}
@@ -221,6 +220,6 @@ func createGateway(cfg ServerGatewayConfig) (gateway, error) {
 			cfg.CommandGateway.Env,
 		)
 	default:
-		return nil, fmt.Errorf("mcp add has no gateway")
+		return nil, fmt.Errorf("config has no gateway")
 	}
 }

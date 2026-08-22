@@ -1,9 +1,10 @@
 package files
 
 import (
+	"arch-agent/internal/types"
 	"bytes"
+	"errors"
 	"maps"
-	"os"
 	"slices"
 	"sync"
 
@@ -38,9 +39,13 @@ func NewSecretsFiles(fs *FileSystem) (*SecretsFiles, error) {
 	sf := &SecretsFiles{
 		fs: fs,
 	}
-	if err := sf.load(); err != nil {
+
+	secrets, err := sf.load()
+	if err != nil {
 		return nil, err
 	}
+
+	sf.secrets = secrets
 	return sf, nil
 }
 
@@ -75,18 +80,25 @@ func (sf *SecretsFiles) Set(name, value string) error {
 	return sf.save()
 }
 
-func (sf *SecretsFiles) load() error {
+func (sf *SecretsFiles) load() (map[string]string, error) {
 	data, err := sf.fs.ReadFile(SecretsFile)
-	if err != nil && os.IsNotExist(err) {
-		return sf.fs.WriteToFile(SecretsFile, []byte{})
-	}
 	if err != nil {
-		return err
+		if !errors.Is(err, types.ErrIsNotExist) {
+			return nil, err
+		}
+
+		if err := ensureFilePlaceholder(sf.fs, SecretsFile, []byte(secretsFileDoc)); err != nil {
+			return nil, err
+		}
+
+		return map[string]string{}, nil
 	}
-	if err := toml.Unmarshal(data, &sf.secrets); err != nil {
-		return err
+
+	var secrets map[string]string
+	if err := toml.Unmarshal(data, &secrets); err != nil {
+		return nil, err
 	}
-	return nil
+	return secrets, nil
 }
 
 func (sf *SecretsFiles) save() error {

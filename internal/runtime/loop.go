@@ -159,7 +159,7 @@ func processToolCalls(
 			evCh <- NewErrToolCallEvent(call.ToolName, call.Arguments, err)
 			result = handleToolCallErr(call.ID, err)
 		}
-		evCh <- NewToolCallResultEvent(result)
+		evCh <- NewToolCallResultEvent(call, result)
 		slog.Debug("tool called", "result message", result.Result)
 
 		resultMessages = append(resultMessages, agent.NewToolResultMessage(result))

@@ -20,13 +20,18 @@ const maxSubAgentDepth = 3
 type Service struct {
 	chatExecutor chat.ChatExecutor
 	sessService  *session.Service
+	logger       *slog.Logger
 }
 
 func NewService(
 	chatExecutor chat.ChatExecutor,
+	sessService *session.Service,
+	logger *slog.Logger,
 ) *Service {
 	return &Service{
 		chatExecutor: chatExecutor,
+		sessService:  sessService,
+		logger:       logger.WithGroup("sub agents"),
 	}
 }
 
@@ -47,6 +52,8 @@ func (s *Service) Call(
 		return "", err
 	}
 
+	logger := s.logger.With("sub agent", subAgentID, "session", sessID)
+
 	// sink
 	lastAgentMessageContent := ""
 
@@ -56,13 +63,12 @@ func (s *Service) Call(
 		if lee.Err() != nil {
 			message := fmt.Sprintf("sub agent %s, fall with error", subAgentID)
 			lastAgentMessageContent += message
+
+			logger.Error(
+				"fall with error",
+				"error", err,
+			)
 		}
-		slog.Error(
-			"sub agent fall with error",
-			"agent", subAgentID,
-			"session", sessID,
-			"error", err,
-		)
 	}
 
 	onComplete := func(ce *runtime.CompleteEvent) {
@@ -70,13 +76,16 @@ func (s *Service) Call(
 	}
 
 	eventCallbacks := chat.EventCallbacks{
-		OnComplete:   onComplete,
-		OnLoopExit:   onLoopExit,
-		OnToolResult: func(tre *runtime.ToolResultEvent) {},
-		OnCompaction: func(ce *runtime.CompactionEvent) {},
-		OnToolErr:    func(tcee *runtime.ToolCallErrEvent) {},
-		OnEvent:      func(e runtime.Event) {},
+		OnComplete:        onComplete,
+		OnLoopExit:        onLoopExit,
+		OnCompleteMistake: func(cme *runtime.CompletionMistakeEvent) {},
+		OnToolResult:      func(tre *runtime.ToolResultEvent) {},
+		OnCompaction:      func(ce *runtime.CompactionEvent) {},
+		OnToolErr:         func(tcee *runtime.ToolCallErrEvent) {},
+		OnEvent:           func(e runtime.Event) {},
 	}
+
+	logger.Info("running")
 
 	// if sub agent loop exit with error
 	// agent alrady recieve message about issues

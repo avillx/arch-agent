@@ -25,7 +25,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
+	"log/slog"
+	"path"
 )
 
 type Config struct {
@@ -34,7 +35,11 @@ type Config struct {
 	ConsolidationModel string
 	ObserverModel      string
 	ShellEnv           []string
-	LoggerConfig       logging.LoggerConfig
+
+	LogLevel  slog.Level
+	AddSource bool
+	Indented  bool
+	JSON      bool
 }
 
 func BuildTaskSvc(
@@ -43,6 +48,7 @@ func BuildTaskSvc(
 	sessionSvc *session.Service,
 	chatSvc *chat.Service,
 	agentRepo agent.Repo,
+	logger *slog.Logger,
 ) (*task.Service, error) {
 
 	taskRepo, err := files.NewTaskFiles(fs)
@@ -60,6 +66,7 @@ func BuildTaskSvc(
 		executor,
 		func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) },
 		agentRepo,
+		logger.WithGroup("tasks"),
 	)
 }
 
@@ -68,6 +75,7 @@ func BuildMemoryConsolidator(
 	model agent.Model,
 	agentRepo agent.Repo,
 	indexer agent.MemoryIndexer,
+	logger *slog.Logger,
 ) (*memory.Memory, error) {
 
 	// TODO: consolidation prompt is unreachible for memory consolidator
@@ -83,6 +91,7 @@ func BuildMemoryConsolidator(
 		[]agent.ToolServer{fsToolsSrv},
 		model,
 		memoryHooksResolver,
+		logger,
 	)
 	if err != nil {
 		return nil, err
@@ -91,14 +100,22 @@ func BuildMemoryConsolidator(
 	return memory, err
 }
 
-func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
-
-	// logger := logging.NewLogger(cfg.LoggerConfig)
+func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 
 	fs, err := files.NewFS(cfg.DataPath)
 	if err != nil {
 		return nil, err
 	}
+
+	logger := logging.NewLogger(logging.LoggerConfig{
+		Level:        cfg.LogLevel,
+		AddSource:    cfg.AddSource,
+		Indented:     cfg.Indented,
+		JSON:         cfg.JSON,
+		AgentLogFile: path.Join(fs.Cwd(), ".log"),
+	})
+
+	slog.SetDefault(logger)
 
 	secretsRepo, err := files.NewSecretsFiles(fs)
 	if err != nil {
@@ -124,10 +141,11 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 	sessSvc := session.NewService(
 		files.NewSessionFiles(fs),
 		uuid.NewUUIDGenerator(),
+		logger,
 	)
 
-	skillFiles := files.NewSkillFiles(fs)
-	memoryFiles := files.NewMemoryFiles(fs)
+	skillFiles := files.NewSkillFiles(fs, logger)
+	memoryFiles := files.NewMemoryFiles(fs, logger)
 	contextAssembler := chat.NewContextAssembler(skillFiles, memoryFiles)
 
 	toolSvc := tools.NewService()
@@ -136,7 +154,7 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 	if err != nil {
 		return nil, err
 	}
-	mcpSvc, err := mcp.NewService(ctx, toolSvc, mcpRepo)
+	mcpSvc, err := mcp.NewService(ctx, toolSvc, mcpRepo, logger)
 	if err != nil {
 		return nil, fmt.Errorf("build mcp service: %w", err)
 	}
@@ -153,6 +171,7 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 	observer := memory.NewObserver(
 		memory.NewActivityReporter(observerModel),
 		activityRepo,
+		logger,
 	)
 
 	agentHooks, err := hooks.NewAgentHooks(fs, todoStorage)
@@ -168,6 +187,7 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 		contextAssembler,
 		observer,
 		agentHooks,
+		logger,
 	)
 
 	taskSvc, err := BuildTaskSvc(
@@ -176,6 +196,7 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 		sessSvc,
 		chatSvc,
 		agentRepo,
+		logger,
 	)
 	if err != nil {
 		return nil, err
@@ -186,7 +207,7 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 	toolSvc.Connect("shell", shell.NewShellToolServer(fs.Cwd()))
 	toolSvc.Connect("web", fetch.NewFetchToolServer())
 	toolSvc.Connect("todo", todo.NewTodoToolServer(todoStorage))
-	subagentSvc := subagent.NewService(chatSvc)
+	subagentSvc := subagent.NewService(chatSvc, sessSvc, logger)
 	toolSvc.Connect("agent", tools.NewCallAgentToolServer(subagentSvc, agentRepo))
 
 	consolidatorModel, err := modelsSvc.Get(cfg.ConsolidationModel)
@@ -199,6 +220,7 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 		consolidatorModel,
 		agentRepo,
 		memoryFiles,
+		logger,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("memory consolidator: %w", err)
@@ -207,7 +229,8 @@ func BuildServer(ctx context.Context, cfg Config) (*http.ServeMux, error) {
 
 	chatDispatcher := chat.NewDispatcher(chatSvc)
 
-	return api.NewServer(
+	return api.NewHTTPServer(
+		logger,
 		taskSvc,
 		chatDispatcher,
 		sessSvc,

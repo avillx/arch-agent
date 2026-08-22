@@ -24,6 +24,7 @@ type Service struct {
 	executor    *executor
 	cronFactory func(string) (Cron, error)
 	agentRepo   agent.Repo
+	logger      *slog.Logger
 }
 
 func NewService(
@@ -31,6 +32,7 @@ func NewService(
 	executor *executor,
 	cronFactory func(string) (Cron, error),
 	agentRepo agent.Repo,
+	logger *slog.Logger,
 ) (*Service, error) {
 
 	svc := &Service{
@@ -39,6 +41,7 @@ func NewService(
 		cronFactory: cronFactory,
 		executor:    executor,
 		agentRepo:   agentRepo,
+		logger:      logger,
 	}
 
 	tasks, err := repo.All()
@@ -50,7 +53,7 @@ func NewService(
 			continue
 		}
 		if err := svc.start(t); err != nil {
-			slog.Error("task service startup", "task", t.Name, "error", err)
+			logger.Error("start up", "task", t.Name, "error", err)
 		}
 	}
 
@@ -88,6 +91,8 @@ func (s *Service) start(cfg TaskConfig) error {
 		return ErrCron
 	}
 
+	logger := s.logger.With("task", cfg.Name)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	stopped := make(chan struct{})
 	rt := &taskRuntime{cancel: cancel, stopped: stopped}
@@ -106,9 +111,12 @@ func (s *Service) start(cfg TaskConfig) error {
 		delete(s.runtimes, cfg.Name)
 		cfg.Active = false
 		if err := s.repo.Save(cfg); err != nil {
-			slog.Error("persist disabled task", "task", cfg.Name, "error", err)
+			logger.Error("disabling", "error", err)
 		}
 	}()
+
+	logger.Info("activated")
+
 	return nil
 }
 

@@ -16,14 +16,19 @@ const skillFile = "SKILL.md"
 var _ chat.SkillsRepo = (*SkillFiles)(nil)
 
 type SkillFiles struct {
-	fs *FileSystem
+	fs     *FileSystem
+	logger *slog.Logger
 
 	mu sync.RWMutex
 }
 
-func NewSkillFiles(fs *FileSystem) *SkillFiles {
+func NewSkillFiles(
+	fs *FileSystem,
+	logger *slog.Logger,
+) *SkillFiles {
 	sf := &SkillFiles{
-		fs: fs,
+		fs:     fs,
+		logger: logger.WithGroup("skill files"),
 	}
 
 	return sf
@@ -67,6 +72,10 @@ func (f *SkillFiles) loadSkills(p string) (map[string]string, error) {
 	skillIndex := map[string]string{}
 
 	walkDirFunc := func(currentPath string, d fs.DirEntry, err error) error {
+		if err != nil {
+			f.logger.Error("walking dir", "path", p, "error", err)
+			return nil
+		}
 
 		// skip when entry is empty
 		if d == nil {
@@ -92,7 +101,7 @@ func (f *SkillFiles) loadSkills(p string) (map[string]string, error) {
 		// extract frontmatter
 		dto, err := resolveFrontmatter[skillFrontmatterDTO](data)
 		if err != nil {
-			slog.Error("loading skills", "error", err, "path", currentPath)
+			f.logger.Error("frontmatter parsing", "path", currentPath, "error", err)
 			return nil
 		}
 

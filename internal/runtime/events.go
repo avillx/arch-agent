@@ -61,14 +61,20 @@ func (e *CompleteEvent) Complete() *agent.Completion {
 // tool call result event
 type ToolResultEvent struct {
 	baseEvent
+	call   *agent.ToolCall
 	result *agent.ToolResult
 }
 
-func NewToolCallResultEvent(result *agent.ToolResult) *ToolResultEvent {
+func NewToolCallResultEvent(call *agent.ToolCall, result *agent.ToolResult) *ToolResultEvent {
 	return &ToolResultEvent{
 		baseEvent: newBaseEvent(),
 		result:    result,
+		call:      call,
 	}
+}
+
+func (e *ToolResultEvent) Call() *agent.ToolCall {
+	return e.call
 }
 
 func (e *ToolResultEvent) Result() *agent.ToolResult {
