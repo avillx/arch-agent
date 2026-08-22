@@ -71,7 +71,9 @@ Example in `example.config.toml`
 Accepts unneccecary vars:
 LOG_INDEND (true/false)
 LOG_SOURCE (true/false)
+LOG_JSON (true/false)
 LOG_LEVEL (debug/info/warn/error)
+
 
 ### For compose
 Workdir is `/agent`

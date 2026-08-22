@@ -21,6 +21,7 @@ type RunParameters struct {
 	LogIndented        bool
 	LogSource          bool
 	LogLevel           slog.Level
+	LogJSON            bool
 }
 
 func NewRunParameters(
@@ -31,6 +32,7 @@ func NewRunParameters(
 	logIndented string,
 	logSource string,
 	logLevel string,
+	logJSON string,
 ) (RunParameters, error) {
 
 	if dataPath == "" {
@@ -39,6 +41,10 @@ func NewRunParameters(
 
 	if port == "" {
 		port = "8080"
+	}
+
+	if logJSON == "" {
+		logJSON = "false"
 	}
 
 	if logIndented == "" {
@@ -68,6 +74,11 @@ func NewRunParameters(
 		return RunParameters{}, err
 	}
 
+	logJSONBool, err := strconv.ParseBool(logJSON)
+	if err != nil {
+		return RunParameters{}, err
+	}
+
 	if consolidationModel == "" {
 		return RunParameters{}, fmt.Errorf("consolidation model is not set")
 	}
@@ -84,6 +95,7 @@ func NewRunParameters(
 		LogIndented:        logIndentedBool,
 		LogSource:          logSourceBool,
 		LogLevel:           logLevelTyped,
+		LogJSON:            logJSONBool,
 	}, nil
 }
 
@@ -107,6 +119,7 @@ func run(
 		getENV("LOG_INDENTED"),
 		getENV("LOG_SOURCE"),
 		getENV("LOG_LEVEL"),
+		getENV("LOG_JSON"),
 	)
 	if err != nil {
 		return fmt.Errorf("bad envirement variable: %w", err)
@@ -119,11 +132,10 @@ func run(
 		ConsolidationModel: params.ConsolidationModel,
 		ObserverModel:      params.ObserverModel,
 
-		LoggerConfig: logging.LoggerConfig{
-			Level:     params.LogLevel,
-			Indented:  params.LogIndented,
-			AddSource: params.LogSource,
-		},
+		Indented:  params.LogIndented,
+		LogLevel:  params.LogLevel,
+		AddSource: params.LogSource,
+		JSON:      params.LogJSON,
 	})
 	if err != nil {
 		return err
@@ -134,7 +146,7 @@ func run(
 		Handler: srv,
 	}
 
-	slog.Warn("start server")
+	slog.Warn("start system")
 
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err
@@ -153,9 +165,9 @@ func main() {
 
 	ctx := context.Background()
 	if err := run(ctx, os.Getenv); err != nil {
-		slog.Error("server run", "error", err)
+		slog.Error("system run", "error", err)
 		os.Exit(1)
 	}
 
-	slog.Warn("server shutdown")
+	slog.Warn("system shutdown")
 }

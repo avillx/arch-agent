@@ -12,9 +12,11 @@ import (
 )
 
 type LoggerConfig struct {
-	Level     slog.Level
-	AddSource bool
-	Indented  bool
+	Level        slog.Level
+	AddSource    bool
+	Indented     bool
+	JSON         bool
+	AgentLogFile string
 }
 
 func NewLogger(cfg LoggerConfig) *slog.Logger {
@@ -25,12 +27,28 @@ func NewLogger(cfg LoggerConfig) *slog.Logger {
 		ReplaceAttr: replaceAttrs,
 	}
 
-	var handler slog.Handler
-	switch {
-	case cfg.Indented:
-		handler = slog.NewJSONHandler(&prettyWriter{os.Stdout}, opt)
-	default:
-		handler = slog.NewTextHandler(os.Stdout, opt)
+	// default
+	var sink io.Writer = os.Stdout
+	var handler slog.Handler = slog.NewTextHandler(sink, opt)
+
+	// override
+	if cfg.JSON {
+		if cfg.Indented {
+			sink = &prettyWriter{sink}
+		}
+		handler = slog.NewJSONHandler(sink, opt)
+	}
+
+	// add log for agent
+	if cfg.AgentLogFile != "" {
+		agentHandler := slog.NewTextHandler(
+			newFileWriter(cfg.AgentLogFile),
+			&slog.HandlerOptions{
+				AddSource: false,
+				Level:     slog.LevelInfo,
+			},
+		)
+		handler = newMultiHandler([]slog.Handler{handler, agentHandler})
 	}
 
 	return slog.New(handler)
