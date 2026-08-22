@@ -32,7 +32,7 @@ tags:
 
 paths:
   # ── Chat ──────────────────────────────────────────────────────────────
-  /chat/{agent}/{session_id}/interrupt:
+  /chat/{agent}/{session}/interrupt:
     post:
       tags: [Chat]
       summary: Interrupt a running chat completion
@@ -41,14 +41,14 @@ paths:
       operationId: interruptChat
       parameters:
         - $ref: "#/components/parameters/AgentID"
-        - $ref: "#/components/parameters/SessionID"
+        - $ref: "#/components/parameters/Session"
       responses:
         "202":
           description: Interruption accepted.
         "400":
           $ref: "#/components/responses/BadRequest"
 
-  /chat:
+  /chat/{agent}/{session}:
     post:
       tags: [Chat]
       summary: Start a chat completion
@@ -57,20 +57,17 @@ paths:
         The response is a stream of JSON envelopes, one per line, prefixed with `data: `.
         The stream ends with `data: [DONE]`.
       operationId: chat
+      parameters:
+        - $ref: "#/components/parameters/AgentID"
+        - $ref: "#/components/parameters/Session"
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [agent_id, session_id, user_request]
+              required: [user_request]
               properties:
-                agent_id:
-                  type: string
-                  description: Agent identifier.
-                session_id:
-                  type: string
-                  description: Session identifier.
                 user_request:
                   type: array
                   description: User message content as an array of content parts.
@@ -87,8 +84,7 @@ paths:
                   type: array
                   description: |
                     External client-side tool servers the agent can use for this call.
-                    client guarantee of execution and return result for it on intoduced id 
-                    for tool result endpoint with path parameter
+                    The client guarantees execution and returns results via the tool result endpoint.
                   items:
                     $ref: "#/components/schemas/ProvidedToolServer"
       responses:
@@ -113,8 +109,18 @@ paths:
       operationId: createSession
       parameters:
         - $ref: "#/components/parameters/AgentID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                instruction:
+                  type: string
+                  description: Optional initial instruction stored in session extras.
       responses:
-        "201":
+        "200":
           description: Session created.
           content:
             application/json:
@@ -124,25 +130,26 @@ paths:
                   id:
                     type: string
                     description: The created session ID.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
     get:
       tags: [Sessions]
       summary: List sessions for an agent
-      description: Returns a list of session summaries (ID, timestamps) for the given agent.
+      description: Returns a list of session IDs for the given agent.
       operationId: listSessions
       parameters:
         - $ref: "#/components/parameters/AgentID"
       responses:
         "200":
-          description: Array of session summaries.
+          description: Array of session IDs.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  sessions:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/SessionSummary"
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionSummary"
         "400":
           $ref: "#/components/responses/BadRequest"
 
@@ -164,6 +171,8 @@ paths:
                 $ref: "#/components/schemas/Session"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
     delete:
       tags: [Sessions]
       summary: Delete a session
@@ -175,11 +184,11 @@ paths:
       responses:
         "200":
           description: Session deleted.
-        "400":
-          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   # ── Tasks ─────────────────────────────────────────────────────────────
-  /task/all:
+  /task:
     get:
       tags: [Tasks]
       summary: List all tasks
@@ -190,12 +199,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  tasks:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/TaskConfig"
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaskConfig"
 
   /task/{name}:
     post:
@@ -217,18 +223,12 @@ paths:
       responses:
         "200":
           description: Task created.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Message"
         "400":
-          description: Validation error or duplicate task.
+          description: Validation error.
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: "#/components/schemas/Error"
-                  - $ref: "#/components/schemas/ValidationError"
+                $ref: "#/components/schemas/ValidationError"
     delete:
       tags: [Tasks]
       summary: Delete a task
@@ -239,12 +239,15 @@ paths:
       responses:
         "200":
           description: Task deleted.
+        "404":
+          description: Task not found.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Message"
-        "404":
-          $ref: "#/components/responses/NotFound"
+                type: object
+                properties:
+                  message:
+                    type: string
     patch:
       tags: [Tasks]
       summary: Patch a task
@@ -263,18 +266,21 @@ paths:
       responses:
         "200":
           description: Task patched.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Message"
         "400":
-          description: Invalid cron expression or missing recipients.
+          description: Validation error.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/ValidationError"
         "404":
-          $ref: "#/components/responses/NotFound"
+          description: Task not found.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
 
   # ── Tools ─────────────────────────────────────────────────────────────
   /tools:
@@ -291,15 +297,12 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  tool_servers:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/ToolServerInfo"
+                type: array
+                items:
+                  $ref: "#/components/schemas/ToolServerInfo"
 
   # ── MCP ───────────────────────────────────────────────────────────────
-  /mcp/list:
+  /mcp:
     get:
       tags: [MCP]
       summary: List connected MCP servers
@@ -319,8 +322,6 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/MCPServerInfo"
-
-  /mcp/connect:
     post:
       tags: [MCP]
       summary: Connect an MCP server
@@ -352,8 +353,8 @@ paths:
                   - $ref: "#/components/schemas/Error"
                   - $ref: "#/components/schemas/ValidationError"
 
-  /mcp/disconnect/{id}:
-    post:
+  /mcp/{id}:
+    delete:
       tags: [MCP]
       summary: Disconnect an MCP server
       description: |
@@ -370,15 +371,15 @@ paths:
       responses:
         "200":
           description: MCP server disconnected.
+        "400":
+          description: MCP server not found or validation error.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Message"
-        "400":
-          $ref: "#/components/responses/BadRequest"
+                $ref: "#/components/schemas/Error"
 
   /mcp/reload:
-    patch:
+    post:
       tags: [MCP]
       summary: Reload all MCP servers
       description: |
@@ -388,10 +389,6 @@ paths:
       responses:
         "200":
           description: MCP servers reloaded.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Message"
 
   # ── Memory ────────────────────────────────────────────────────────────
   /memory/{agent}:
@@ -412,8 +409,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MemoryListResponse"
-        "404":
-          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /memory/{agent}/{memory_name}:
     get:
@@ -437,8 +434,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MemoryDetail"
-        "404":
-          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /memory/{agent}/consolidate:
     post:
@@ -456,13 +453,21 @@ paths:
             SSE stream of consolidation progress events.
             Each event is a JSON object wrapped as `data: <json>\n\n`.
             The stream ends with `data: [DONE]\n\n`.
-            Event type is the same as `ChatEvent` from the Chat endpoint.
+            Only `complete` events are emitted.
           content:
             text/event-stream:
               schema:
-                $ref: "#/components/schemas/ChatEvent"
-        "400":
-          $ref: "#/components/responses/BadRequest"
+                $ref: "#/components/schemas/CompletionDTO"
+        "404":
+          description: Agent not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "agent is not exist"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   # ── Activity ───────────────────────────────────────────────────────────
   /activity:
@@ -497,36 +502,39 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ActivityLogsResponse"
-        "400":
-          description: Bad request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityRecord"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   # ── Agents ─────────────────────────────────────────────────────────────
-  /agent/list:
+  /agent:
     get:
       tags: [Agents]
       summary: List all agents
       operationId: listAgents
       responses:
         "200":
-          description: Array of agents.
+          description: List of all configured agents.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AgentListResponse"
 
-  /agent/{agent}:
+  /agent/{id}:
     get:
       tags: [Agents]
       summary: Get an agent by ID
       description: Returns the full configuration of an agent including model, memory settings, prompt, and allowed tools.
       operationId: getAgent
       parameters:
-        - $ref: "#/components/parameters/AgentID"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Agent identifier.
       responses:
         "200":
           description: Agent details.
@@ -535,7 +543,14 @@ paths:
               schema:
                 $ref: "#/components/schemas/AgentConfig"
         "400":
-          $ref: "#/components/responses/BadRequest"
+          description: Agent not found.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
     post:
       tags: [Agents]
       summary: Create an agent
@@ -544,7 +559,12 @@ paths:
         The agent ID is chosen by the client. At minimum, a model must be specified.
       operationId: createAgent
       parameters:
-        - $ref: "#/components/parameters/AgentID"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Agent identifier.
       requestBody:
         required: true
         content:
@@ -552,14 +572,17 @@ paths:
             schema:
               $ref: "#/components/schemas/AgentConfig"
       responses:
-        "201":
+        "200":
           description: Agent created.
+        "400":
+          description: Agent already exists.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Message"
-        "400":
-          $ref: "#/components/responses/BadRequest"
+                type: object
+                properties:
+                  message:
+                    type: string
     put:
       tags: [Agents]
       summary: Update an agent
@@ -569,7 +592,12 @@ paths:
         then written back.
       operationId: updateAgent
       parameters:
-        - $ref: "#/components/parameters/AgentID"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Agent identifier.
       requestBody:
         required: true
         content:
@@ -579,28 +607,39 @@ paths:
       responses:
         "200":
           description: Agent updated.
+        "400":
+          description: Agent not found.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Message"
-        "400":
-          $ref: "#/components/responses/BadRequest"
+                type: object
+                properties:
+                  message:
+                    type: string
     delete:
       tags: [Agents]
       summary: Delete an agent
       description: Deletes an agent and all its associated sessions and memory records.
       operationId: deleteAgent
       parameters:
-        - $ref: "#/components/parameters/AgentID"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Agent identifier.
       responses:
         "200":
           description: Agent deleted.
+        "400":
+          description: Agent not found.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Message"
-        "400":
-          $ref: "#/components/responses/BadRequest"
+                type: object
+                properties:
+                  message:
+                    type: string
 
   # ── Providers ──────────────────────────────────────────────────────────
   /providers:
@@ -620,6 +659,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ProviderConfig"
+        "500":
+          $ref: "#/components/responses/InternalError"
     post:
       tags: [Providers]
       summary: Add a provider
@@ -634,20 +675,28 @@ paths:
             schema:
               $ref: "#/components/schemas/ProviderConfig"
       responses:
-        "201":
-          description: Provider created.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Message"
+        "200":
+          description: Provider created (empty body).
         "400":
           description: Validation error or provider already exists.
           content:
             application/json:
               schema:
                 oneOf:
-                  - $ref: "#/components/schemas/Error"
                   - $ref: "#/components/schemas/ValidationError"
+                  - $ref: "#/components/schemas/Error"
+              examples:
+                duplicates:
+                  summary: Provider already exists
+                  value:
+                    message: "provider already exist"
+                validation:
+                  summary: Validation problems
+                  value:
+                    problems:
+                      name: "must be not empty"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /providers/{name}:
     get:
@@ -664,8 +713,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProviderConfig"
-        "400":
-          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Provider not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                message: "provider is not exist"
+        "500":
+          $ref: "#/components/responses/InternalError"
     patch:
       tags: [Providers]
       summary: Update a provider
@@ -683,13 +740,23 @@ paths:
               $ref: "#/components/schemas/ProviderConfigPatch"
       responses:
         "200":
-          description: Provider updated.
+          description: Provider updated (empty body).
+        "400":
+          description: Invalid request body.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Message"
-        "400":
-          $ref: "#/components/responses/BadRequest"
+                $ref: "#/components/schemas/ValidationError"
+        "404":
+          description: Provider not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                message: "provider is not exist"
+        "500":
+          $ref: "#/components/responses/InternalError"
     delete:
       tags: [Providers]
       summary: Delete a provider
@@ -699,9 +766,17 @@ paths:
         - $ref: "#/components/parameters/ProviderName"
       responses:
         "200":
-          description: Provider deleted.
-        "400":
-          $ref: "#/components/responses/BadRequest"
+          description: Provider deleted (empty body).
+        "404":
+          description: Provider not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                message: "provider is not exist"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /providers/{name}/models/{model}:
     post:
@@ -728,13 +803,30 @@ paths:
               $ref: "#/components/schemas/ModelConfig"
       responses:
         "200":
-          description: Model configuration set.
+          description: Model configuration set (empty body).
+        "400":
+          description: Bad request.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Message"
-        "400":
-          $ref: "#/components/responses/BadRequest"
+                oneOf:
+                  - $ref: "#/components/schemas/Error"
+                  - $ref: "#/components/schemas/ValidationError"
+              examples:
+                badEncoding:
+                  summary: Bad base64url encoding
+                  value:
+                    message: "model_name bad encoding"
+                emptyModel:
+                  summary: Empty model name
+                  value:
+                    message: "empty model name"
+                unsupportedAPI:
+                  summary: Unsupported API type
+                  value:
+                    message: "api is not supported"
+        "500":
+          $ref: "#/components/responses/InternalError"
     delete:
       tags: [Providers]
       summary: Delete a model configuration
@@ -751,13 +843,24 @@ paths:
           description: Base64url-encoded model name.
       responses:
         "200":
-          description: Model configuration deleted.
+          description: Model configuration deleted (empty body).
+        "400":
+          description: Bad request.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Message"
-        "400":
-          $ref: "#/components/responses/BadRequest"
+                $ref: "#/components/schemas/Error"
+              examples:
+                badEncoding:
+                  summary: Bad base64url encoding
+                  value:
+                    message: "model_name bad encoding"
+                notExist:
+                  summary: Model or provider not found
+                  value:
+                    message: "is not exist"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   # ── Provided Tool Result ──────────────────────────────────────────────
   /toolresult/{id}:
@@ -804,6 +907,13 @@ components:
       schema:
         type: string
       description: Session identifier.
+    Session:
+      name: session
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Session identifier.
     TaskName:
       name: name
       in: path
@@ -825,11 +935,11 @@ components:
       type: object
       description: Error response.
       properties:
-        error:
+        message:
           type: string
           description: Human-readable error message.
       example:
-        error: "agent not found"
+        message: "agent not found"
 
     ValidationError:
       type: object
@@ -843,15 +953,6 @@ components:
       example:
         problems:
           schedule: "invalid cron expression"
-
-    Message:
-      type: object
-      description: Generic success response for create/update/delete operations.
-      properties:
-        message:
-          type: string
-      example:
-        message: "task created"
 
     ContentPart:
       type: object
@@ -962,24 +1063,9 @@ components:
         updated_at: "2025-01-01T00:05:00Z"
 
     SessionSummary:
-      type: object
-      description: Brief summary of a session.
-      properties:
-        session_id:
-          type: string
-          readOnly: true
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
-      example:
-        session_id: "sess_01J..."
-        created_at: "2025-01-01T00:00:00Z"
-        updated_at: "2025-01-01T00:05:00Z"
+      type: string
+      description: Session identifier.
+      example: "sess_01J..."
 
     MessageDTO:
       type: object
@@ -1122,28 +1208,18 @@ components:
               type: string
 
     # ── Chat Events ─────────────────────────────────────────────────────
-    ChatErrorPayload:
-      type: object
-      description: Payload of an error event in the chat stream.
-      properties:
-        cause:
-          type: string
-          description: Human-readable error message.
-        session:
-          type: string
-          description: Session identifier.
-        agent:
-          type: string
-          description: Agent identifier.
-      example:
-        cause: "something went wrong"
-        session: "sess_1"
-        agent: "agent_1"
+    # Each SSE event is a flat JSON object with an inline `type` discriminator.
+    # Note: type `complete` may carry either a completion or a mistake payload.
+    # Note: type `tool_result` may carry either a tool result or a loop-exit signal.
 
-    ChatCompletionPayload:
+    CompletionEvent:
       type: object
-      description: Payload of a completion event in the chat stream.
+      description: A successful completion chunk. Emitted with type `complete`.
+      required: [type, done, completion]
       properties:
+        type:
+          type: string
+          enum: [complete]
         done:
           type: boolean
           description: Whether this is the final completion chunk.
@@ -1156,14 +1232,59 @@ components:
           items:
             $ref: "#/components/schemas/ToolCall"
       example:
+        type: "complete"
         done: false
         completion: "Hello!"
         tool_calls: []
 
-    ChatToolResultPayload:
+    CompletionMistakeEvent:
       type: object
-      description: Payload of a tool result event in the chat stream.
+      description: A completion failure. Emitted with type `complete`.
+      required: [type, error]
       properties:
+        type:
+          type: string
+          enum: [complete]
+        error:
+          type: string
+          description: Human-readable error message from the completion attempt.
+      example:
+        type: "complete"
+        error: "completion failed"
+
+    ToolErrorEvent:
+      type: object
+      description: A tool execution error. Emitted with type `complete_mistake`.
+      required: [type, cause, tool_name]
+      properties:
+        type:
+          type: string
+          enum: [complete_mistake]
+        cause:
+          type: string
+          description: Human-readable error message.
+        tool_name:
+          type: string
+          description: Name of the tool that failed.
+        args:
+          type: object
+          additionalProperties: true
+          description: Arguments passed to the failed tool call.
+      example:
+        type: "complete_mistake"
+        cause: "permission denied"
+        tool_name: "read_file"
+        args:
+          path: "/etc/shadow"
+
+    ToolResultEvent:
+      type: object
+      description: Result of a tool call. Emitted with type `tool_result`.
+      required: [type, id, result]
+      properties:
+        type:
+          type: string
+          enum: [tool_result]
         id:
           type: string
           description: Tool call ID.
@@ -1173,14 +1294,34 @@ components:
           items:
             $ref: "#/components/schemas/ContentPart"
       example:
+        type: "tool_result"
         id: "call_abc"
         result:
           - text: "File contents"
 
-    ChatCompactionPayload:
+    LoopExitEvent:
       type: object
-      description: Payload of a compaction event in the chat stream.
+      description: The agent runtime stopped due to an error. Emitted with type `tool_result`.
+      required: [type]
       properties:
+        type:
+          type: string
+          enum: [tool_result]
+        cause:
+          type: string
+          description: Human-readable error message explaining why the loop exited.
+      example:
+        type: "tool_result"
+        cause: "maximum iterations exceeded"
+
+    CompactionEvent:
+      type: object
+      description: Session context was compacted. Emitted with type `compaction`.
+      required: [type, message, result]
+      properties:
+        type:
+          type: string
+          enum: [compaction]
         message:
           type: string
           description: Human-readable compaction status message.
@@ -1188,13 +1329,18 @@ components:
           type: string
           description: Compaction summary text.
       example:
-        message: "compaction processed"
+        type: "compaction"
+        message: "compaction has been proceed"
         result: "summary text"
 
-    ChatProvidedToolCallPayload:
+    ProvidedToolCallEvent:
       type: object
-      description: Payload of a provided tool call event in the chat stream.
+      description: The agent called a client-provided tool. Emitted with type `provided_toolcall`.
+      required: [type, tool, agent_id, session_id]
       properties:
+        type:
+          type: string
+          enum: [provided_toolcall]
         tool:
           type: string
           description: Tool name.
@@ -1204,7 +1350,7 @@ components:
           description: Tool arguments.
         result_id:
           type: string
-          description: URL safe id for path parameter to /toolresult/{id} endpoint
+          description: URL-safe id for calling the /toolresult/{id} endpoint to resolve this call.
         agent_id:
           type: string
           description: Agent identifier.
@@ -1212,89 +1358,73 @@ components:
           type: string
           description: Session identifier.
       example:
+        type: "provided_toolcall"
         tool: "my_tool"
         args: {}
         result_id: "fg1ds12sg3d3f3fg342234d"
         agent_id: "agent_1"
         session_id: "sess_1"
 
-    # Full event types (type + payload)
-    ChatErrorEvent:
+    ChatEvent:
       type: object
-      required: [type, payload]
-      properties:
-        type:
-          type: string
-          enum: [error]
-        payload:
-          $ref: "#/components/schemas/ChatErrorPayload"
+      description: |
+        A single SSE event in the chat stream. A flat JSON object whose `type`
+        field determines the payload. Note: two event kinds share type `complete`
+        and two share type `tool_result` — consumers must handle both shapes.
+      discriminator:
+        propertyName: type
+        mapping:
+          complete: "#/components/schemas/CompletionEvent"
+          complete_mistake: "#/components/schemas/ToolErrorEvent"
+          tool_result: "#/components/schemas/ToolResultEvent"
+          compaction: "#/components/schemas/CompactionEvent"
+          provided_toolcall: "#/components/schemas/ProvidedToolCallEvent"
+      oneOf:
+        - $ref: "#/components/schemas/CompletionEvent"
+        - $ref: "#/components/schemas/CompletionMistakeEvent"
+        - $ref: "#/components/schemas/ToolErrorEvent"
+        - $ref: "#/components/schemas/ToolResultEvent"
+        - $ref: "#/components/schemas/LoopExitEvent"
+        - $ref: "#/components/schemas/CompactionEvent"
+        - $ref: "#/components/schemas/ProvidedToolCallEvent"
 
-    ChatCompletionEvent:
+    CompletionDTO:
       type: object
-      required: [type, payload]
+      description: |
+        A completion event emitted during memory consolidation.
+        Always has type `complete`.
+      required: [type]
       properties:
         type:
           type: string
           enum: [complete]
-        payload:
-          $ref: "#/components/schemas/ChatCompletionPayload"
-
-    ChatToolResultEvent:
-      type: object
-      required: [type, payload]
-      properties:
-        type:
+        done:
+          type: boolean
+          description: Whether this is the final completion chunk.
+        completion:
           type: string
-          enum: [tool_result]
-        payload:
-          $ref: "#/components/schemas/ChatToolResultPayload"
-
-    ChatCompactionEvent:
-      type: object
-      required: [type, payload]
-      properties:
-        type:
-          type: string
-          enum: [compaction]
-        payload:
-          $ref: "#/components/schemas/ChatCompactionPayload"
-
-    ChatProvidedToolCallEvent:
-      type: object
-      required: [type, payload]
-      properties:
-        type:
-          type: string
-          enum: [provided_toolcall]
-        payload:
-          $ref: "#/components/schemas/ChatProvidedToolCallPayload"
-
-    ChatEvent:
-      type: object
-      description: |
-        A single SSE event in the chat stream.
-        The `type` field determines which payload schema applies.
-      discriminator:
-        propertyName: type
-        mapping:
-          error: "#/components/schemas/ChatErrorEvent"
-          complete: "#/components/schemas/ChatCompletionEvent"
-          tool_result: "#/components/schemas/ChatToolResultEvent"
-          compaction: "#/components/schemas/ChatCompactionEvent"
-          provided_toolcall: "#/components/schemas/ChatProvidedToolCallEvent"
-      oneOf:
-        - $ref: "#/components/schemas/ChatErrorEvent"
-        - $ref: "#/components/schemas/ChatCompletionEvent"
-        - $ref: "#/components/schemas/ChatToolResultEvent"
-        - $ref: "#/components/schemas/ChatCompactionEvent"
-        - $ref: "#/components/schemas/ChatProvidedToolCallEvent"
+          description: The completion text chunk.
+        tool_calls:
+          type: array
+          description: Tool calls made by the model (non-empty only on done chunks).
+          items:
+            $ref: "#/components/schemas/ToolCall"
+      example:
+        type: "complete"
+        done: true
+        completion: "Memory consolidated."
+        tool_calls: []
 
     # ── MCP ─────────────────────────────────────────────────────────────
     ServerGatewayConfig:
       type: object
+      description: |
+        Exactly one of `http_gateway` or `command_gateway` must be provided.
+        If neither or both are provided, the request is rejected with 400.
       properties:
         http_gateway:
           type: object
+          required: [url]
           properties:
             url:
               type: string
@@ -1303,6 +1433,7 @@ components:
           description: Connect to a remote SSE-based MCP server via URL.
         command_gateway:
           type: object
+          required: [command]
           properties:
             command:
               type: string
@@ -1315,9 +1446,6 @@ components:
               additionalProperties:
                 type: string
           description: Spawn a local MCP server process.
-      description: |
-        Exactly one of `http_gateway` or `command_gateway` must be provided.
-        If neither or both are provided, the request is rejected with 400.
       example:
         http_gateway:
           url: "http://localhost:3001/mcp"
@@ -1349,13 +1477,9 @@ components:
       type: object
       description: Response from a successful MCP server connection.
       properties:
-        msg:
-          type: string
-          example: "success"
         created_id:
           type: string
       example:
-        msg: "success"
         created_id: "mcp_server_1"
 
     # ── Memory ────────────────────────────────────────────────────────
@@ -1396,19 +1520,6 @@ components:
         content: "The agent processed 15 tasks..."
 
     # ── Activity ────────────────────────────────────────────────────────
-    ActivityLogsResponse:
-      type: object
-      description: Activity logs for a time period.
-      properties:
-        activity:
-          type: array
-          items:
-            $ref: "#/components/schemas/ActivityRecord"
-      example:
-        activity:
-          - date: "2025-01-01"
-            content: "Agent processed task: daily_report"
-
     ActivityRecord:
       type: object
       description: A single activity log entry.
@@ -1549,8 +1660,8 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
-    NotFound:
-      description: Resource not found.
+    InternalError:
+      description: Internal server error.
       content:
         application/json:
           schema:
