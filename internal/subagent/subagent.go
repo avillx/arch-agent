@@ -31,7 +31,7 @@ func NewService(
 	return &Service{
 		chatExecutor: chatExecutor,
 		sessService:  sessService,
-		logger:       logger.WithGroup("sub agents"),
+		logger:       logger.WithGroup("sub_agent"),
 	}
 }
 
@@ -52,7 +52,7 @@ func (s *Service) Call(
 		return "", err
 	}
 
-	logger := s.logger.With("sub agent", subAgentID, "session", sessID)
+	logger := s.logger.With("sub_agent", subAgentID, "session", sessID)
 
 	// sink
 	lastAgentMessageContent := ""

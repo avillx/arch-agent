@@ -28,7 +28,7 @@ func NewSkillFiles(
 ) *SkillFiles {
 	sf := &SkillFiles{
 		fs:     fs,
-		logger: logger.WithGroup("skill files"),
+		logger: logger.WithGroup("skill_files"),
 	}
 
 	return sf

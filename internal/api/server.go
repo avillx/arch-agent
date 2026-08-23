@@ -130,19 +130,22 @@ func (s *HTTPServer) HandleFunc(pattern string, handler func(http.ResponseWriter
 
 func (s *HTTPServer) wrapResponse(h func(w http.ResponseWriter, r *http.Request) Response) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		logger := s.logger.With("method", r.Method, "path", r.URL.Path)
+		logger.Info("incoming request")
+
 		response := h(w, r)
 
 		// log error
 		if err, ok := response.(error); ok {
-			s.logger.Error("internal", "error", err)
+			logger.Error("internal", "error", err)
 		}
 
+		// silent case. no response provided
 		if response == nil {
-			s.logger.Info("request", "path", r.URL.Path)
 			return
 		}
 
-		s.logger.Info("request", "status", response.StatusCode(), "path", r.URL.Path)
+		logger.Info("respond", "status", response.StatusCode())
 
 		// respond json
 		if jr, ok := response.(JSONResponse); ok {
@@ -150,7 +153,7 @@ func (s *HTTPServer) wrapResponse(h func(w http.ResponseWriter, r *http.Request)
 			w.WriteHeader(jr.StatusCode())
 			enc := json.NewEncoder(w)
 			if err := enc.Encode(jr.Content()); err != nil {
-				s.logger.Error("response encoding", "error", err)
+				logger.Error("response encoding", "error", err)
 			}
 			return
 		}

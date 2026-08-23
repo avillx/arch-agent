@@ -25,7 +25,7 @@ func NewMemoryFiles(
 ) *MemoryFiles {
 	return &MemoryFiles{
 		fs:     fs,
-		logger: logger.WithGroup("memory files"),
+		logger: logger.WithGroup("memory_files"),
 	}
 }
 
