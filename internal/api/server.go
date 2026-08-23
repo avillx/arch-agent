@@ -132,12 +132,17 @@ func (s *HTTPServer) wrapResponse(h func(w http.ResponseWriter, r *http.Request)
 	return func(w http.ResponseWriter, r *http.Request) {
 		response := h(w, r)
 
-		s.logger.Info("request", "status", response.StatusCode(), "path", r.URL.Path)
-
 		// log error
 		if err, ok := response.(error); ok {
 			s.logger.Error("internal", "error", err)
 		}
+
+		if response == nil {
+			s.logger.Info("request", "path", r.URL.Path)
+			return
+		}
+
+		s.logger.Info("request", "status", response.StatusCode(), "path", r.URL.Path)
 
 		// respond json
 		if jr, ok := response.(JSONResponse); ok {

@@ -67,12 +67,11 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) Response {
 	stream := newStream(w)
 	defer stream.close()
 
+	// should send error to stream to avoid superflous
 	chatReqDTO, err := decode[RequestDTO](r)
 	if err != nil {
 		return NewInvalidRequest(err)
 	}
-
-	w.WriteHeader(http.StatusOK)
 
 	toolSevrvers := dtoToServers(chatReqDTO.ProvidedToolServers)
 	unregisterProvidedTools := registerProvidedToolServers(
@@ -91,11 +90,14 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) Response {
 		EventCallbacks:      newEventCallbacks(stream),
 	})
 
+	// should send error to stream to avoid superflous
 	if err != nil {
 		return NewInternalError(err)
 	}
 
-	return NewResponse(http.StatusOK)
+	// no need to send code it already sends by stream
+	// for avoiding superflous
+	return nil
 }
 
 func newEventCallbacks(stream *Stream) chat.EventCallbacks {
