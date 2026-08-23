@@ -122,17 +122,19 @@ func (s *Service) Connect(ctx context.Context, cfg ServerGatewayConfig) (MCPServ
 
 	s.servers[srv.ID()] = srv
 
+	logger := s.logger.With("server", srv.ID())
+
 	go func() {
 		// blocking
 		if err := srv.Run(context.Background()); err != nil {
-			s.logger.Error("connection", "server", srv.ID(), "error", err)
+			logger.Error("bad connection", "error", err)
 		}
 
 		if err := s.toolSvc.Disconnect(string(srv.ID())); err != nil {
-			s.logger.Error("server disconnection", "server", srv.ID(), "error", err)
+			logger.Error("bad disconnection", "error", err)
 		}
 
-		s.logger.Info("server disconnected", "server", srv.ID())
+		logger.Info("disconnected")
 
 		if storedSrv, ok := s.servers[srv.ID()]; ok && storedSrv == srv {
 			s.mu.Lock()
@@ -142,7 +144,7 @@ func (s *Service) Connect(ctx context.Context, cfg ServerGatewayConfig) (MCPServ
 		}
 	}()
 
-	s.logger.Info("server connected", "server", srv.ID())
+	logger.Info("connected")
 
 	return srv.ID(), nil
 }

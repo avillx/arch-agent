@@ -50,7 +50,7 @@ func (s *Service) Create(agentID agent.ID, instruction string) (ID, error) {
 		return "", err
 	}
 
-	s.logger.Info("created new", "agent", agentID, "session id", newSession.ID())
+	s.logger.Info("created new", "agent", agentID, "session_id", newSession.ID())
 
 	return newSession.ID(), nil
 }

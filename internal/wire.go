@@ -79,15 +79,25 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		return nil, err
 	}
 
-	logger := logging.NewLogger(logging.LoggerConfig{
-		Level:        cfg.LogLevel,
-		AddSource:    cfg.AddSource,
-		Indented:     cfg.Indented,
-		JSON:         cfg.JSON,
-		AgentLogFile: path.Join(fs.Cwd(), ".log"),
+	defaultHandler := logging.NewHandler(logging.LoggerConfig{
+		Level:     cfg.LogLevel,
+		AddSource: cfg.AddSource,
+		Indented:  cfg.Indented,
 	})
 
-	slog.SetDefault(logger)
+	// writes json in stdio and never write logs in log file for agents
+	agentUnreachibleLogger := slog.New(defaultHandler)
+	slog.SetDefault(agentUnreachibleLogger)
+
+	// write logs to agents visible log file with simplified format
+	// and in stdio in json format
+	// must be used for common logic
+	agentVisibleLogHandler := logging.WithAgentLog(
+		defaultHandler,
+		path.Join(fs.Cwd(), "agents.log"),
+	)
+
+	logger := slog.New(agentVisibleLogHandler)
 
 	secretsRepo, err := files.NewSecretsFiles(fs)
 	if err != nil {
@@ -211,7 +221,7 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	chatDispatcher := chat.NewDispatcher(chatSvc)
 
 	return api.NewHTTPServer(
-		logger,
+		agentUnreachibleLogger,
 		taskSvc,
 		chatDispatcher,
 		sessSvc,

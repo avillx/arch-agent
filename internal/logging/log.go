@@ -12,46 +12,30 @@ import (
 )
 
 type LoggerConfig struct {
-	Level        slog.Level
-	AddSource    bool
-	Indented     bool
-	JSON         bool
-	AgentLogFile string
+	Level     slog.Level
+	AddSource bool
+	Indented  bool
 }
 
-func NewLogger(cfg LoggerConfig) *slog.Logger {
+func NewHandler(cfg LoggerConfig) *slog.JSONHandler {
+	return slog.NewJSONHandler(
+		os.Stdout,
+		&slog.HandlerOptions{
+			ReplaceAttr: replaceAttrs,
+			AddSource:   cfg.AddSource,
+			Level:       cfg.Level,
+		},
+	)
+}
 
-	opt := &slog.HandlerOptions{
-		Level:       cfg.Level,
-		AddSource:   cfg.AddSource,
-		ReplaceAttr: replaceAttrs,
-	}
+func WithAgentLog(h slog.Handler, pathToLog string) slog.Handler {
 
-	// default
-	var sink io.Writer = os.Stdout
-	var handler slog.Handler = slog.NewTextHandler(sink, opt)
+	simpleHandler := NewSimpleHandler(
+		newFileWriter(pathToLog),
+		slog.LevelInfo,
+	)
 
-	// override
-	if cfg.JSON {
-		if cfg.Indented {
-			sink = &prettyWriter{sink}
-		}
-		handler = slog.NewJSONHandler(sink, opt)
-	}
-
-	// add log for agent
-	if cfg.AgentLogFile != "" {
-		agentHandler := slog.NewTextHandler(
-			newFileWriter(cfg.AgentLogFile),
-			&slog.HandlerOptions{
-				AddSource: false,
-				Level:     slog.LevelInfo,
-			},
-		)
-		handler = newMultiHandler([]slog.Handler{handler, agentHandler})
-	}
-
-	return slog.New(handler)
+	return newMultiHandler([]slog.Handler{h, simpleHandler})
 }
 
 type prettyWriter struct {
