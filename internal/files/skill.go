@@ -71,7 +71,7 @@ func (f *SkillFiles) loadSkills(p string) (map[string]string, error) {
 
 	skillIndex := map[string]string{}
 
-	walkDirFunc := func(currentPath string, d fs.DirEntry, err error) error {
+	walkDirFunc := func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			f.logger.Error("walking dir", "path", p, "error", err)
 			return nil
@@ -92,8 +92,13 @@ func (f *SkillFiles) loadSkills(p string) (map[string]string, error) {
 			return nil
 		}
 
+		localPath, err := f.fs.ToLocal(p)
+		if err != nil {
+			return err
+		}
+
 		// read file
-		data, err := f.fs.ReadFile(currentPath)
+		data, err := f.fs.ReadFile(localPath)
 		if err != nil {
 			return err
 		}
@@ -101,12 +106,12 @@ func (f *SkillFiles) loadSkills(p string) (map[string]string, error) {
 		// extract frontmatter
 		dto, err := resolveFrontmatter[skillFrontmatterDTO](data)
 		if err != nil {
-			f.logger.Error("frontmatter parsing", "path", currentPath, "error", err)
+			f.logger.Error("frontmatter parsing", "path", p, "error", err)
 			return nil
 		}
 
 		// add to index
-		skillIndex[currentPath] = dto.Description
+		skillIndex[p] = dto.Description
 
 		return nil
 	}

@@ -48,7 +48,12 @@ func (f *MemoryFiles) MemoryIndex(agentID agent.ID) (map[string]string, error) {
 			return nil
 		}
 
-		data, err := f.fs.ReadFile(p)
+		localPath, err := f.fs.ToLocal(p)
+		if err != nil {
+			return err
+		}
+
+		data, err := f.fs.ReadFile(localPath)
 		if err != nil {
 			f.logger.Error("read file", "path", p, "error", err)
 			return nil

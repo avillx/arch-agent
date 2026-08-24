@@ -26,7 +26,7 @@ func NewFS(dir string) (*FileSystem, error) {
 	}
 	return &FileSystem{
 		locks: newLockTable(),
-		dir:   dir,
+		dir:   filepath.Clean(dir),
 	}, nil
 }
 
@@ -39,7 +39,17 @@ func (fs *FileSystem) ReadDir(path string) ([]os.DirEntry, error) {
 }
 
 func (f *FileSystem) WalkDir(root string, fn fs.WalkDirFunc) error {
-	return fs.WalkDir(os.DirFS(f.dir), root, fn)
+	absPath := f.resolveAbsolutePath(root)
+	return filepath.WalkDir(absPath, fn)
+}
+
+func (f *FileSystem) ToLocal(p string) (string, error) {
+	cleanPath := filepath.Clean(p)
+	after, found := strings.CutPrefix(cleanPath, f.dir)
+	if !found {
+		return "", fmt.Errorf("'%s' is not a abs path", cleanPath)
+	}
+	return after, nil
 }
 
 func (fs *FileSystem) ReadFile(path string) ([]byte, error) {
