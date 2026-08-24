@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"path"
 	"strings"
 )
 
@@ -107,8 +106,7 @@ func (i *MemoryPart) Part(ctx context.Context) (string, error) {
 
 	var sb strings.Builder
 	for k, v := range idx {
-		fileName := strings.TrimSuffix(path.Base(k), path.Ext(k))
-		fmt.Fprintf(&sb, "(%s)[%s] - %s\n", fileName, k, v)
+		fmt.Fprintf(&sb, "- (%s) %s\n", k, v)
 	}
 
 	return prompt.PersistentMemory(i.agentID, sb.String(), ""), nil
@@ -141,7 +139,7 @@ func (i *SkillPart) Part(ctx context.Context) (string, error) {
 	// build index
 	var sb strings.Builder
 	for p, desc := range skills {
-		fmt.Fprintf(&sb, "- (%s): %s\n", p, desc)
+		fmt.Fprintf(&sb, "- (%s) %s\n", p, desc)
 	}
 
 	return prompt.SkillGuidance(sb.String()), nil
