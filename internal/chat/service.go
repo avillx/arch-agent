@@ -482,3 +482,10 @@ func SessionIDFromContext(ctx context.Context) (session.ID, bool) {
 	id, ok := ctx.Value(sessionIDCTXKey{}).(session.ID)
 	return id, ok
 }
+
+// TODO:
+// chan forwarding via  x <-evCh; fEvCh <- x;
+// processing via [T Event]EventHanlder(ev Event)
+// for each handler
+// if h,ok := handler.([T]EventHandler); ok {h(ev)}
+// process_shit()
