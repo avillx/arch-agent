@@ -1,2 +1,4 @@
-- [Memory](./{{ .Agent }}/memory/) - Your actual memory files, no need to read 
-  this directory, index is already loaded.
+
+Memory:
+- [Memory](./{{ .Agent }}/memory/) - your persistent knowledges (read-only)
+- [Activity](./{{ .Agent }}/activity/) - your dairy-like memory logs (read-only)
