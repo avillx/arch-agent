@@ -10,18 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 )
-
-type EventCallbacks struct {
-	OnLoopExit        func(*runtime.LoopExitEvent)
-	OnComplete        func(*runtime.CompleteEvent)
-	OnCompleteMistake func(*runtime.CompletionMistakeEvent)
-	OnToolResult      func(*runtime.ToolResultEvent)
-	OnCompaction      func(*runtime.CompactionEvent)
-	OnToolErr         func(*runtime.ToolCallErrEvent)
-	OnEvent           func(runtime.Event)
-}
 
 type Request struct {
 	AgentID             agent.ID
@@ -29,7 +18,7 @@ type Request struct {
 	UserMessage         *agent.UserMessage
 	ProvidedToolServers []agent.ToolServer
 	Logging             bool
-	EventCallbacks
+	Sink                chan runtime.Event
 }
 
 func (r Request) validate() error {
@@ -50,38 +39,14 @@ func (r Request) validate() error {
 		return fmt.Errorf("user message must has content")
 	}
 
+	if r.Sink == nil {
+		return fmt.Errorf("sink is required")
+	}
+
 	for _, c := range r.UserMessage.Content() {
 		if c.ImageURL == "" && c.Text == "" {
 			return fmt.Errorf("user message must has no empty content parts")
 		}
-	}
-
-	if r.OnCompaction == nil {
-		return fmt.Errorf("on compaction callback is empty")
-	}
-
-	if r.OnComplete == nil {
-		return fmt.Errorf("on complete callback is empty")
-	}
-
-	if r.OnCompleteMistake == nil {
-		return fmt.Errorf("on complete mistake callback is empty")
-	}
-
-	if r.OnEvent == nil {
-		return fmt.Errorf("on event callback is empty")
-	}
-
-	if r.OnLoopExit == nil {
-		return fmt.Errorf("on loop exit callback is empty")
-	}
-
-	if r.OnToolErr == nil {
-		return fmt.Errorf("on tool error callback is empty")
-	}
-
-	if r.OnToolResult == nil {
-		return fmt.Errorf("on tool result callback is empty")
 	}
 
 	return nil
@@ -162,28 +127,6 @@ func (s *Service) Chat(
 
 	sess.AddMessages(r.UserMessage)
 
-	r.EventCallbacks, err = s.attachSession(
-		r.AgentID,
-		sess,
-		r.EventCallbacks,
-	)
-	if err != nil {
-		return err
-	}
-
-	// observing
-	if r.Logging {
-		r.EventCallbacks = s.attachObserver(
-			r.AgentID,
-			r.SessionID,
-			r.UserMessage,
-			r.EventCallbacks,
-		)
-	}
-
-	// attach logging
-	r.EventCallbacks = s.attachLogging(r.AgentID, sess, r.EventCallbacks)
-
 	// build context
 	systemMessage, err := s.contextAssembler.BuildSystemMessage(
 		ctx,
@@ -199,246 +142,135 @@ func (s *Service) Chat(
 	agentContext = append(agentContext, systemMessage)
 	agentContext = append(agentContext, sess.Messages()...)
 
+	if r.Logging {
+		s.observer.Commit(agt.ID(), sess.ID(), []agent.Message{r.UserMessage})
+	}
+
 	// inject id's
 	ctx = withAgentID(ctx, r.AgentID)
 	ctx = withSessionID(ctx, r.SessionID)
 
-	// run
-	return runAgentLoopWithCallbacks(
+	s.runAgentLoopWithCallbacks(
 		ctx,
 		model,
+		r.AgentID,
+		sess,
 		agentContext,
 		extractTools(toolServers),
-		r.EventCallbacks,
+		r.Logging,
 		s.hooks,
+		r.Sink,
 	)
+
+	return nil
 }
 
-func (s *Service) attachLogging(
+func (s *Service) runAgentLoopWithCallbacks(
+	ctx context.Context,
+	model agent.Model,
 	agentID agent.ID,
 	sess session.Session,
-	eventCallbacks EventCallbacks,
-) EventCallbacks {
-
+	agentContext []agent.Message,
+	toolKit []agent.Tool,
+	observe bool,
+	hooks []any,
+	sink chan runtime.Event,
+) {
 	logger := s.logger.With(
 		"agent", agentID,
 		"session", sess.ID(),
 	)
 
-	// wrap completion
-	wrappedOnComplete := eventCallbacks.OnComplete
-	eventCallbacks.OnComplete = func(ev *runtime.CompleteEvent) {
-		c := ev.Complete()
-		logger.Info("completion",
-			"tool_calls", len(c.ToolCalls),
-			"input_tokens", c.InputTokens,
-			"output_tokens", c.CompletionTokens,
-		)
-		wrappedOnComplete(ev)
-	}
-
-	// wrap loop exit
-	wrappedOnLoopExit := eventCallbacks.OnLoopExit
-	eventCallbacks.OnLoopExit = func(ev *runtime.LoopExitEvent) {
-		if err := ev.Err(); err != nil {
-			logger.Error("loop exit with error",
-				"error", err,
-			)
-		} else {
-			logger.Info("loop exit")
-		}
-
-		wrappedOnLoopExit(ev)
-	}
-
-	// wrap completion mistake
-	wrappedOnCompleteMistake := eventCallbacks.OnCompleteMistake
-	eventCallbacks.OnCompleteMistake = func(ev *runtime.CompletionMistakeEvent) {
-		logger.Info("compltion mistake",
-			"error", ev.Err(),
-		)
-		wrappedOnCompleteMistake(ev)
-	}
-
-	// wrap tool result
-	wrappedOnToolResult := eventCallbacks.OnToolResult
-	eventCallbacks.OnToolResult = func(ev *runtime.ToolResultEvent) {
-		logger.Info("tool result recivied",
-			"tool", ev.Call().ToolName,
-		)
-		wrappedOnToolResult(ev)
-	}
-
-	// OnToolErr         func(*runtime.ToolCallErrEvent)
-	wrappedOnToolErr := eventCallbacks.OnToolErr
-	eventCallbacks.OnToolErr = func(ev *runtime.ToolCallErrEvent) {
-		err := ev.Err()
-		var mistake *types.AgentMistakeError
-		if errors.As(err, &mistake) {
-			logger.Warn("bad tool call",
-				"tool", ev.ToolName(),
-			)
-		} else {
-			logger.Error("tool call error",
-				"tool", ev.ToolName(),
-				"error", ev.Err(),
-			)
-		}
-
-		wrappedOnToolErr(ev)
-	}
-
-	// OnCompaction
-	wrappedOnCompaction := eventCallbacks.OnCompaction
-	eventCallbacks.OnCompaction = func(ev *runtime.CompactionEvent) {
-		logger.Warn("session compacted")
-		wrappedOnCompaction(ev)
-	}
-
-	return eventCallbacks
-}
-
-func (s *Service) attachSession(
-	agentID agent.ID,
-	sess session.Session,
-	eventCallbacks EventCallbacks,
-) (EventCallbacks, error) {
-
-	// wrap completion
-	wrappedOnComplete := eventCallbacks.OnComplete
-	eventCallbacks.OnComplete = func(ev *runtime.CompleteEvent) {
-		sess.ApplyCompletion(ev.Complete())
-
-		wrappedOnComplete(ev)
-	}
-
-	// wrap toolresult
-	wrappedOnToolResult := eventCallbacks.OnToolResult
-	eventCallbacks.OnToolResult = func(ev *runtime.ToolResultEvent) {
-		sess.AddMessages(agent.NewToolResultMessage(ev.Result()))
-
-		wrappedOnToolResult(ev)
-	}
-
-	// wrap compaction
-	wrappedOnCompaction := eventCallbacks.OnCompaction
-	eventCallbacks.OnCompaction = func(ev *runtime.CompactionEvent) {
-		sess.OverwriteMessages(0, ev.CompactedContext())
-
-		wrappedOnCompaction(ev)
-	}
-
-	// wrap loop exit
-	wrappedOnLoopExit := eventCallbacks.OnLoopExit
-	eventCallbacks.OnLoopExit = func(ev *runtime.LoopExitEvent) {
-		if err := s.sessionSvc.Save(agentID, sess); err != nil {
-			// log it
-		}
-		wrappedOnLoopExit(ev)
-	}
-
-	return eventCallbacks, nil
-}
-
-func (e *Service) attachObserver(
-	agentID agent.ID,
-	sessID session.ID,
-	userMessage agent.Message,
-	eventCallbacks EventCallbacks,
-) EventCallbacks {
-	// commit user message
-	e.observer.Commit(agentID, sessID, []agent.Message{userMessage})
-
-	// wrap on complete for log shit
-	wrappedOnComplete := eventCallbacks.OnComplete
-	eventCallbacks.OnComplete = func(ev *runtime.CompleteEvent) {
-		completion := ev.Complete()
-		msg := agent.NewAgentMessage(completion.Content, completion.ToolCalls)
-		msgs := []agent.Message{msg}
-		e.observer.Commit(agentID, sessID, msgs)
-
-		wrappedOnComplete(ev)
-	}
-
-	return eventCallbacks
-}
-
-func readEvents(
-	ch <-chan runtime.Event,
-	OnLoopExit func(*runtime.LoopExitEvent),
-	OnComplete func(*runtime.CompleteEvent),
-	OnCompleteMistake func(*runtime.CompletionMistakeEvent),
-	OnToolResult func(*runtime.ToolResultEvent),
-	OnCompaction func(*runtime.CompactionEvent),
-	OnToolErr func(*runtime.ToolCallErrEvent),
-	OnEvent func(runtime.Event),
-) {
-	for ev := range ch {
-		OnEvent(ev)
-
-		switch typedEv := ev.(type) {
-		case *runtime.LoopExitEvent:
-			OnLoopExit(typedEv)
-		case *runtime.CompactionEvent:
-			OnCompaction(typedEv)
-		case *runtime.CompleteEvent:
-			OnComplete(typedEv)
-		case *runtime.CompletionMistakeEvent:
-			OnCompleteMistake(typedEv)
-		case *runtime.ToolResultEvent:
-			OnToolResult(typedEv)
-		case *runtime.ToolCallErrEvent:
-			OnToolErr(typedEv)
-		}
-	}
-}
-
-func runAgentLoopWithCallbacks(
-	ctx context.Context,
-	model agent.Model,
-	agentContext []agent.Message,
-	toolKit []agent.Tool,
-	evCallbacks EventCallbacks,
-	hooks []any,
-) error {
 	// sink
 	evCh := make(chan runtime.Event, 16)
-	defer close(evCh)
 
-	done := make(chan struct{})
 	go func() {
-		readEvents(
+		defer close(evCh)
+		runtime.RunAgentLoop(
+			ctx,
+			model,
+			agentContext,
+			toolKit,
 			evCh,
-			evCallbacks.OnLoopExit,
-			evCallbacks.OnComplete,
-			evCallbacks.OnCompleteMistake,
-			evCallbacks.OnToolResult,
-			evCallbacks.OnCompaction,
-			evCallbacks.OnToolErr,
-			evCallbacks.OnEvent,
+			hooks,
 		)
-		close(done)
 	}()
 
-	// run
-	loopErr := runtime.RunAgentLoop(
-		ctx,
-		model,
-		agentContext,
-		toolKit,
-		evCh,
-		hooks,
-	)
+	for rawEv := range evCh {
+		switch ev := rawEv.(type) {
 
-	// await of event processing
-	awaitCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	select {
-	case <-awaitCtx.Done():
-	case <-done:
+		// loop exit event
+		case *runtime.LoopExitEvent:
+			if err := ev.Err(); err != nil {
+				logger.Error("loop exit with error",
+					"error", err,
+				)
+			} else {
+				logger.Info("loop exit")
+			}
+
+			if err := s.sessionSvc.Save(agentID, sess); err != nil {
+				logger.Error("save session", "error", err)
+			}
+
+		// compaction event
+		case *runtime.CompactionEvent:
+			logger.Warn("session compacted")
+			sess.OverwriteMessages(0, ev.CompactedContext())
+
+		// complete event
+		case *runtime.CompleteEvent:
+			c := ev.Complete()
+			logger.Info("completion",
+				"tool_calls", len(c.ToolCalls),
+				"input_tokens", c.InputTokens,
+				"output_tokens", c.CompletionTokens,
+			)
+			// modify session
+			sess.ApplyCompletion(c)
+
+			// observe
+			if observe {
+				completion := ev.Complete()
+				msg := agent.NewAgentMessage(completion.Content, completion.ToolCalls)
+				msgs := []agent.Message{msg}
+
+				// forward to request
+				s.observer.Commit(agentID, sess.ID(), msgs)
+			}
+
+		// completion mistake
+		case *runtime.CompletionMistakeEvent:
+			logger.Info("compltion mistake",
+				"error", ev.Err(),
+			)
+
+		// tool result
+		case *runtime.ToolResultEvent:
+			logger.Info("tool result recivied",
+				"tool", ev.Call().ToolName,
+			)
+			sess.AddMessages(agent.NewToolResultMessage(ev.Result()))
+
+		// tool call error
+		case *runtime.ToolCallErrEvent:
+			err := ev.Err()
+			var mistake *types.AgentMistakeError
+			if errors.As(err, &mistake) {
+				logger.Warn("bad tool call",
+					"tool", ev.ToolName(),
+				)
+			} else {
+				logger.Error("tool call error",
+					"tool", ev.ToolName(),
+					"error", ev.Err(),
+				)
+			}
+		}
+
+		// forward to origin
+		sink <- rawEv
 	}
-
-	return loopErr
 }
 
 func resolveToolServers(reg agent.ToolRegistry, agt agent.Agent, provided []agent.ToolServer) ([]agent.ToolServer, error) {

@@ -59,31 +59,26 @@ func (s *Service) Call(
 
 	// event callbacks
 
-	onLoopExit := func(lee *runtime.LoopExitEvent) {
-		if lee.Err() != nil {
-			message := fmt.Sprintf("sub agent %s, fall with error", subAgentID)
-			lastAgentMessageContent += message
+	evCh := make(chan runtime.Event, 16)
+	defer close(evCh)
+	go func() {
+		for e := range evCh {
+			switch ev := e.(type) {
+			case *runtime.LoopExitEvent:
+				if ev.Err() != nil {
+					message := fmt.Sprintf("sub agent %s, fall with error", subAgentID)
+					lastAgentMessageContent += message
 
-			logger.Error(
-				"fall with error",
-				"error", err,
-			)
+					logger.Error(
+						"fall with error",
+						"error", err,
+					)
+				}
+			case *runtime.CompleteEvent:
+				lastAgentMessageContent = ev.Complete().Content
+			}
 		}
-	}
-
-	onComplete := func(ce *runtime.CompleteEvent) {
-		lastAgentMessageContent = ce.Complete().Content
-	}
-
-	eventCallbacks := chat.EventCallbacks{
-		OnComplete:        onComplete,
-		OnLoopExit:        onLoopExit,
-		OnCompleteMistake: func(cme *runtime.CompletionMistakeEvent) {},
-		OnToolResult:      func(tre *runtime.ToolResultEvent) {},
-		OnCompaction:      func(ce *runtime.CompactionEvent) {},
-		OnToolErr:         func(tcee *runtime.ToolCallErrEvent) {},
-		OnEvent:           func(e runtime.Event) {},
-	}
+	}()
 
 	logger.Info("running")
 
@@ -93,11 +88,11 @@ func (s *Service) Call(
 	s.chatExecutor.Chat(
 		ctx,
 		chat.Request{
-			AgentID:        subAgentID,
-			SessionID:      sessID,
-			UserMessage:    agent.NewUserMessage(request),
-			EventCallbacks: eventCallbacks,
-			Logging:        false,
+			AgentID:     subAgentID,
+			SessionID:   sessID,
+			UserMessage: agent.NewUserMessage(request),
+			Logging:     false,
+			Sink:        evCh,
 		},
 	)
 

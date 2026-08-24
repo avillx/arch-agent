@@ -64,15 +64,14 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) Response {
 		ProvidedToolServers []ProvidedToolServerDTO `json:"tool_servers,omitempty"`
 	}
 
-	stream := newStream(w)
-	defer stream.close()
-
 	// should send error to stream to avoid superflous
 	chatReqDTO, err := decode[RequestDTO](r)
 	if err != nil {
 		return NewInvalidRequest(err)
 	}
 
+	stream := newStream(w)
+	defer stream.close()
 	toolSevrvers := dtoToServers(chatReqDTO.ProvidedToolServers)
 	unregisterProvidedTools := registerProvidedToolServers(
 		h.provToolRegister,
@@ -81,26 +80,37 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) Response {
 	)
 	defer unregisterProvidedTools()
 
+	evCh := make(chan runtime.Event, 16)
+	defer close(evCh)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		forwardEventsToStream(evCh, stream)
+	}()
+
 	err = h.chatDispatcher.Chat(r.Context(), chat.Request{
 		AgentID:             agentID,
 		SessionID:           sessionID,
 		UserMessage:         agent.NewUserMessage(chatReqDTO.UserRequest),
 		Logging:             chatReqDTO.Logging,
 		ProvidedToolServers: toolSevrvers,
-		EventCallbacks:      newEventCallbacks(stream),
+		Sink:                evCh,
 	})
-
-	// should send error to stream to avoid superflous
 	if err != nil {
+		// stream.send(err) cause stream already opened
 		return NewInternalError(err)
 	}
+
+	// blocking for await
+	<-done
 
 	// no need to send code it already sends by stream
 	// for avoiding superflous
 	return nil
 }
 
-func newEventCallbacks(stream *Stream) chat.EventCallbacks {
+func forwardEventsToStream(evCh chan runtime.Event, stream *Stream) {
 
 	type ToolErrorDTO struct {
 		EventTypeDTO
@@ -126,89 +136,82 @@ func newEventCallbacks(stream *Stream) chat.EventCallbacks {
 		Cause string `json:"cause,omitempty"`
 	}
 
-	onComplete := func(ev *runtime.CompleteEvent) {
-		c := ev.Complete()
-		data := CompletionDTO{
-			EventTypeDTO: EventTypeDTO{
-				Type: Complete,
-			},
-			Done:      c.Done,
-			Content:   c.Content,
-			ToolCalls: toolCallsToDTO(c.ToolCalls),
+	for rawEv := range evCh {
+		switch ev := rawEv.(type) {
+
+		// loop exit event
+		case *runtime.LoopExitEvent:
+			cause := ""
+			if err := ev.Err(); err != nil {
+				cause = err.Error()
+			}
+			data := LoopExitDTO{
+				EventTypeDTO: EventTypeDTO{
+					Type: LoopExit,
+				},
+				Cause: cause,
+			}
+			stream.send(data)
+
+		// compaction event
+		case *runtime.CompactionEvent:
+			data := CompactionDTO{
+				EventTypeDTO: EventTypeDTO{
+					Type: Compaction,
+				},
+				// TODO: eliminate this shit
+				Message: "compaction has been proceed",
+				Result:  ev.Summary(),
+			}
+			stream.send(data)
+
+		// complete event
+		case *runtime.CompleteEvent:
+			c := ev.Complete()
+			data := CompletionDTO{
+				EventTypeDTO: EventTypeDTO{
+					Type: Complete,
+				},
+				Done:      c.Done,
+				Content:   c.Content,
+				ToolCalls: toolCallsToDTO(c.ToolCalls),
+			}
+			stream.send(data)
+
+		// completion mistake
+		case *runtime.CompletionMistakeEvent:
+			data := CompletionMistakeDTO{
+				EventTypeDTO: EventTypeDTO{
+					Type: Complete,
+				},
+				Cause: ev.Err().Error(),
+			}
+			stream.send(data)
+
+		// tool result
+		case *runtime.ToolResultEvent:
+			tr := ev.Result()
+			data := ToolResultDTO{
+				EventTypeDTO: EventTypeDTO{
+					Type: ToolResult,
+				},
+				ID:     tr.ID,
+				Result: tr.Result,
+			}
+			stream.send(data)
+
+		// tool call error
+		case *runtime.ToolCallErrEvent:
+			data := ToolErrorDTO{
+				EventTypeDTO: EventTypeDTO{
+					Type: CompleteMistake,
+				},
+				Cause:    ev.Err().Error(),
+				ToolName: ev.ToolName(),
+				Args:     ev.ToolArgs(),
+			}
+			stream.send(data)
 		}
-		stream.send(data)
-	}
-
-	onCompleteMistake := func(ev *runtime.CompletionMistakeEvent) {
-		data := CompletionMistakeDTO{
-			EventTypeDTO: EventTypeDTO{
-				Type: Complete,
-			},
-			Cause: ev.Err().Error(),
-		}
-		stream.send(data)
-	}
-
-	onToolResult := func(ev *runtime.ToolResultEvent) {
-		tr := ev.Result()
-		data := ToolResultDTO{
-			EventTypeDTO: EventTypeDTO{
-				Type: ToolResult,
-			},
-			ID:     tr.ID,
-			Result: tr.Result,
-		}
-		stream.send(data)
-	}
-
-	onToolErr := func(ev *runtime.ToolCallErrEvent) {
-		data := ToolErrorDTO{
-			EventTypeDTO: EventTypeDTO{
-				Type: CompleteMistake,
-			},
-			Cause:    ev.Err().Error(),
-			ToolName: ev.ToolName(),
-			Args:     ev.ToolArgs(),
-		}
-		stream.send(data)
-	}
-
-	onCompaction := func(ev *runtime.CompactionEvent) {
-		data := CompactionDTO{
-			EventTypeDTO: EventTypeDTO{
-				Type: Compaction,
-			},
-			// TODO: eliminate this shit
-			Message: "compaction has been proceed",
-			Result:  ev.Summary(),
-		}
-		stream.send(data)
-	}
-
-	OnLoopExit := func(ev *runtime.LoopExitEvent) {
-
-		cause := ""
-		if err := ev.Err(); err != nil {
-			cause = err.Error()
-		}
-
-		data := LoopExitDTO{
-			EventTypeDTO: EventTypeDTO{
-				Type: LoopExit,
-			},
-			Cause: cause,
-		}
-		stream.send(data)
-	}
-
-	return chat.EventCallbacks{
-		OnComplete:        onComplete,
-		OnCompleteMistake: onCompleteMistake,
-		OnToolResult:      onToolResult,
-		OnCompaction:      onCompaction,
-		OnToolErr:         onToolErr,
-		OnLoopExit:        OnLoopExit,
-		OnEvent:           func(runtime.Event) {},
 	}
 }
 
