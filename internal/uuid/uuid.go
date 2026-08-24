@@ -1,12 +1,14 @@
 package uuid
 
-import "github.com/google/uuid"
+import (
+	"github.com/rs/xid"
+)
 
 type UUIDGenerator struct{}
 
 func NewUUIDGenerator() *UUIDGenerator { return &UUIDGenerator{} }
 
 func (g *UUIDGenerator) New() string {
-	id := uuid.New()
+	id := xid.New()
 	return id.String()
 }
