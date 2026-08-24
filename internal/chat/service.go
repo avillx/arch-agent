@@ -229,10 +229,10 @@ func (s *Service) attachLogging(
 	wrappedOnComplete := eventCallbacks.OnComplete
 	eventCallbacks.OnComplete = func(ev *runtime.CompleteEvent) {
 		c := ev.Complete()
-		logger.Info("compltion",
-			"tool calls", len(c.ToolCalls),
-			"input tokens", c.InputTokens,
-			"completion tokens", c.CompletionTokens,
+		logger.Info("completion",
+			"tool_calls", len(c.ToolCalls),
+			"input_tokens", c.InputTokens,
+			"output_tokens", c.CompletionTokens,
 		)
 		wrappedOnComplete(ev)
 	}
