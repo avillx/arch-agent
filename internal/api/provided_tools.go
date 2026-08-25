@@ -30,13 +30,19 @@ type ProvidedToolServerDTO struct {
 	Instruction   string            `json:"instruction,omitempty"`
 }
 
+type IDGenerator interface {
+	New() string
+}
+
 type providedToolsRouter struct {
+	idGen   IDGenerator
 	waiters map[string]chan ProvidedToolResultDTO
 	mu      sync.RWMutex
 }
 
-func NewProvidedToolsRouter() *providedToolsRouter {
+func NewProvidedToolsRouter(idGen IDGenerator) *providedToolsRouter {
 	return &providedToolsRouter{
+		idGen:   idGen,
 		waiters: map[string]chan ProvidedToolResultDTO{},
 	}
 }
@@ -51,8 +57,8 @@ func (h *providedToolsRouter) ResolveCall(w http.ResponseWriter, r *http.Request
 	}
 
 	h.mu.Lock()
-	defer h.mu.Unlock()
 	resCh, ok := h.waiters[id]
+	h.mu.Unlock()
 	if !ok {
 		return NewBadRequest("tool id is not exist")
 	}
@@ -63,16 +69,14 @@ func (h *providedToolsRouter) ResolveCall(w http.ResponseWriter, r *http.Request
 
 type unregisterFunc func()
 
-func (h *providedToolsRouter) registerToolServer(t *ProvidedTool) unregisterFunc {
-	id := createID()
-
-	t.SetID(id)
-
+func (h *providedToolsRouter) registerTool(t *ProvidedTool) unregisterFunc {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	id := h.idGen.New()
 	resCh := t.Chan()
 	h.waiters[id] = resCh
+	t.SetID(id)
 
 	return func() {
 		h.mu.Lock()
@@ -82,10 +86,6 @@ func (h *providedToolsRouter) registerToolServer(t *ProvidedTool) unregisterFunc
 			delete(h.waiters, id)
 		}
 	}
-}
-
-func createID() string {
-	return fmt.Sprintf("%x%x", time.Now().Nanosecond(), time.Now().UnixMilli())
 }
 
 // server
@@ -159,7 +159,7 @@ func NewProvidedTool(dto ProvidedToolDTO) *ProvidedTool {
 		name:        dto.Name,
 		description: dto.Description,
 		scheme:      dto.Schema,
-		resultCh:    make(chan ProvidedToolResultDTO),
+		resultCh:    make(chan ProvidedToolResultDTO, 1),
 	}
 }
 

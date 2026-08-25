@@ -120,9 +120,10 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 
 	agentRepo := files.NewAgentFiles(fs)
 
+	idGen := uuid.NewUUIDGenerator()
 	sessSvc := session.NewService(
 		files.NewSessionFiles(fs),
-		uuid.NewUUIDGenerator(),
+		idGen,
 		logger,
 	)
 
@@ -233,5 +234,6 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		activityRepo,
 		agentRepo,
 		providerSvc,
+		idGen,
 	), nil
 }

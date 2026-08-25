@@ -175,7 +175,7 @@ func forwardEventsToStream(evCh chan runtime.Event, stream *Stream) {
 		case *runtime.CompletionMistakeEvent:
 			data := CompletionMistakeDTO{
 				EventTypeDTO: EventTypeDTO{
-					Type: Complete,
+					Type: CompleteMistake,
 				},
 				Cause: ev.Err().Error(),
 			}
@@ -197,7 +197,7 @@ func forwardEventsToStream(evCh chan runtime.Event, stream *Stream) {
 		case *runtime.ToolCallErrEvent:
 			data := ToolErrorDTO{
 				EventTypeDTO: EventTypeDTO{
-					Type: CompleteMistake,
+					Type: ToolError,
 				},
 				Cause:    ev.Err().Error(),
 				ToolName: ev.ToolName(),
@@ -233,7 +233,7 @@ func toolCallsToDTO(calls []*agent.ToolCall) []ToolCallDTO {
 }
 
 type providedToolRegister interface {
-	registerToolServer(t *ProvidedTool) unregisterFunc
+	registerTool(t *ProvidedTool) unregisterFunc
 }
 
 func registerProvidedToolServers(r providedToolRegister, s *Stream, toolServers []agent.ToolServer) unregisterFunc {
@@ -247,7 +247,7 @@ func registerProvidedToolServers(r providedToolRegister, s *Stream, toolServers 
 		for _, t := range ts.Tools() {
 			if providedTool, ok := t.(*ProvidedTool); ok {
 				providedTool.SetStream(s)
-				unreg := r.registerToolServer(providedTool)
+				unreg := r.registerTool(providedTool)
 				unregFuncs = append(unregFuncs, unreg)
 			}
 		}
