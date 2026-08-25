@@ -129,15 +129,12 @@ func decode[T any](r *http.Request) (T, error) {
 }
 
 type Stream struct {
-	w  http.ResponseWriter
-	mu sync.Mutex
+	w             http.ResponseWriter
+	mu            sync.Mutex
+	commitHeaders sync.Once
 }
 
 func newStream(w http.ResponseWriter) *Stream {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.WriteHeader(http.StatusOK)
 	return &Stream{w: w}
 }
 
@@ -145,11 +142,40 @@ func (s *Stream) send(v any) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	s.commitHeaders.Do(func() {
+		s.w.Header().Set("Content-Type", "text/event-stream")
+		s.w.Header().Set("Cache-Control", "no-cache")
+		s.w.Header().Set("Connection", "keep-alive")
+		s.w.WriteHeader(http.StatusOK)
+	})
+
 	data, err := json.Marshal(v)
 	if err != nil {
 		return
 	}
 	fmt.Fprintf(s.w, "data: %s\n\n", data)
+	if f, ok := s.w.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (s *Stream) sendError(status int, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.commitHeaders.Do(func() {
+		s.w.Header().Set("Content-Type", "text/event-stream")
+		s.w.Header().Set("Cache-Control", "no-cache")
+		s.w.Header().Set("Connection", "keep-alive")
+		s.w.WriteHeader(status)
+	})
+	data, err := json.Marshal(map[string]any{
+		"error": err.Error(),
+	})
+	if err != nil {
+		return
+	}
+	fmt.Fprintf(s.w, "error: %s\n\n", data)
 	if f, ok := s.w.(http.Flusher); ok {
 		f.Flush()
 	}

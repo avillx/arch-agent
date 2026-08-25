@@ -64,14 +64,16 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) Response {
 		ProvidedToolServers []ProvidedToolServerDTO `json:"tool_servers,omitempty"`
 	}
 
+	stream := newStream(w)
+	defer stream.close()
+
 	// should send error to stream to avoid superflous
 	chatReqDTO, err := decode[RequestDTO](r)
 	if err != nil {
-		return NewInvalidRequest(err)
+		stream.sendError(http.StatusBadRequest, err)
+		return nil
 	}
 
-	stream := newStream(w)
-	defer stream.close()
 	toolSevrvers := dtoToServers(chatReqDTO.ProvidedToolServers)
 	unregisterProvidedTools := registerProvidedToolServers(
 		h.provToolRegister,
@@ -81,32 +83,23 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) Response {
 	defer unregisterProvidedTools()
 
 	evCh := make(chan runtime.Event, 16)
-	defer close(evCh)
 
-	done := make(chan struct{})
 	go func() {
-		defer close(done)
-		forwardEventsToStream(evCh, stream)
+		defer close(evCh)
+		err = h.chatDispatcher.Chat(r.Context(), chat.Request{
+			AgentID:             agentID,
+			SessionID:           sessionID,
+			UserMessage:         agent.NewUserMessage(chatReqDTO.UserRequest),
+			Logging:             chatReqDTO.Logging,
+			ProvidedToolServers: toolSevrvers,
+			Sink:                evCh,
+		})
+		if err != nil {
+			stream.sendError(http.StatusBadRequest, err)
+		}
 	}()
 
-	err = h.chatDispatcher.Chat(r.Context(), chat.Request{
-		AgentID:             agentID,
-		SessionID:           sessionID,
-		UserMessage:         agent.NewUserMessage(chatReqDTO.UserRequest),
-		Logging:             chatReqDTO.Logging,
-		ProvidedToolServers: toolSevrvers,
-		Sink:                evCh,
-	})
-	if err != nil {
-		// stream.send(err) cause stream already opened
-		return NewInternalError(err)
-	}
-
-	// blocking for await
-	<-done
-
-	// no need to send code it already sends by stream
-	// for avoiding superflous
+	forwardEventsToStream(evCh, stream)
 	return nil
 }
 
