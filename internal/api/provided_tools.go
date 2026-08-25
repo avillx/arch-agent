@@ -58,8 +58,7 @@ func (h *providedToolsRouter) ResolveCall(w http.ResponseWriter, r *http.Request
 	}
 
 	resCh <- res
-	w.WriteHeader(http.StatusOK)
-	return nil
+	return NewResponse(http.StatusOK)
 }
 
 type unregisterFunc func()
