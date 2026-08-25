@@ -91,8 +91,6 @@ func (s *Service) start(cfg TaskConfig) error {
 		return ErrCron
 	}
 
-	logger := s.logger.With("task", cfg.Name)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	stopped := make(chan struct{})
 	rt := &taskRuntime{cancel: cancel, stopped: stopped}
@@ -111,11 +109,11 @@ func (s *Service) start(cfg TaskConfig) error {
 		delete(s.runtimes, cfg.Name)
 		cfg.Active = false
 		if err := s.repo.Save(cfg); err != nil {
-			logger.Error("disabling", "error", err)
+			s.logger.Error("disabling", "task", cfg.Name, "error", err)
 		}
 	}()
 
-	logger.Info("activated")
+	s.logger.Info("activated", "task", cfg.Name)
 
 	return nil
 }
