@@ -64,7 +64,7 @@ type Service struct {
 	modelRepo        agent.ModelRegistry
 	toolRegistry     agent.ToolRegistry
 	contextAssembler *ContextAssembler
-	observer         *memory.Observer
+	activitySvc      *memory.ActivityService
 	hooks            []any
 	logger           *slog.Logger
 }
@@ -75,7 +75,7 @@ func NewService(
 	modelRepo agent.ModelRegistry,
 	toolRegistry agent.ToolRegistry,
 	contextAssembler *ContextAssembler,
-	observer *memory.Observer,
+	activitySvc *memory.ActivityService,
 	hooks []any,
 	logger *slog.Logger,
 ) *Service {
@@ -84,7 +84,7 @@ func NewService(
 		sessionSvc:       sessionSvc,
 		modelRepo:        modelRepo,
 		toolRegistry:     toolRegistry,
-		observer:         observer,
+		activitySvc:      activitySvc,
 		contextAssembler: contextAssembler,
 		hooks:            hooks,
 		logger:           logger.WithGroup("chat"),
@@ -143,7 +143,7 @@ func (s *Service) Chat(
 	agentContext = append(agentContext, sess.Messages()...)
 
 	if r.Logging {
-		s.observer.Commit(agt.ID(), sess.ID(), []agent.Message{r.UserMessage})
+		s.activitySvc.Commit(agt.ID(), sess.ID(), []agent.Message{r.UserMessage})
 	}
 
 	// inject id's
@@ -235,8 +235,7 @@ func (s *Service) runAgentLoopWithCallbacks(
 				msg := agent.NewAgentMessage(completion.Content, completion.ToolCalls)
 				msgs := []agent.Message{msg}
 
-				// forward to request
-				s.observer.Commit(agentID, sess.ID(), msgs)
+				s.activitySvc.Commit(agentID, sess.ID(), msgs)
 			}
 
 		// completion mistake
@@ -314,10 +313,3 @@ func SessionIDFromContext(ctx context.Context) (session.ID, bool) {
 	id, ok := ctx.Value(sessionIDCTXKey{}).(session.ID)
 	return id, ok
 }
-
-// TODO:
-// chan forwarding via  x <-evCh; fEvCh <- x;
-// processing via [T Event]EventHanlder(ev Event)
-// for each handler
-// if h,ok := handler.([T]EventHandler); ok {h(ev)}
-// process_shit()

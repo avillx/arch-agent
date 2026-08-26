@@ -12,20 +12,20 @@ import (
 )
 
 type memoryHandler struct {
-	memorySvc     *memory.Memory
-	memoryIndexer agent.MemoryIndexer
-	memoryRepo    agent.MemoryRepo
+	consolidationSvc *memory.ConsolidationService
+	memoryIndexer    agent.MemoryIndexer
+	memoryRepo       agent.MemoryRepo
 }
 
 func NewMemoryHandler(
-	memorySvc *memory.Memory,
+	consolidationSvc *memory.ConsolidationService,
 	memoryIndexer agent.MemoryIndexer,
 	memoryRepo agent.MemoryRepo,
 ) *memoryHandler {
 	return &memoryHandler{
-		memorySvc:     memorySvc,
-		memoryIndexer: memoryIndexer,
-		memoryRepo:    memoryRepo,
+		consolidationSvc: consolidationSvc,
+		memoryIndexer:    memoryIndexer,
+		memoryRepo:       memoryRepo,
 	}
 }
 
@@ -120,7 +120,7 @@ func (h *memoryHandler) Consolidate(w http.ResponseWriter, r *http.Request) Resp
 		}
 	}()
 
-	if err := h.memorySvc.ConsolidateImmidate(r.Context(), agentID, evCh); err != nil {
+	if err := h.consolidationSvc.ConsolidateImmidate(r.Context(), agentID, evCh); err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
 			return NewNotFound("agent is not exist")
 		}

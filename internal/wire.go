@@ -23,53 +23,20 @@ import (
 	"arch-agent/internal/tools/todo"
 	"arch-agent/internal/uuid"
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"path"
 )
 
 type Config struct {
-	DataPath           string
-	TelegramGroupID    int64
-	ConsolidationModel string
-	ObserverModel      string
-	ShellEnv           []string
+	DataPath        string
+	TelegramGroupID int64
+	ShellEnv        []string
 
 	LogLevel  slog.Level
 	AddSource bool
 	Indented  bool
 	JSON      bool
-}
-
-func BuildMemoryConsolidator(
-	fs *files.FileSystem,
-	model agent.Model,
-	agentRepo agent.Repo,
-	indexer agent.MemoryIndexer,
-	logger *slog.Logger,
-) (*memory.Memory, error) {
-
-	// TODO: consolidation prompt is unreachible for memory consolidator
-	fsToolsSrv := memory.NewInstuctFS(fs.Cwd(), fstools.NewRawFileSystemToolServer(fs))
-
-	memoryHooksResolver, err := hooks.NewMemoryHooksResolver(fs, indexer)
-	if err != nil {
-		return nil, fmt.Errorf("harness: %w", err)
-	}
-
-	memory, err := memory.NewMemory(
-		agentRepo,
-		[]agent.ToolServer{fsToolsSrv},
-		model,
-		memoryHooksResolver,
-		logger,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return memory, err
 }
 
 func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
@@ -144,15 +111,16 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 
 	todoStorage := todo.NewInMemoryStore()
 
-	// chat service
-	observerModel, err := modelsSvc.Get(cfg.ObserverModel)
+	memoryRepo, err := files.NewMemoryConfigFile(fs)
 	if err != nil {
-		return nil, errors.New("has no observer model")
+		return nil, err
 	}
 
 	activityRepo := files.NewActivityFiles(fs)
-	observer := memory.NewObserver(
-		memory.NewActivityReporter(observerModel),
+	activityConfigRepo := files.NewActivityRepo(memoryRepo)
+	activityService := memory.NewActivityService(
+		modelsSvc,
+		activityConfigRepo,
 		activityRepo,
 		logger,
 	)
@@ -168,7 +136,7 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		modelsSvc,
 		toolSvc,
 		contextAssembler,
-		observer,
+		activityService,
 		agentHooks,
 		logger,
 	)
@@ -202,20 +170,21 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	subagentSvc := subagent.NewService(chatSvc, sessSvc, logger)
 	toolSvc.Connect("agent", tools.NewCallAgentToolServer(subagentSvc, agentRepo))
 
-	consolidatorModel, err := modelsSvc.Get(cfg.ConsolidationModel)
+	memoryHooksResolver, err := hooks.NewMemoryHooksResolver(fs, memoryFiles)
 	if err != nil {
-		return nil, fmt.Errorf("'consolidator' model: %w", err)
+		return nil, fmt.Errorf("harness: %w", err)
 	}
 
-	memoryConsolidator, err := BuildMemoryConsolidator(
-		fs,
-		consolidatorModel,
+	memoryConsolidator, err := memory.NewConsolidationService(
 		agentRepo,
-		memoryFiles,
+		[]agent.ToolServer{fstools.NewConsolidationInstuctFS(fs)},
+		memoryHooksResolver,
+		modelsSvc,
+		files.NewConsolidatorRepo(memoryRepo),
 		logger,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("memory consolidator: %w", err)
+		return nil, err
 	}
 	go memoryConsolidator.Run(ctx)
 

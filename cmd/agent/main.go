@@ -14,20 +14,16 @@ import (
 )
 
 type RunParameters struct {
-	DataPath           string
-	ConsolidationModel string
-	ObserverModel      string
-	Port               string
-	LogIndented        bool
-	LogSource          bool
-	LogLevel           slog.Level
-	LogJSON            bool
+	DataPath    string
+	Port        string
+	LogIndented bool
+	LogSource   bool
+	LogLevel    slog.Level
+	LogJSON     bool
 }
 
 func NewRunParameters(
 	dataPath string,
-	consolidationModel string,
-	observerModel string,
 	port string,
 	logIndented string,
 	logSource string,
@@ -79,23 +75,13 @@ func NewRunParameters(
 		return RunParameters{}, err
 	}
 
-	if consolidationModel == "" {
-		return RunParameters{}, fmt.Errorf("consolidation model is not set")
-	}
-
-	if observerModel == "" {
-		return RunParameters{}, fmt.Errorf("observer model is not set")
-	}
-
 	return RunParameters{
-		DataPath:           dataPath,
-		ConsolidationModel: consolidationModel,
-		ObserverModel:      observerModel,
-		Port:               port,
-		LogIndented:        logIndentedBool,
-		LogSource:          logSourceBool,
-		LogLevel:           logLevelTyped,
-		LogJSON:            logJSONBool,
+		DataPath:    dataPath,
+		Port:        port,
+		LogIndented: logIndentedBool,
+		LogSource:   logSourceBool,
+		LogLevel:    logLevelTyped,
+		LogJSON:     logJSONBool,
 	}, nil
 }
 
@@ -113,8 +99,6 @@ func run(
 
 	params, err := NewRunParameters(
 		getENV("DATA_PATH"),
-		getENV("CONSOLIDATION_MODEL"),
-		getENV("OBSERVER_MODEL"),
 		getENV("PORT"),
 		getENV("LOG_INDENTED"),
 		getENV("LOG_SOURCE"),
@@ -127,11 +111,7 @@ func run(
 
 	// App composing
 	srv, err := wire.BuildServer(ctx, wire.Config{
-
-		DataPath:           params.DataPath,
-		ConsolidationModel: params.ConsolidationModel,
-		ObserverModel:      params.ObserverModel,
-
+		DataPath:  params.DataPath,
 		Indented:  params.LogIndented,
 		LogLevel:  params.LogLevel,
 		AddSource: params.LogSource,

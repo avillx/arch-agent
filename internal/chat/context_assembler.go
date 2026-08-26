@@ -195,7 +195,7 @@ type SessionPart struct {
 
 func (i *SessionPart) Part(ctx context.Context) (string, error) {
 	extras := i.sess.Extras()
-	if len(extras) > 0 {
+	if len(extras) <= 0 {
 		return "", nil
 	}
 

@@ -26,16 +26,24 @@ func NewProviderService(modelSvc *ModelService, repo ProviderConfigRepo) (*Provi
 		repo:     repo,
 	}
 
-	providers, err := repo.All()
-	if err != nil {
+	if err := svc.Reload(); err != nil {
 		return nil, err
 	}
 
-	for _, p := range providers {
-		svc.loadModels(p)
+	return svc, nil
+}
+
+func (s *ProviderService) Reload() error {
+	providers, err := s.repo.All()
+	if err != nil {
+		return err
 	}
 
-	return svc, nil
+	for _, p := range providers {
+		s.loadModels(p)
+	}
+
+	return nil
 }
 
 func (s *ProviderService) GetAll() ([]ProviderConfig, error) {
@@ -185,6 +193,7 @@ func (s *ProviderService) SetModel(providerID ProviderID, modelName string, mode
 }
 
 func (s *ProviderService) loadModels(cfg ProviderConfig) {
+	// TODO: return error?
 	for modelName, modelCfg := range cfg.Models {
 		if err := s.modelSvc.add(
 			cfg.APIType,

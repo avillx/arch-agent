@@ -17,19 +17,19 @@ import (
 // Responder
 type HTTPServer struct {
 	*http.ServeMux
-	logger        *slog.Logger
-	taskSvc       *task.Service
-	chatSvc       *chat.Dispatcher
-	sessSvc       *session.Service
-	toolsSvc      *tools.Service
-	mcpSvc        *mcp.Service
-	memoryRepo    agent.MemoryRepo
-	memoryIndexer agent.MemoryIndexer
-	memorySvc     *memory.Memory
-	activityStore activityStore
-	agentRepo     agent.Repo
-	providerSvc   *model.ProviderService
-	idGen         IDGenerator
+	logger           *slog.Logger
+	taskSvc          *task.Service
+	chatSvc          *chat.Dispatcher
+	sessSvc          *session.Service
+	toolsSvc         *tools.Service
+	mcpSvc           *mcp.Service
+	memoryRepo       agent.MemoryRepo
+	memoryIndexer    agent.MemoryIndexer
+	consolidationSvc *memory.ConsolidationService
+	activityStore    activityStore
+	agentRepo        agent.Repo
+	providerSvc      *model.ProviderService
+	idGen            IDGenerator
 }
 
 func NewHTTPServer(
@@ -41,7 +41,7 @@ func NewHTTPServer(
 	mcpSvc *mcp.Service,
 	memoryRepo agent.MemoryRepo,
 	memoryIndexer agent.MemoryIndexer,
-	memorySvc *memory.Memory,
+	consolidationSvc *memory.ConsolidationService,
 	activityStore activityStore,
 	agentRepo agent.Repo,
 	providerSvc *model.ProviderService,
@@ -49,20 +49,20 @@ func NewHTTPServer(
 ) *HTTPServer {
 
 	srv := &HTTPServer{
-		logger:        logger.WithGroup("api"),
-		ServeMux:      http.NewServeMux(),
-		taskSvc:       taskSvc,
-		chatSvc:       chatSvc,
-		sessSvc:       sessSvc,
-		toolsSvc:      toolsSvc,
-		mcpSvc:        mcpSvc,
-		memoryRepo:    memoryRepo,
-		memoryIndexer: memoryIndexer,
-		memorySvc:     memorySvc,
-		activityStore: activityStore,
-		agentRepo:     agentRepo,
-		providerSvc:   providerSvc,
-		idGen:         idGen,
+		logger:           logger.WithGroup("api"),
+		ServeMux:         http.NewServeMux(),
+		taskSvc:          taskSvc,
+		chatSvc:          chatSvc,
+		sessSvc:          sessSvc,
+		toolsSvc:         toolsSvc,
+		mcpSvc:           mcpSvc,
+		memoryRepo:       memoryRepo,
+		memoryIndexer:    memoryIndexer,
+		consolidationSvc: consolidationSvc,
+		activityStore:    activityStore,
+		agentRepo:        agentRepo,
+		providerSvc:      providerSvc,
+		idGen:            idGen,
 	}
 
 	srv.registerRoutes()
@@ -92,7 +92,7 @@ func (s *HTTPServer) registerRoutes() {
 	s.HandleFunc("POST /mcp/reload", mcpHandler.Reload)
 	s.HandleFunc("DELETE /mcp/{id}", mcpHandler.Disconnect)
 
-	memoryHandler := NewMemoryHandler(s.memorySvc, s.memoryIndexer, s.memoryRepo)
+	memoryHandler := NewMemoryHandler(s.consolidationSvc, s.memoryIndexer, s.memoryRepo)
 	s.HandleFunc("POST /memory/{agent}/consolidate", memoryHandler.Consolidate)
 	s.HandleFunc("GET /memory/{agent}/{memory_name}", memoryHandler.Get)
 	s.HandleFunc("GET /memory/{agent}", memoryHandler.List)

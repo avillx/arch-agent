@@ -30,17 +30,26 @@ func NewFS(dir string) (*FileSystem, error) {
 	}, nil
 }
 
-func (fs *FileSystem) ReadDir(path string) ([]os.DirEntry, error) {
-	unlock := fs.locks.RLock(path)
+func (fs *FileSystem) ReadDir(p string) ([]os.DirEntry, error) {
+	unlock := fs.locks.RLock(p)
 	defer unlock()
 
-	res, err := os.ReadDir(fs.resolveAbsolutePath(path))
+	p, err := fs.resolvePath(p)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := os.ReadDir(p)
 	return res, toInternalNotExist(err)
 }
 
-func (f *FileSystem) WalkDir(root string, fn fs.WalkDirFunc) error {
-	absPath := f.resolveAbsolutePath(root)
-	return filepath.WalkDir(absPath, fn)
+func (fs *FileSystem) WalkDir(root string, fn fs.WalkDirFunc) error {
+	p, err := fs.resolvePath(root)
+	if err != nil {
+		return err
+	}
+
+	return filepath.WalkDir(p, fn)
 }
 
 func (f *FileSystem) ToLocal(p string) (string, error) {
@@ -52,38 +61,49 @@ func (f *FileSystem) ToLocal(p string) (string, error) {
 	return after, nil
 }
 
-func (fs *FileSystem) ReadFile(path string) ([]byte, error) {
-	unlock := fs.locks.RLock(path)
+func (fs *FileSystem) ReadFile(p string) ([]byte, error) {
+	unlock := fs.locks.RLock(p)
 	defer unlock()
 
-	res, err := os.ReadFile(fs.resolveAbsolutePath(path))
+	p, err := fs.resolvePath(p)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := os.ReadFile(p)
 	return res, toInternalNotExist(err)
 }
 
-func (fs *FileSystem) WriteToFile(path string, data []byte) error {
-	unlock := fs.locks.Lock(path)
+func (fs *FileSystem) WriteToFile(p string, data []byte) error {
+	unlock := fs.locks.Lock(p)
 	defer unlock()
 
-	fullPath := fs.resolveAbsolutePath(path)
-
-	if err := os.MkdirAll(filepath.Dir(fullPath), FileMode); err != nil {
+	p, err := fs.resolvePath(p)
+	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(fullPath, data, FileMode)
+	if err := os.MkdirAll(filepath.Dir(p), FileMode); err != nil {
+		return err
+	}
+
+	return os.WriteFile(p, data, FileMode)
 }
 
-func (fs *FileSystem) AppendToFile(path string, data []byte) error {
-	unlock := fs.locks.Lock(path)
+func (fs *FileSystem) AppendToFile(p string, data []byte) error {
+	unlock := fs.locks.Lock(p)
 	defer unlock()
 
-	fullPath := fs.resolveAbsolutePath(path)
-
-	if err := os.MkdirAll(filepath.Dir(fullPath), FileMode); err != nil {
+	p, err := fs.resolvePath(p)
+	if err != nil {
 		return err
 	}
 
-	f, err := os.OpenFile(fullPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, FileMode)
+	if err := os.MkdirAll(filepath.Dir(p), FileMode); err != nil {
+		return err
+	}
+
+	f, err := os.OpenFile(p, os.O_CREATE|os.O_APPEND|os.O_WRONLY, FileMode)
 	if err != nil {
 		return err
 	}
@@ -93,19 +113,29 @@ func (fs *FileSystem) AppendToFile(path string, data []byte) error {
 	return err
 }
 
-func (fs *FileSystem) Delete(path string) error {
-	unlock := fs.locks.Lock(path)
+func (fs *FileSystem) Delete(p string) error {
+	unlock := fs.locks.Lock(p)
 	defer unlock()
 
-	err := os.Remove(fs.resolveAbsolutePath(path))
+	p, err := fs.resolvePath(p)
+	if err != nil {
+		return err
+	}
+
+	err = os.Remove(p)
 	return toInternalNotExist(err)
 }
 
-func (fs *FileSystem) DeleteAll(path string) error {
-	unlock := fs.locks.Lock(path)
+func (fs *FileSystem) DeleteAll(p string) error {
+	unlock := fs.locks.Lock(p)
 	defer unlock()
 
-	err := os.RemoveAll(fs.resolveAbsolutePath(path))
+	p, err := fs.resolvePath(p)
+	if err != nil {
+		return err
+	}
+
+	err = os.RemoveAll(p)
 	return toInternalNotExist(err)
 }
 
@@ -113,8 +143,15 @@ func (fs *FileSystem) Cwd() string {
 	return fs.dir
 }
 
-func (fs *FileSystem) resolveAbsolutePath(relativePath string) string {
-	return filepath.Join(fs.dir, relativePath)
+func (fs *FileSystem) resolvePath(p string) (string, error) {
+	if filepath.IsAbs(p) {
+		localPath, err := fs.ToLocal(p)
+		if err != nil {
+			return "", err
+		}
+		p = localPath
+	}
+	return filepath.Join(fs.dir, p), nil
 }
 
 func toInternalNotExist(err error) error {

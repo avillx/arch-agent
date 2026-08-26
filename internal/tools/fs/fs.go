@@ -13,6 +13,22 @@ import (
 	"strings"
 )
 
+type ConsolidationInstuctFS struct {
+	agent.ToolServer
+	cwd string
+}
+
+func NewConsolidationInstuctFS(fs *files.FileSystem) *ConsolidationInstuctFS {
+	return &ConsolidationInstuctFS{
+		ToolServer: NewRawFileSystemToolServer(fs),
+		cwd:        fs.Cwd(),
+	}
+}
+
+func (r *ConsolidationInstuctFS) AgentInstruction(agt agent.Agent) string {
+	return prompt.ConsolidationFSInstruction(r.cwd, agt.ID())
+}
+
 type FileSystemToolServer struct {
 	*tools.BuildInToolServer
 	fs *files.FileSystem
@@ -20,16 +36,8 @@ type FileSystemToolServer struct {
 
 func NewFileSystemToolServer(fs *files.FileSystem) *FileSystemToolServer {
 	return &FileSystemToolServer{
-		fs: fs,
-		BuildInToolServer: tools.NewBuildInToolServer(
-			&DeleteTool{fs: fs},
-			&EditFileTool{fs: fs},
-			&MoveFileTool{fs: fs},
-			&ListDirTool{fs: fs},
-			&ReadFileTool{fs: fs},
-			&SearchFilesTool{fs: fs},
-			&WriteFileTool{fs: fs},
-		),
+		fs:                fs,
+		BuildInToolServer: NewRawFileSystemToolServer(fs),
 	}
 }
 
@@ -169,7 +177,7 @@ func IsTextExt(p string) bool {
 
 func IsImageExt(p string) bool {
 	switch strings.ToLower(path.Ext(p)) {
-	case "jpg", "jpeg", "png", "webp", "bmp":
+	case ".jpg", ".jpeg", ".png", ".webp", ".bmp":
 		return true
 	}
 	return false

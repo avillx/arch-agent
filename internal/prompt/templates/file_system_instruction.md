@@ -11,22 +11,24 @@ Home:
 - [Sessions](./{{ .Agent }}/sessions/) - raw transcripts of your 
   sessions (access denied) 
 
-Shared:
+Shared (write access):
 - [Shared](./shared/) - shared folder, other agents have access too.
-  git-repo-like work folders, one folder per task or domain (write access)
-- [Shared skills](./skills/) - skills visible for all agents (read-only)
+  git-repo-like work folders, one folder per task or domain
+- [Shared skills](./skills/) - skills visible for all agents
 {{ .Additional }}
-Configs:
-- [MCP servers](./mcp.toml) - contain mcp connections configs (read-only)
-- [Models](./models.toml) - allowed models with params (read-only)
-- [Secrets](./secrets.toml) - secrets (env vars) (read-only)
-- [Tasks](./tasks.toml) - scheduled by cron tasks for all agents (read-only)
 
-System:
+Configs (read-only):
+- [MCP servers](./mcp.toml) - contain mcp connections configs 
+- [Models](./models.toml) - allowed models with params 
+- [Secrets](./secrets.toml) - secrets (env vars) 
+- [Tasks](./tasks.toml) - scheduled by cron tasks for all agents 
+- [Memory](./memory.toml) - config for processing your memory
+
+System (read-only):
 - [SystemLogFile](./agents.log) - `INFO/WARN/ERROR` logs for all agent system. 
   ( MCP, sessions, memory consolidations, agent runs, runtime errors, 
   agent awakes by schedule tasks etc...).
-  Do not read it raw, prefer to use tail / grep. (read-only)
+  Do not read it raw, prefer to use tail / grep.
 
 Rules:
 - Keep `CWD` clean, follow introduced convetions.
