@@ -245,5 +245,6 @@ func (s *ActivityService) Config() ActivityConfig {
 	return ActivityConfig{
 		Interval:  s.interval,
 		ModelName: s.modelName,
+		Enabled:   s.enabled,
 	}
 }

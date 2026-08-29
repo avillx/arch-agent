@@ -87,13 +87,14 @@ type mcpServer struct {
 	gateway    gateway
 	shutdownCh chan error
 
-	mu sync.Mutex
+	closeShutdown sync.Once
+	mu            sync.Mutex
 }
 
 func (s *mcpServer) ID() MCPServerID  { return s.id }
 func (s *mcpServer) Gateway() gateway { return s.gateway }
 
-func NewMCPServer(ctx context.Context, cfg ServerGatewayConfig) (MCPServer, error) {
+func NewMCPServer(ctx context.Context, id MCPServerID, cfg ServerGatewayConfig) (MCPServer, error) {
 
 	if err := validateConfig(cfg); err != nil {
 		return nil, err
@@ -121,20 +122,20 @@ func NewMCPServer(ctx context.Context, cfg ServerGatewayConfig) (MCPServer, erro
 		return nil, fmt.Errorf("has no server info")
 	}
 
+	srv := &mcpServer{
+		id:         id,
+		gateway:    g,
+		shutdownCh: make(chan error),
+	}
+
 	if initResult.Instructions != "" {
 		return &mcpServerInstructed{
-			mcpServer: &mcpServer{
-				id:      MCPServerID(serverInfo.Name),
-				gateway: g,
-			},
+			mcpServer:   srv,
 			instruction: initResult.Instructions,
 		}, nil
 	}
 
-	return &mcpServer{
-		id:      MCPServerID(serverInfo.Name),
-		gateway: g,
-	}, nil
+	return srv, nil
 }
 
 func (s *mcpServer) Tools() []agent.Tool { return s.tools }
@@ -168,7 +169,9 @@ func (s *mcpServer) Run(ctx context.Context) error {
 }
 
 func (s *mcpServer) Shutdown() {
-	close(s.shutdownCh)
+	s.closeShutdown.Do(func() {
+		close(s.shutdownCh)
+	})
 }
 
 func monitorSession(ctx context.Context, sess *mcp.ClientSession) {

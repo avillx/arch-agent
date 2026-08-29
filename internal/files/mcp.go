@@ -74,7 +74,7 @@ func (f *MCPFiles) Save(id mcp.MCPServerID, cfg mcp.ServerGatewayConfig) error {
 	return f.fs.WriteToFile(mcpServersFile, data)
 }
 
-func (f *MCPFiles) Load() ([]mcp.ServerGatewayConfig, error) {
+func (f *MCPFiles) Load() (map[mcp.MCPServerID]mcp.ServerGatewayConfig, error) {
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -84,12 +84,7 @@ func (f *MCPFiles) Load() ([]mcp.ServerGatewayConfig, error) {
 		return nil, err
 	}
 
-	configs := make([]mcp.ServerGatewayConfig, 0, len(dto))
-	for _, v := range dto {
-		configs = append(configs, v)
-	}
-
-	return configs, nil
+	return dto, nil
 }
 
 func (f *MCPFiles) LoadDTO() (map[mcp.MCPServerID]mcp.ServerGatewayConfig, error) {

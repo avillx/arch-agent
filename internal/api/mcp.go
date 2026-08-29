@@ -54,6 +54,7 @@ func (h *mcpHandler) List(w http.ResponseWriter, _ *http.Request) Response {
 }
 
 // POST /mcp
+// TODO: (rewrite to -> POST /mcp/some-mcp-server or decode map[serverID]Server Config)
 func (h *mcpHandler) Connect(w http.ResponseWriter, r *http.Request) Response {
 
 	gatewayConfig, err := decode[mcp.ServerGatewayConfig](r)
@@ -61,7 +62,8 @@ func (h *mcpHandler) Connect(w http.ResponseWriter, r *http.Request) Response {
 		return NewInvalidRequest(err)
 	}
 
-	id, err := h.mcpSvc.Connect(r.Context(), gatewayConfig)
+	// TODO: Real id issue, update spec
+	id, err := h.mcpSvc.Connect(r.Context(), "0", gatewayConfig)
 	if err != nil {
 		var validationErr *types.ValidationError
 		if errors.As(err, &validationErr) {

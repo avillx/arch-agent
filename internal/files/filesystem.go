@@ -61,6 +61,30 @@ func (f *FileSystem) ToLocal(p string) (string, error) {
 	return after, nil
 }
 
+func (fs *FileSystem) Rename(old, new string) error {
+	unlockNew := fs.locks.RLock(new)
+	defer unlockNew()
+
+	unlockOld := fs.locks.RLock(old)
+	defer unlockOld()
+
+	new, err := fs.resolvePath(new)
+	if err != nil {
+		return err
+	}
+
+	old, err = fs.resolvePath(old)
+	if err != nil {
+		return err
+	}
+
+	if err := os.Rename(old, new); err != nil {
+		return toInternalNotExist(err)
+	}
+
+	return nil
+}
+
 func (fs *FileSystem) ReadFile(p string) ([]byte, error) {
 	unlock := fs.locks.RLock(p)
 	defer unlock()

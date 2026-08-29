@@ -14,7 +14,7 @@ import (
 )
 
 type ConfigRepo interface {
-	Load() ([]ServerGatewayConfig, error)
+	Load() (map[MCPServerID]ServerGatewayConfig, error)
 	Save(MCPServerID, ServerGatewayConfig) error
 }
 
@@ -68,7 +68,7 @@ func (s *Service) Reload(ctx context.Context) error {
 	return nil
 }
 
-func (s *Service) loadServers(ctx context.Context, cfgs []ServerGatewayConfig) {
+func (s *Service) loadServers(ctx context.Context, cfgs map[MCPServerID]ServerGatewayConfig) {
 
 	var (
 		wg sync.WaitGroup
@@ -77,11 +77,11 @@ func (s *Service) loadServers(ctx context.Context, cfgs []ServerGatewayConfig) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
-	for _, cfg := range cfgs {
+	for id, cfg := range cfgs {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if _, err := s.Connect(ctx, cfg); err != nil {
+			if _, err := s.Connect(ctx, id, cfg); err != nil {
 				// TODO: expose server name
 				s.logger.Error("connect server", "error", err)
 			}
@@ -98,9 +98,9 @@ func (s *Service) List() []MCPServer {
 	return slices.Collect(maps.Values(s.servers))
 }
 
-func (s *Service) Connect(ctx context.Context, cfg ServerGatewayConfig) (MCPServerID, error) {
+func (s *Service) Connect(ctx context.Context, id MCPServerID, cfg ServerGatewayConfig) (MCPServerID, error) {
 
-	srv, err := NewMCPServer(ctx, cfg)
+	srv, err := NewMCPServer(ctx, id, cfg)
 	if err != nil {
 		return "", fmt.Errorf("mcp: server initialization: %w", err)
 	}
@@ -109,9 +109,9 @@ func (s *Service) Connect(ctx context.Context, cfg ServerGatewayConfig) (MCPServ
 		return "", err
 	}
 
-	if err := s.configRepo.Save(srv.ID(), gatewayToConfig(srv.Gateway())); err != nil {
-		return "", err
-	}
+	// if err := s.configRepo.Save(srv.ID(), gatewayToConfig(srv.Gateway())); err != nil {
+	// 	return "", err
+	// }
 
 	// connect to tool service
 	if err := s.toolSvc.Connect(string(srv.ID()), srv); err != nil {

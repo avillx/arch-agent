@@ -23,6 +23,7 @@ import (
 	"arch-agent/internal/tools/todo"
 	"arch-agent/internal/uuid"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path"
@@ -189,6 +190,62 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	go memoryConsolidator.Run(ctx)
 
 	chatDispatcher := chat.NewDispatcher(chatSvc)
+
+	// sentinel mcp
+	mcpSent, err := files.NewSentinel(fs, "mcp.toml", mcpSvc.Reload, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	// sentinel memory
+	reloadMemory := func(_ context.Context) error {
+		if err := activityService.Reload(); err != nil {
+			return err
+		}
+		return memoryConsolidator.Reload()
+	}
+	memoSent, err := files.NewSentinel(fs, "memory.toml", reloadMemory, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	// sentinel models
+	reloadProviders := func(_ context.Context) error {
+		return providerSvc.Reload()
+	}
+	modelsSent, err := files.NewSentinel(fs, "models.toml", reloadProviders, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	// sentinel tasks
+	reloadTasks := func(_ context.Context) error {
+		return taskSvc.Reload()
+	}
+	tasksSent, err := files.NewSentinel(fs, "tasks.toml", reloadTasks, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	// secrets.toml
+
+	// run all sentinels
+	sents := []*files.Sentinel{mcpSent, memoSent, modelsSent, tasksSent}
+	for _, s := range sents {
+		go func() {
+			if err := s.Run(ctx); err != nil {
+				if errors.Is(err, files.ErrClosedWatcher) {
+					return
+				}
+
+				if errors.Is(err, context.Canceled) {
+					return
+				}
+
+				agentUnreachibleLogger.Error("file_sentinel", "error", err)
+			}
+		}()
+	}
 
 	return api.NewHTTPServer(
 		agentUnreachibleLogger,

@@ -44,20 +44,38 @@ func NewService(
 		logger:      logger.WithGroup("tasks"),
 	}
 
-	tasks, err := repo.All()
-	if err != nil {
+	if err := svc.Reload(); err != nil {
 		return nil, err
 	}
+
+	return svc, nil
+}
+
+func (s *Service) Reload() error {
+	tasks, err := s.repo.All()
+	if err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// stop all runtimes
+	for name := range s.runtimes {
+		s.stopRuntime(name)
+	}
+
+	// run all tasks from config
 	for _, t := range tasks {
 		if !t.Active {
 			continue
 		}
-		if err := svc.start(t); err != nil {
-			logger.Error("start up", "task", t.Name, "error", err)
+		if err := s.start(t); err != nil {
+			s.logger.Error("start up", "task", t.Name, "error", err)
 		}
 	}
 
-	return svc, nil
+	return nil
 }
 
 func (s *Service) stopRuntime(name string) {
