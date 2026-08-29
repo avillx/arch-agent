@@ -18,10 +18,12 @@ type executor struct {
 func NewExecutor(
 	sessionSvc *session.Service,
 	chatExecutor chat.ChatExecutor,
+	logger *slog.Logger,
 ) *executor {
 	return &executor{
 		sessionSvc:   sessionSvc,
 		chatExecutor: chatExecutor,
+		logger:       logger,
 	}
 }
 

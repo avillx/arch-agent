@@ -149,6 +149,7 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	executor := task.NewExecutor(
 		sessSvc,
 		chatSvc,
+		logger,
 	)
 
 	taskSvc, err := task.NewService(
@@ -162,12 +163,15 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		return nil, err
 	}
 
+	// built in tools
 	toolSvc.Connect("filesystem", fstools.NewFileSystemToolServer(fs))
 	toolSvc.Connect("shell", shell.NewShellToolServer(fs.Cwd()))
 	toolSvc.Connect("web", fetch.NewFetchToolServer())
 	toolSvc.Connect("todo", todo.NewTodoToolServer(todoStorage))
-	subagentSvc := subagent.NewService(chatSvc, sessSvc, logger)
-	toolSvc.Connect("agent", tools.NewCallAgentToolServer(subagentSvc, agentRepo))
+	toolSvc.Connect("agent", tools.NewCallAgentToolServer(
+		subagent.NewService(chatSvc, sessSvc, logger),
+		agentRepo,
+	))
 
 	memoryHooksResolver, err := hooks.NewMemoryHooksResolver(fs, memoryFiles)
 	if err != nil {
