@@ -19,7 +19,6 @@ import (
 	"arch-agent/internal/tools/fetch"
 	fstools "arch-agent/internal/tools/fs"
 	"arch-agent/internal/tools/shell"
-	tasktools "arch-agent/internal/tools/task"
 	"arch-agent/internal/tools/todo"
 	"arch-agent/internal/uuid"
 	"context"
@@ -164,7 +163,6 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	}
 
 	toolSvc.Connect("filesystem", fstools.NewFileSystemToolServer(fs))
-	toolSvc.Connect("tasks", tasktools.NewTasksToolServer(taskSvc))
 	toolSvc.Connect("shell", shell.NewShellToolServer(fs.Cwd()))
 	toolSvc.Connect("web", fetch.NewFetchToolServer())
 	toolSvc.Connect("todo", todo.NewTodoToolServer(todoStorage))
