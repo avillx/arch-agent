@@ -4,7 +4,7 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/types"
 	"errors"
-	"regexp"
+	"slices"
 	"time"
 )
 
@@ -19,8 +19,6 @@ type Cron interface {
 	NextTime() time.Duration
 	Expression() string
 }
-
-var cronRegex = regexp.MustCompile(`^(((?:[1-5]?[0-9])|(?:\*))(?:\/\d+)?(?:,(?:(?:[1-5]?[0-9])|(?:\*))(?:\/\d+)?)*)\s+(((?:[0-1]?[0-9]|2[0-3])|(?:\*))(?:\/\d+)?(?:,(?:(?:[0-1]?[0-9]|2[0-3])|(?:\*))(?:\/\d+)?)*)\s+(((?:[0-2]?[0-9]|3[0-1])|(?:\*))(?:\/\d+)?(?:,(?:(?:[0-2]?[0-9]|3[0-1])|(?:\*))(?:\/\d+)?)*)\s+(((?:[0-9]|1[0-2])|(?:\*))(?:\/\d+)?(?:,(?:(?:[0-9]|1[0-2])|(?:\*))(?:\/\d+)?)*)\s+(((?:[0-6])|(?:\*))(?:\/\d+)?(?:,(?:(?:[0-6])|(?:\*))(?:\/\d+)?)*)$`)
 
 type TaskRepo interface {
 	All() (map[string]TaskConfig, error)
@@ -37,6 +35,16 @@ type TaskConfig struct {
 	Request     string     `json:"request"`
 	Active      bool       `json:"active"`
 	Oneshot     bool       `json:"oneshot"`
+}
+
+func (t TaskConfig) Equals(other TaskConfig) bool {
+	return slices.Equal(t.Recipients, other.Recipients) &&
+		t.Name == other.Name &&
+		t.Description == other.Description &&
+		t.Reglament == other.Reglament &&
+		t.Request == other.Request &&
+		t.Active == other.Active &&
+		t.Oneshot == other.Oneshot
 }
 
 type TaskPatch struct {
@@ -92,11 +100,6 @@ func validateTaskConfig(cfg TaskConfig, cronFactory func(string) (Cron, error)) 
 	if !(len(cfg.Recipients) > 0) {
 		problems["recipients"] = ErrNoRecipients.Error()
 	}
-	// TODO: eliminate graceffuly
-	// depricated fast check
-	// if !cronRegex.MatchString(cfg.Reglament) {
-	// 	problems["schedule"] = "invalid format"
-	// }
 	if _, err := cronFactory(cfg.Reglament); err != nil {
 		problems["schedule"] = "invalid cron"
 	}

@@ -15,6 +15,7 @@ import (
 type taskRuntime struct {
 	cancel  context.CancelFunc
 	stopped chan struct{}
+	config  TaskConfig
 }
 
 type Service struct {
@@ -44,29 +45,64 @@ func NewService(
 		logger:      logger.WithGroup("tasks"),
 	}
 
-	if err := svc.Reload(); err != nil {
+	tasks, err := repo.All()
+	if err != nil {
 		return nil, err
 	}
+
+	svc.runTasks(tasks)
 
 	return svc, nil
 }
 
-func (s *Service) Reload() error {
+// implement sentinel action
+func (s *Service) Reload(_ context.Context) error {
+	s.logger.Info("reload started")
+
 	tasks, err := s.repo.All()
 	if err != nil {
 		return err
 	}
 
+	loadCandidates := map[string]TaskConfig{}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// stop all runtimes
-	for name := range s.runtimes {
-		s.stopRuntime(name)
+	// stop deleted tasks
+	for name, rt := range s.runtimes {
+		if _, ok := tasks[rt.config.Name]; !ok {
+			s.logger.Info("task deleted", "task", name)
+			s.stopRuntime(name)
+		}
 	}
 
-	// run all tasks from config
-	for _, t := range tasks {
+	for name, taskCfg := range tasks {
+		rt, ok := s.runtimes[name]
+		// new task
+		if !ok {
+			loadCandidates[name] = taskCfg
+			continue
+		}
+
+		if taskCfg.Equals(rt.config) {
+			continue
+		}
+
+		s.stopRuntime(name)
+		loadCandidates[name] = taskCfg
+	}
+
+	s.runTasks(loadCandidates)
+
+	s.logger.Info("reload finished")
+
+	return nil
+}
+
+// run all tasks from config
+func (s *Service) runTasks(cfgs map[string]TaskConfig) {
+	for _, t := range cfgs {
 		if !t.Active {
 			continue
 		}
@@ -74,8 +110,6 @@ func (s *Service) Reload() error {
 			s.logger.Error("start up", "task", t.Name, "error", err)
 		}
 	}
-
-	return nil
 }
 
 func (s *Service) stopRuntime(name string) {
@@ -88,20 +122,6 @@ func (s *Service) stopRuntime(name string) {
 	delete(s.runtimes, name)
 }
 
-func (s *Service) reconcileTask(cfg TaskConfig) error {
-	s.stopRuntime(cfg.Name)
-
-	if err := s.repo.Save(cfg); err != nil {
-		return err
-	}
-
-	if cfg.Active {
-		return s.start(cfg)
-	}
-
-	return nil
-}
-
 func (s *Service) start(cfg TaskConfig) error {
 
 	cron, err := s.cronFactory(cfg.Reglament)
@@ -111,7 +131,11 @@ func (s *Service) start(cfg TaskConfig) error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	stopped := make(chan struct{})
-	rt := &taskRuntime{cancel: cancel, stopped: stopped}
+	rt := &taskRuntime{
+		config:  cfg,
+		cancel:  cancel,
+		stopped: stopped,
+	}
 	s.runtimes[cfg.Name] = rt
 
 	go func() {
@@ -121,10 +145,20 @@ func (s *Service) start(cfg TaskConfig) error {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
+		// if task was stoped external (stop invoked not by task itself) then
+		// in runtimes, rt pointer not the same.
+		// external stopper must:
+		// - take lock
+		// - eliminate rt pointer from runtimes or shift it to actual
+		// TODO: this is a super complex shit. should simplify it.
 		if s.runtimes[cfg.Name] != rt {
 			return
 		}
-		delete(s.runtimes, cfg.Name)
+
+		s.logger.Info("disabling", "task", cfg.Name)
+
+		// no need to delete runtime pointer from s.runtimes.
+		// Because Reload() any way do this.
 		cfg.Active = false
 		if err := s.repo.Save(cfg); err != nil {
 			s.logger.Error("disabling", "task", cfg.Name, "error", err)
@@ -182,7 +216,7 @@ func (s *Service) Add(cfg TaskConfig) error {
 		return err
 	}
 
-	return s.reconcileTask(cfg)
+	return s.repo.Save(cfg)
 }
 
 func (s *Service) Patch(name string, patch TaskPatch) error {
@@ -203,34 +237,32 @@ func (s *Service) Patch(name string, patch TaskPatch) error {
 
 	next := applyPatch(cfg, patch)
 
+	if next.Equals(cfg) {
+		// no need to update
+		return nil
+	}
+
 	if err := validateTaskConfig(next, s.cronFactory); err != nil {
 		return err
 	}
 
-	var errs []error
 	if patch.Name != nil && *patch.Name != cfg.Name {
 		if err := s.validateIdentity(*patch.Name); err != nil {
 			return err
 		}
 
-		s.stopRuntime(cfg.Name)
+		// delete depricated task from repo
 		if err := s.repo.Delete(cfg.Name); err != nil {
-			errs = append(errs, err)
+			return err
 		}
 	}
 
-	if err := s.reconcileTask(next); err != nil {
-		errs = append(errs, err)
-	}
-
-	return errors.Join(errs...)
+	return s.repo.Save(next)
 }
 
 func (s *Service) Delete(name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	s.stopRuntime(name)
 
 	return s.repo.Delete(name)
 }
