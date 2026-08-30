@@ -5,6 +5,8 @@ import (
 	"arch-agent/internal/types"
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -23,15 +25,36 @@ type ServerGatewayConfig struct {
 	CommandGateway *CommandGatewayConfig `json:"command_gateway,omitempty"`
 }
 
+func (s ServerGatewayConfig) Equals(other ServerGatewayConfig) bool {
+	return s.HTTPGateway.Equals(other.HTTPGateway) &&
+		s.CommandGateway.Equals(other.CommandGateway)
+}
+
 type HTTPGatewayConfig struct {
 	URL   string `json:"url"`
 	Token string `json:"token,omitempty"`
+}
+
+func (h *HTTPGatewayConfig) Equals(other *HTTPGatewayConfig) bool {
+	if h == nil || other == nil {
+		return h == other
+	}
+	return h.URL == other.URL && h.Token == other.Token
 }
 
 type CommandGatewayConfig struct {
 	Command string            `json:"command"`
 	Args    []string          `json:"args,omitempty"`
 	Env     map[string]string `json:"env,omitempty"`
+}
+
+func (c *CommandGatewayConfig) Equals(other *CommandGatewayConfig) bool {
+	if c == nil || other == nil {
+		return c == other
+	}
+	return c.Command == other.Command &&
+		slices.Equal(c.Args, other.Args) &&
+		maps.Equal(c.Env, other.Env)
 }
 
 func validateConfig(cfg ServerGatewayConfig) error {
@@ -65,6 +88,7 @@ type gateway interface {
 type MCPServer interface {
 	ID() MCPServerID
 	Gateway() gateway
+	Config() ServerGatewayConfig
 	Run(ctx context.Context) error
 	Shutdown()
 	agent.ToolServer
@@ -83,16 +107,18 @@ type mcpServer struct {
 	id          MCPServerID
 	Instruction string
 
-	tools      []agent.Tool
-	gateway    gateway
-	shutdownCh chan error
+	tools   []agent.Tool
+	gateway gateway
+	cfg     ServerGatewayConfig
 
+	shutdownCh    chan error
 	closeShutdown sync.Once
 	mu            sync.Mutex
 }
 
-func (s *mcpServer) ID() MCPServerID  { return s.id }
-func (s *mcpServer) Gateway() gateway { return s.gateway }
+func (s *mcpServer) ID() MCPServerID             { return s.id }
+func (s *mcpServer) Gateway() gateway            { return s.gateway }
+func (s *mcpServer) Config() ServerGatewayConfig { return s.cfg }
 
 func NewMCPServer(ctx context.Context, id MCPServerID, cfg ServerGatewayConfig) (MCPServer, error) {
 
@@ -126,6 +152,7 @@ func NewMCPServer(ctx context.Context, id MCPServerID, cfg ServerGatewayConfig) 
 		id:         id,
 		gateway:    g,
 		shutdownCh: make(chan error),
+		cfg:        cfg,
 	}
 
 	if initResult.Instructions != "" {

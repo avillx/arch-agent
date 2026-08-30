@@ -4,6 +4,7 @@ import (
 	"arch-agent/internal/mcp"
 	"arch-agent/internal/types"
 	"errors"
+	"fmt"
 	"net/http"
 )
 
@@ -57,28 +58,32 @@ func (h *mcpHandler) List(w http.ResponseWriter, _ *http.Request) Response {
 // TODO: (rewrite to -> POST /mcp/some-mcp-server or decode map[serverID]Server Config)
 func (h *mcpHandler) Connect(w http.ResponseWriter, r *http.Request) Response {
 
-	gatewayConfig, err := decode[mcp.ServerGatewayConfig](r)
-	if err != nil {
-		return NewInvalidRequest(err)
-	}
+	//
+
+	// gatewayConfig, err := decode[mcp.ServerGatewayConfig](r)
+	// if err != nil {
+	// 	return NewInvalidRequest(err)
+	// }
 
 	// TODO: Real id issue, update spec
-	id, err := h.mcpSvc.Connect(r.Context(), "0", gatewayConfig)
-	if err != nil {
-		var validationErr *types.ValidationError
-		if errors.As(err, &validationErr) {
-			return NewInvalidRequest(err)
-		}
-		if errors.Is(err, types.ErrAlreadyExist) {
-			return NewBadRequest("already exist")
-		}
+	// id, err := h.mcpSvc.Connect(r.Context(), "0", gatewayConfig)
+	// if err != nil {
+	// 	var validationErr *types.ValidationError
+	// 	if errors.As(err, &validationErr) {
+	// 		return NewInvalidRequest(err)
+	// 	}
+	// 	if errors.Is(err, types.ErrAlreadyExist) {
+	// 		return NewBadRequest("already exist")
+	// 	}
 
-		return NewInternalError(err)
-	}
+	// 	return NewInternalError(err)
+	// }
 
-	return NewJSONResponse(http.StatusOK, map[string]string{
-		"created_id": string(id),
-	})
+	// return NewJSONResponse(http.StatusOK, map[string]string{
+	// 	"created_id": string(id),
+	// })
+
+	return NewInternalError(fmt.Errorf("api is not updated"))
 }
 
 // DELETE /mcp/{id}
