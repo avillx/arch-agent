@@ -193,7 +193,6 @@ func (s *ProviderService) SetModel(providerID ProviderID, modelName string, mode
 }
 
 func (s *ProviderService) loadModels(cfg ProviderConfig) {
-	// TODO: return error?
 	for modelName, modelCfg := range cfg.Models {
 		if err := s.modelSvc.add(
 			cfg.APIType,

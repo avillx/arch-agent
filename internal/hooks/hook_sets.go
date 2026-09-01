@@ -37,7 +37,7 @@ func NewAgentHooks(
 
 	return []any{
 		accessHook,
-		&EmptyAnswerHook{},
+		// &EmptyAnswerHook{},
 		NewUndoneTodoHook(todoStorage),
 		&OnlySupportedExtensionsHook{},
 		&ContentSizeLimitHook{limitBytes: _24kb},

@@ -74,9 +74,8 @@ func NewInternalError(cause error) Response {
 	}
 }
 
-// TODO: Err?
-func (e *internalError) Error() string {
-	return e.cause.Error()
+func (e *internalError) Err() error {
+	return e.cause
 }
 
 func NewBadRequest[T string | map[string]any](msg T) Response {

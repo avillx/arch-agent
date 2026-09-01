@@ -20,9 +20,11 @@ Shared (write access):
 Configs (read-only):
 - [MCP servers](./mcp.toml) - contain mcp connections configs 
 - [Models](./models.toml) - allowed models with params 
-- [Secrets](./secrets.toml) - secrets (env vars) 
-- [Tasks](./tasks.toml) - scheduled by cron tasks for all agents 
+- [Secrets](./secrets.toml) - secrets (env vars)  
 - [Memory](./memory.toml) - config for processing your memory
+- [Tasks](./tasks.toml) - scheduled by cron tasks, for all agents. If mentioned
+  some regular or "oloshenie" activity. "skoreee vsego" means jobs decribed here,
+  also if you
 
 System (read-only):
 - [SystemLogFile](./agents.log) - `INFO/WARN/ERROR` logs for all agent system. 

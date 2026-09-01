@@ -139,8 +139,8 @@ func (s *HTTPServer) wrapResponse(h func(w http.ResponseWriter, r *http.Request)
 		response := h(w, r)
 
 		// log error
-		if err, ok := response.(error); ok {
-			logger.Error("internal", "error", err)
+		if cause, ok := response.(interface{ Err() error }); ok {
+			logger.Error("internal", "error", cause.Err())
 		}
 
 		// silent case. no response provided
