@@ -100,8 +100,13 @@ func (t *ShellTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]ag
 		return nil, err
 	}
 
+	// envirement variables for agent shell calls
+	envs := os.Environ()
+	envs = append(envs, t.env...)
+	envs = append(envs, metadataToEnv(ctx)...)
+
 	cmd := exec.Command(shell, append(shellAttributes, args.Command)...)
-	cmd.Env = append(os.Environ(), t.env...)
+	cmd.Env = envs
 	cmd.Dir = t.defaultCWD
 	cmd.SysProcAttr = platformSpecificSysProcAttr()
 	cmd.WaitDelay = waitDelayAfterShellExit
@@ -198,5 +203,15 @@ func reapSpawnedChild(cmd *exec.Cmd, pg *processGroup) {
 	case <-time.After(2 * time.Second):
 		_ = cmd.Process.Kill()
 		<-done
+	}
+}
+
+func metadataToEnv(ctx context.Context) []string {
+	agentID := tools.MustAgentID(ctx)
+	sessionID := tools.MustSessionID(ctx)
+
+	return []string{
+		fmt.Sprintf("AGENT_ID=%s", agentID),
+		fmt.Sprintf("AGENT_SESSION_ID=%s", sessionID),
 	}
 }
