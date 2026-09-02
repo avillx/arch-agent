@@ -8,7 +8,59 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
+	"time"
 )
+
+const cacheLifeTime = 30 * time.Minute
+
+type SystemMessageCache struct {
+	messages     map[sessionKey]string
+	deleteTimers map[sessionKey]*time.Timer
+
+	mu sync.Mutex
+}
+
+func NewSystemMessageCache() *SystemMessageCache {
+	return &SystemMessageCache{
+		messages:     map[sessionKey]string{},
+		deleteTimers: map[sessionKey]*time.Timer{},
+	}
+}
+
+func (c *SystemMessageCache) Put(key sessionKey, message string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// try to delete
+	delete(c.messages, key)
+	if t, ok := c.deleteTimers[key]; ok {
+		t.Stop()
+		delete(c.deleteTimers, key)
+	}
+
+	c.messages[key] = message
+	c.deleteTimers[key] = time.AfterFunc(cacheLifeTime, func() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+
+		delete(c.messages, key)
+		delete(c.deleteTimers, key)
+	})
+}
+
+func (c *SystemMessageCache) Get(key sessionKey) (string, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	msg, ok := c.messages[key]
+
+	if ok {
+		c.deleteTimers[key].Reset(cacheLifeTime)
+	}
+
+	return msg, ok
+}
 
 type SystemMessageParticipant interface {
 	Part(ctx context.Context) (string, error)
@@ -17,6 +69,7 @@ type SystemMessageParticipant interface {
 type ContextAssembler struct {
 	skillRepo  SkillsRepo
 	memoryRepo MemoryRepo
+	cache      *SystemMessageCache
 }
 
 func NewContextAssembler(
@@ -26,6 +79,7 @@ func NewContextAssembler(
 	return &ContextAssembler{
 		skillRepo:  skillRepo,
 		memoryRepo: memoryRepo,
+		cache:      NewSystemMessageCache(),
 	}
 }
 
@@ -35,6 +89,15 @@ func (a *ContextAssembler) BuildSystemMessage(
 	toolServers []agent.ToolServer,
 	sess session.Session,
 ) (*agent.SystemMessage, error) {
+
+	key := sessionKey{
+		AgentID:   agt.ID(),
+		SessionID: sess.ID(),
+	}
+
+	if cached, hit := a.cache.Get(key); hit {
+		return agent.NewSystemMessage(cached), nil
+	}
 
 	parts := []SystemMessageParticipant{
 		&AgentPart{agt: agt},
@@ -49,6 +112,7 @@ func (a *ContextAssembler) BuildSystemMessage(
 		return nil, err
 	}
 
+	a.cache.Put(key, text)
 	return agent.NewSystemMessage(text), nil
 }
 
