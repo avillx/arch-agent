@@ -4,6 +4,7 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/chat"
 	"arch-agent/internal/prompt"
+	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"context"
 	"log/slog"
@@ -48,6 +49,15 @@ func (s *executor) processRecipientTask(ctx context.Context, agentID agent.ID, r
 		return err
 	}
 
+	sink := make(chan runtime.Event)
+	defer close(sink)
+
+	go func() {
+		for range sink {
+			// just swallow updates. cause has no recivier
+		}
+	}()
+
 	return s.chatExecutor.Chat(
 		ctx,
 		chat.Request{
@@ -55,6 +65,7 @@ func (s *executor) processRecipientTask(ctx context.Context, agentID agent.ID, r
 			SessionID:   sessID,
 			UserMessage: agent.NewUserMessage(request),
 			Logging:     true,
+			Sink:        sink,
 		},
 	)
 }
