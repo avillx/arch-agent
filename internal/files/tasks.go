@@ -46,10 +46,10 @@ const taskConfigDoc = `# Cron tasks config
 # Use your skill /some/path
 # do ...
 # Confirm result
+# """
 
 # Do not touch this comment!
-# After edit, ensure file consistency and comment integrity
-# """`
+# After edit, ensure file consistency and comment integrity`
 
 type TaskFiles struct {
 	mu sync.RWMutex
