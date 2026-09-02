@@ -44,7 +44,10 @@ const modelsConfigDoc = `# Models config file
 # tool_choice = 'auto'
 # reasoning_effort = 'medium'
 # extras = { "order" : "some" }
-# etc...`
+# etc...
+
+# Do not touch this comment!
+# After edit, ensure file consistency and comment integrity`
 
 var _ model.ProviderConfigRepo = (*ProviderFiles)(nil)
 

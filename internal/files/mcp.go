@@ -35,7 +35,10 @@ const mcpConfigDoc = `# MCP servers connections config
 # Environment variables for stdio process
 # [my-command-mcp.env]
 # MY_ENVIRONMENT_VARIABLE = '1'
-# ANOTHER_ENV = '{ env.SECRET_REFERENCES }'`
+# ANOTHER_ENV = '{ env.SECRET_REFERENCES }'
+
+# Do not touch this comment!
+# After edit, ensure file consistency and comment integrity`
 
 var _ mcp.ConfigRepo = (*MCPFiles)(nil)
 

@@ -40,7 +40,10 @@ const memoryConfigDoc string = `# Memory config
 # interval = 600
 
 # All available models are described in 'models.toml'.
-# If a model is not listed in 'models.toml', it is not allowed.`
+# If a model is not listed in 'models.toml', it is not allowed.
+
+# Do not touch this comment!
+# After edit, ensure file consistency and comment integrity`
 
 type MemoryConfigFile struct {
 	fs *FileSystem

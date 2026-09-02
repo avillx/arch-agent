@@ -22,7 +22,10 @@ const secretsFileDoc = `# Secrets storage
 # Whenever the agent uses the { secret.SOME_VARIABLE } placeholder,
 # it gets swapped for the actual content from this file
 
-# In shell, these secrets are available as environment variables`
+# In shell, these secrets are available as environment variables
+
+# Do not touch this comment!
+# After edit, ensure file consistency and comment integrity`
 
 type SecretsFiles struct {
 	mu      sync.RWMutex
