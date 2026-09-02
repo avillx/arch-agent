@@ -17,16 +17,20 @@ import (
 
 var defaultTimeout = 30 * time.Second
 
+type SecretsSource interface {
+	All() map[string]string
+}
+
 type ShellToolServer struct {
 	*tools.BuildInToolServer
 }
 
-func NewShellToolServer(defaultCWD string, env ...string) *ShellToolServer {
+func NewShellToolServer(defaultCWD string, secretsSource SecretsSource) *ShellToolServer {
 	return &ShellToolServer{
 		BuildInToolServer: tools.NewBuildInToolServer(
 			&ShellTool{
-				env:        env,
-				defaultCWD: defaultCWD,
+				secretsSource: secretsSource,
+				defaultCWD:    defaultCWD,
 			},
 		),
 	}
@@ -48,8 +52,8 @@ func (t *ShellToolServer) Instruction() string {
 var _ agent.Tool = (*ShellTool)(nil)
 
 type ShellTool struct {
-	env        []string
-	defaultCWD string
+	secretsSource SecretsSource
+	defaultCWD    string
 }
 
 func (t *ShellTool) Name() agent.ToolName {
@@ -101,8 +105,13 @@ func (t *ShellTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]ag
 	}
 
 	// envirement variables for agent shell calls
+	secrets := []string{}
+	for k, v := range t.secretsSource.All() {
+		secrets = append(secrets, fmt.Sprintf("%s=%s", k, v))
+	}
+
 	envs := os.Environ()
-	envs = append(envs, t.env...)
+	envs = append(envs, secrets...)
 	envs = append(envs, metadataToEnv(ctx)...)
 
 	cmd := exec.Command(shell, append(shellAttributes, args.Command)...)

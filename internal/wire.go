@@ -12,6 +12,7 @@ import (
 	"arch-agent/internal/memory"
 	"arch-agent/internal/model"
 	"arch-agent/internal/openai"
+	"arch-agent/internal/secrets"
 	"arch-agent/internal/session"
 	"arch-agent/internal/subagent"
 	"arch-agent/internal/task"
@@ -71,7 +72,12 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		return nil, err
 	}
 
-	openaiFactory := openai.NewOpenAIModelFactory(secretsRepo)
+	secretService, err := secrets.New(secretsRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	openaiFactory := openai.NewOpenAIModelFactory(secretService)
 
 	modelsSvc := model.NewModelService(openaiFactory)
 
@@ -125,7 +131,9 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		logger,
 	)
 
-	agentHooks, err := hooks.NewAgentHooks(fs, todoStorage)
+	secretReplacer := secrets.NewReplacer(secretService)
+
+	agentHooks, err := hooks.NewAgentHooks(fs, todoStorage, secretReplacer)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +173,7 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 
 	// built in tools
 	toolSvc.Connect("filesystem", fstools.NewFileSystemToolServer(fs))
-	toolSvc.Connect("shell", shell.NewShellToolServer(fs.Cwd()))
+	toolSvc.Connect("shell", shell.NewShellToolServer(fs.Cwd(), secretService))
 	toolSvc.Connect("web", fetch.NewFetchToolServer())
 	toolSvc.Connect("todo", todo.NewTodoToolServer(todoStorage))
 	toolSvc.Connect("agent", tools.NewCallAgentToolServer(
@@ -226,10 +234,21 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		return nil, err
 	}
 
-	// secrets.toml
+	// secrets sentinel
+	reloadSecrets := func(ctx context.Context) error {
+		if err := secretService.Reload(ctx); err != nil {
+			return err
+		}
+		secretReplacer.Reload()
+		return nil
+	}
+	secretsSent, err := files.NewSentinel(fs, "secrets.toml", reloadSecrets, logger)
+	if err != nil {
+		return nil, err
+	}
 
 	// run all sentinels
-	sents := []*files.Sentinel{mcpSent, memoSent, modelsSent, tasksSent}
+	sents := []*files.Sentinel{mcpSent, memoSent, modelsSent, tasksSent, secretsSent}
 	for _, s := range sents {
 		go func() {
 			if err := s.Run(ctx); err != nil {

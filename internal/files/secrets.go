@@ -1,12 +1,8 @@
 package files
 
 import (
-	"arch-agent/internal/types"
+	"arch-agent/internal/secrets"
 	"bytes"
-	"errors"
-	"maps"
-	"slices"
-	"sync"
 
 	toml "github.com/pelletier/go-toml/v2"
 )
@@ -19,18 +15,16 @@ const secretsFileDoc = `# Secrets storage
 # SOME_VARIABLE='sk-100abc200'
 
 # Content is hidden from the agent behind placeholders (e.g. { secret.SOME_VARIABLE } )
-# Whenever the agent uses the { secret.SOME_VARIABLE } placeholder,
-# it gets swapped for the actual content from this file
 
 # In shell, these secrets are available as environment variables
 
 # Do not touch this comment!
 # After edit, ensure file consistency and comment integrity`
 
+var _ secrets.Repo = (*SecretsFiles)(nil)
+
 type SecretsFiles struct {
-	mu      sync.RWMutex
-	secrets map[string]string
-	fs      *FileSystem
+	fs *FileSystem
 }
 
 func NewSecretsFiles(fs *FileSystem) (*SecretsFiles, error) {
@@ -39,62 +33,15 @@ func NewSecretsFiles(fs *FileSystem) (*SecretsFiles, error) {
 		return nil, err
 	}
 
-	sf := &SecretsFiles{
+	return &SecretsFiles{
 		fs: fs,
-	}
-
-	secrets, err := sf.load()
-	if err != nil {
-		return nil, err
-	}
-
-	sf.secrets = secrets
-	return sf, nil
+	}, nil
 }
 
-func (sf *SecretsFiles) GetNames() []string {
-	sf.mu.RLock()
-	defer sf.mu.RUnlock()
-
-	return slices.Collect(maps.Keys(sf.secrets))
-}
-
-func (sf *SecretsFiles) Remove(name string) error {
-	sf.mu.Lock()
-	defer sf.mu.Unlock()
-
-	delete(sf.secrets, name)
-	return sf.save()
-}
-
-func (sf *SecretsFiles) Get(name string) (string, bool) {
-	sf.mu.RLock()
-	defer sf.mu.RUnlock()
-
-	val, ok := sf.secrets[name]
-	return val, ok
-}
-
-func (sf *SecretsFiles) Set(name, value string) error {
-	sf.mu.Lock()
-	defer sf.mu.Unlock()
-
-	sf.secrets[name] = value
-	return sf.save()
-}
-
-func (sf *SecretsFiles) load() (map[string]string, error) {
+func (sf *SecretsFiles) Load() (map[string]string, error) {
 	data, err := sf.fs.ReadFile(SecretsFile)
 	if err != nil {
-		if !errors.Is(err, types.ErrIsNotExist) {
-			return nil, err
-		}
-
-		if err := ensureFilePlaceholder(sf.fs, SecretsFile, []byte(secretsFileDoc)); err != nil {
-			return nil, err
-		}
-
-		return map[string]string{}, nil
+		return nil, err
 	}
 
 	var secrets map[string]string
@@ -104,8 +51,8 @@ func (sf *SecretsFiles) load() (map[string]string, error) {
 	return secrets, nil
 }
 
-func (sf *SecretsFiles) save() error {
-	data, err := toml.Marshal(sf.secrets)
+func (sf *SecretsFiles) Save(secrets map[string]string) error {
+	data, err := toml.Marshal(secrets)
 	if err != nil {
 		return err
 	}

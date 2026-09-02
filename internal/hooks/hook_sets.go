@@ -14,6 +14,7 @@ type cwdBearer interface {
 func NewAgentHooks(
 	b cwdBearer,
 	todoStorage todoStorage,
+	r Replcaer,
 ) ([]any, error) {
 
 	accessRules := []Rule{
@@ -41,6 +42,9 @@ func NewAgentHooks(
 		NewUndoneTodoHook(todoStorage),
 		&OnlySupportedExtensionsHook{},
 		&ContentSizeLimitHook{limitBytes: _24kb},
+		&NeverReadSecretsHook{r},
+		&NeverToolCallSecretsHook{r},
+		&NeverTypeSecretsHook{r},
 	}, nil
 }
 
