@@ -40,7 +40,6 @@ func NewAgentHooks(
 		accessHook,
 		// &EmptyAnswerHook{},
 		NewUndoneTodoHook(todoStorage),
-		&OnlySupportedExtensionsHook{},
 		&ContentSizeLimitHook{limitBytes: _24kb},
 		&NeverReadSecretsHook{r},
 		&NeverToolCallSecretsHook{r},

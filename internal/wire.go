@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path"
+	"path/filepath"
 )
 
 type Config struct {
@@ -172,7 +173,16 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	}
 
 	// built in tools
-	toolSvc.Connect("filesystem", fstools.NewFileSystemToolServer(fs))
+
+	skipPatterns := []string{
+		filepath.Join(fs.Cwd(), "**", "sessions", "**.jsonl"),
+	}
+
+	fsToolSrv, err := fstools.NewFileSystemToolServer(fs, skipPatterns)
+	if err != nil {
+		return nil, err
+	}
+	toolSvc.Connect("filesystem", fsToolSrv)
 	toolSvc.Connect("shell", shell.NewShellToolServer(fs.Cwd(), secretService))
 	toolSvc.Connect("web", fetch.NewFetchToolServer())
 	toolSvc.Connect("todo", todo.NewTodoToolServer(todoStorage))
@@ -186,9 +196,14 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		return nil, fmt.Errorf("harness: %w", err)
 	}
 
+	consolidationFsToolSrv, err := fstools.NewConsolidationInstuctFS(fs, skipPatterns)
+	if err != nil {
+		return nil, err
+	}
+
 	memoryConsolidator, err := memory.NewConsolidationService(
 		agentRepo,
-		[]agent.ToolServer{fstools.NewConsolidationInstuctFS(fs)},
+		[]agent.ToolServer{consolidationFsToolSrv},
 		memoryHooksResolver,
 		modelsSvc,
 		files.NewConsolidatorRepo(memoryRepo),

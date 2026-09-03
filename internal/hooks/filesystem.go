@@ -18,13 +18,10 @@ import (
 
 const unixSeparator = "/"
 
-var searchFilesToolName = (&fstools.SearchFilesTool{}).Name()
-var readFileToolName = (&fstools.ReadFileTool{}).Name()   // read_file
-var editFileToolName = (&fstools.EditFileTool{}).Name()   // edit_file
-var deleteToolName = (&fstools.DeleteTool{}).Name()       // delete
-var moveFileToolName = (&fstools.MoveFileTool{}).Name()   // move_file
-var writeFileToolName = (&fstools.WriteFileTool{}).Name() // write_file
-var listDirToolName = (&fstools.ListDirTool{}).Name()     // list_dir
+var readFileToolName = (&fstools.ReadTool{}).Name()   // read_file
+var editFileToolName = (&fstools.EditTool{}).Name()   // edit_file
+var moveFileToolName = (&fstools.MoveTool{}).Name()   // move_file
+var writeFileToolName = (&fstools.WriteTool{}).Name() // write_file
 var errIsNotFileTool = errors.New("is not file tools")
 
 type Access int
@@ -52,8 +49,8 @@ func NewFileAccessHook(cwd string, rules ...Rule) (*FileAccessHook, error) {
 
 	// validate patterns
 	for _, r := range rules {
-		if _, err := doublestar.PathMatch(r.Pattern, ""); err != nil {
-			return nil, err
+		if !doublestar.ValidatePattern(r.Pattern) {
+			return nil, fmt.Errorf("invalid pattern '%s'", r.Pattern)
 		}
 	}
 
@@ -124,9 +121,9 @@ func (h *FileAccessHook) verifyPath(toolName agent.ToolName, p string) error {
 
 func isAllow(toolName agent.ToolName, a Access) bool {
 	switch toolName {
-	case searchFilesToolName, readFileToolName, listDirToolName:
+	case readFileToolName:
 		return a > No
-	case editFileToolName, deleteToolName, writeFileToolName, moveFileToolName:
+	case editFileToolName, writeFileToolName, moveFileToolName:
 		return a > Read
 	default:
 		return false
@@ -157,9 +154,7 @@ func resolvePaths(tc *agent.ToolCall) ([]string, error) {
 	case
 		readFileToolName,
 		editFileToolName,
-		deleteToolName,
-		writeFileToolName,
-		listDirToolName:
+		writeFileToolName:
 
 		args, err := tools.UnwrapArgs[struct {
 			Path string `json:"path"`
@@ -182,56 +177,7 @@ func resolvePaths(tc *agent.ToolCall) ([]string, error) {
 
 		return []string{args.Src, args.Dst}, nil
 
-	case searchFilesToolName:
-		args, err := tools.UnwrapArgs[struct {
-			Root string `json:"root"`
-		}](tc.Arguments)
-		if err != nil {
-			return nil, err
-		}
-
-		return []string{args.Root}, err
-
 	default:
 		return nil, errIsNotFileTool
 	}
-}
-
-var _ runtime.ToolCallHook = (*OnlySupportedExtensionsHook)(nil)
-
-type OnlySupportedExtensionsHook struct{}
-
-func (h *OnlySupportedExtensionsHook) Apply(
-	ctx context.Context,
-	tc *agent.ToolCall,
-) (*agent.ToolCall, error) {
-
-	paths, err := resolvePaths(tc)
-	if errors.Is(err, errIsNotFileTool) ||
-		tc.ToolName == searchFilesToolName ||
-		tc.ToolName == listDirToolName ||
-		tc.ToolName == moveFileToolName ||
-		tc.ToolName == deleteToolName {
-
-		return tc, nil
-	}
-
-	// move for rename to supported case is allowed
-	// couse is soft harness, fast check for caution agent
-	// whenever agent should do this, it do this
-
-	for _, p := range paths {
-		if fstools.IsTextExt(p) || fstools.IsImageExt(p) {
-			continue
-		}
-
-		errMsg := fmt.Sprintf(
-			"You can read only text files and 'jpg,jpeg,png,webp,bmp', has: %s",
-			path.Ext(p),
-		)
-
-		return nil, types.NewAgentMistakeError(errMsg)
-	}
-
-	return tc, nil
 }

@@ -15,6 +15,8 @@ import (
 
 const FileMode = 0644
 
+var _ fs.FS = (*FileSystem)(nil)
+
 type FileSystem struct {
 	locks *lockTable
 	dir   string
@@ -50,6 +52,14 @@ func (fs *FileSystem) WalkDir(root string, fn fs.WalkDirFunc) error {
 	}
 
 	return filepath.WalkDir(p, fn)
+}
+
+func (f *FileSystem) ToAbs(p string) (string, error) {
+	cleanPath := filepath.Clean(p)
+	if filepath.IsAbs(cleanPath) {
+		return cleanPath, nil
+	}
+	return filepath.Join(f.dir, cleanPath), nil
 }
 
 func (f *FileSystem) ToLocal(p string) (string, error) {
@@ -137,6 +147,54 @@ func (fs *FileSystem) AppendToFile(p string, data []byte) error {
 	return err
 }
 
+type openedFile struct {
+	fs.File
+	unlockFunc func()
+}
+
+func (f *openedFile) Close() error {
+	defer f.unlockFunc()
+	return f.File.Close()
+}
+
+func (fs *FileSystem) Open(p string) (fs.File, error) {
+
+	p, err := fs.resolvePath(p)
+	if err != nil {
+		return nil, err
+	}
+
+	unlock := fs.locks.Lock(p)
+
+	file, err := os.Open(p)
+	if err != nil {
+		unlock()
+		return nil, toInternalNotExist(err)
+	}
+
+	return &openedFile{
+		File:       file,
+		unlockFunc: unlock,
+	}, nil
+}
+
+func (fs *FileSystem) Info(p string) (os.FileInfo, error) {
+	unlock := fs.locks.Lock(p)
+	defer unlock()
+
+	p, err := fs.resolvePath(p)
+	if err != nil {
+		return nil, err
+	}
+
+	info, err := os.Stat(p)
+	if err != nil {
+		return nil, toInternalNotExist(err)
+	}
+
+	return info, nil
+}
+
 func (fs *FileSystem) Delete(p string) error {
 	unlock := fs.locks.Lock(p)
 	defer unlock()
@@ -148,6 +206,19 @@ func (fs *FileSystem) Delete(p string) error {
 
 	err = os.Remove(p)
 	return toInternalNotExist(err)
+}
+
+func (fs *FileSystem) MkdirAll(p string) error {
+
+	p, err := fs.resolvePath(p)
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(p, FileMode); err != nil {
+		return toInternalNotExist(err)
+	}
+	return nil
 }
 
 func (fs *FileSystem) DeleteAll(p string) error {

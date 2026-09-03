@@ -8,21 +8,22 @@ import (
 	"fmt"
 )
 
-type WriteFileTool struct {
+type WriteTool struct {
 	fs *files.FileSystem
 }
 
-func (t *WriteFileTool) Name() agent.ToolName { return "write_file" }
-func (t *WriteFileTool) Description() string {
+func (t *WriteTool) Name() agent.ToolName { return "write" }
+func (t *WriteTool) Description() string {
 	return "Write content to a file, creating it if it does not exist; default mode overwrites"
 }
-func (t *WriteFileTool) Schema() any {
+func (t *WriteTool) Schema() any {
 	return []agent.ToolProperty{
 		{
-			Name:        "path",
-			Required:    true,
-			Type:        agent.TypeString,
-			Description: "File path, e.g. './shared/project-x/README.md'",
+			Name:     "path",
+			Required: true,
+			Type:     agent.TypeString,
+			Description: `File path, create full path when it is not exist. 
+e.g. './shared/project-x/README.md', './shared/non/exist/path/README.md'`,
 		},
 		{
 			Name:        "content",
@@ -40,7 +41,7 @@ func (t *WriteFileTool) Schema() any {
 	}
 }
 
-func (t *WriteFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
+func (t *WriteTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	args, err := tools.UnwrapArgs[struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`

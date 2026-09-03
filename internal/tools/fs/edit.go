@@ -10,16 +10,16 @@ import (
 	"strings"
 )
 
-type EditFileTool struct {
+type EditTool struct {
 	fs *files.FileSystem
 }
 
-func (t *EditFileTool) Name() agent.ToolName { return "edit_file" }
-func (t *EditFileTool) Description() string {
-	return "Replace a unique string in a file; old_str must match exactly once"
+func (t *EditTool) Name() agent.ToolName { return "edit" }
+func (t *EditTool) Description() string {
+	return "Replace a unique string in a file; 'old' string must match exactly once"
 }
 
-func (t *EditFileTool) Schema() any {
+func (t *EditTool) Schema() any {
 	return []agent.ToolProperty{
 		{
 			Name:        "path",
@@ -28,13 +28,13 @@ func (t *EditFileTool) Schema() any {
 			Description: "File path e.g './shared/project-x/README.md'",
 		},
 		{
-			Name:        "old_str",
+			Name:        "old",
 			Required:    true,
 			Type:        agent.TypeString,
 			Description: "Unique string to replace",
 		},
 		{
-			Name:        "new_str",
+			Name:        "new",
 			Required:    true,
 			Type:        agent.TypeString,
 			Description: "Replacement string; empty string to delete",
@@ -42,11 +42,11 @@ func (t *EditFileTool) Schema() any {
 	}
 }
 
-func (t *EditFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
+func (t *EditTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	args, err := tools.UnwrapArgs[struct {
-		Path   string `json:"path"`
-		OldStr string `json:"old_str"`
-		NewStr string `json:"new_str"`
+		Path string `json:"path"`
+		Old  string `json:"old"`
+		New  string `json:"new"`
 	}](rawArgs)
 	if err != nil {
 		return nil, err
@@ -58,16 +58,16 @@ func (t *EditFileTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([
 	}
 
 	content := string(data)
-	count := strings.Count(content, args.OldStr)
+	count := strings.Count(content, args.Old)
 
 	switch {
 	case count == 0:
-		return nil, types.NewAgentMistakeErrorf("%s: old_str not found", args.Path)
+		return nil, types.NewAgentMistakeErrorf("%s: 'old' not found", args.Path)
 	case count > 1:
-		return nil, types.NewAgentMistakeErrorf("%s: old_str found %d times, must be unique", args.Path, count)
+		return nil, types.NewAgentMistakeErrorf("%s: 'old' found %d times, must be unique", args.Path, count)
 	}
 
-	updated := strings.Replace(content, args.OldStr, args.NewStr, 1)
+	updated := strings.Replace(content, args.Old, args.New, 1)
 	if err := t.fs.WriteToFile(args.Path, []byte(updated)); err != nil {
 		return nil, mapErrs(err)
 	}
