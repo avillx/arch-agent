@@ -2,6 +2,7 @@ package session
 
 import (
 	"arch-agent/internal/agent"
+	"fmt"
 	"reflect"
 	"slices"
 	"time"
@@ -9,13 +10,68 @@ import (
 
 const TokenLimit = 20000
 
-// validate struct asn iface
-var _ Session = (*session)(nil)
+var _ error = (*ErrBrokenHeaders)(nil)
+
+type ErrBrokenHeaders struct {
+	Errors []*ErrBrokenHeader
+}
+
+func NewErrBrokenHeaders(errs ...*ErrBrokenHeader) *ErrBrokenHeaders {
+	return &ErrBrokenHeaders{
+		Errors: errs,
+	}
+}
+
+func (e *ErrBrokenHeaders) Error() string {
+	return fmt.Sprintf("occured %d broken session headers", len(e.Errors))
+}
+
+var _ error = (*ErrBrokenHeader)(nil)
+
+type ErrBrokenHeader struct {
+	SessID  ID
+	AgentID agent.ID
+	cause   error
+}
+
+func NewErrBrokenHeader(
+	sessID ID,
+	agentID agent.ID,
+	cause error,
+) *ErrBrokenHeader {
+	return &ErrBrokenHeader{
+		SessID:  sessID,
+		AgentID: agentID,
+		cause:   cause,
+	}
+}
+
+func (e *ErrBrokenHeader) Unwrap() error {
+	return e.cause
+}
+
+func (e *ErrBrokenHeader) Error() string {
+	return fmt.Sprintf("session header is borken. agent: %s, session: %s", e.AgentID, e.SessID)
+}
 
 type ID string
 
-type Session interface {
+var _ SessionHeader = (*sessionHeader)(nil)
+
+type SessionHeader interface {
 	ID() ID
+
+	InputTokens() int64
+	OutputTokens() int64
+
+	CreatedAt() time.Time
+	UpdatedAt() time.Time
+
+	Extras() map[string]any
+}
+
+type Session interface {
+	SessionHeader
 
 	Messages() []agent.Message
 	GetLastAgentMessage() *agent.AgentMessage
@@ -24,73 +80,74 @@ type Session interface {
 	ApplyCompletion(*agent.Completion)
 	AddMessages(...agent.Message)
 
-	InputTokens() int64
-	OutputTokens() int64
-
 	OverwriteMessages(int64, []agent.Message)
 
-	CreatedAt() time.Time
-	UpdatedAt() time.Time
-
 	SetExtras(map[string]any)
-	Extras() map[string]any
 }
 
-type session struct {
+type sessionHeader struct {
 	id           ID
-	title        string
 	inputTokens  int64
 	outputTokens int64
-	messages     []agent.Message
 	createdAt    time.Time
 	updatedAt    time.Time
 
 	extras map[string]any
 }
 
+func (s *sessionHeader) ID() ID              { return s.id }
+func (s *sessionHeader) InputTokens() int64  { return s.inputTokens }
+func (s *sessionHeader) OutputTokens() int64 { return s.outputTokens }
+func (s *sessionHeader) CreatedAt() time.Time {
+	return s.createdAt
+}
+func (s *sessionHeader) UpdatedAt() time.Time {
+	return s.updatedAt
+}
+func (s *sessionHeader) Extras() map[string]any { return s.extras }
+
+func NewHeader(
+	id ID,
+	inputTokens int64,
+	outputTokens int64,
+	createdAt time.Time,
+	updatedAt time.Time,
+	extras map[string]any,
+) *sessionHeader {
+	return &sessionHeader{
+		id:           id,
+		inputTokens:  inputTokens,
+		outputTokens: outputTokens,
+		createdAt:    createdAt,
+		updatedAt:    updatedAt,
+		extras:       extras,
+	}
+}
+
+var _ Session = (*session)(nil)
+
+type session struct {
+	*sessionHeader
+	messages []agent.Message
+}
+
 func NewSession(id ID) *session {
 	return &session{
-		id:           id,
-		inputTokens:  0,
-		outputTokens: 0,
-		messages:     []agent.Message{},
-		createdAt:    time.Now(),
-		extras:       map[string]any{},
+		sessionHeader: NewHeader(id, 0, 0, time.Now(), time.Now(), map[string]any{}),
+		messages:      []agent.Message{},
 	}
 }
 
 func NewRestoredSession(
-	id ID,
+	h *sessionHeader,
 	messages []agent.Message,
-	inputTokens int64,
-	outputTokens int64,
-	createdAt time.Time,
-	extras map[string]any,
 ) *session {
 
-	if extras == nil {
-		extras = map[string]any{}
-	}
-
 	return &session{
-		id:        id,
-		messages:  messages,
-		createdAt: createdAt,
-		updatedAt: time.Now(),
-
-		inputTokens:  inputTokens,
-		outputTokens: outputTokens,
-
-		extras: extras,
+		sessionHeader: h,
+		messages:      messages,
 	}
 }
-
-func (s *session) ID() ID                { return s.id }
-func (s *session) Title() string         { return s.title }
-func (s *session) SetTitle(title string) { s.title = title }
-
-func (s *session) InputTokens() int64  { return s.inputTokens }
-func (s *session) OutputTokens() int64 { return s.outputTokens }
 
 func (s *session) GetLastAgentMessage() *agent.AgentMessage {
 	for _, message := range slices.Backward(s.messages) {
@@ -163,12 +220,4 @@ func (s *session) OverwriteMessages(inputTokens int64, new []agent.Message) {
 	s.messages = new
 }
 
-func (s *session) CreatedAt() time.Time {
-	return s.createdAt
-}
-func (s *session) UpdatedAt() time.Time {
-	return s.updatedAt
-}
-
 func (s *session) SetExtras(e map[string]any) { s.extras = e }
-func (s *session) Extras() map[string]any     { return s.extras }

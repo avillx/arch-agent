@@ -69,9 +69,9 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 
 	logger := slog.New(agentVisibleLogHandler)
 
-	// if err := lf.Truncate(); err != nil {
-	// 	logger.Error("trunctaion test", "error", err)
-	// }
+	if err := lf.Truncate(); err != nil {
+		logger.Error("trunctaion test", "error", err)
+	}
 
 	secretsRepo, err := files.NewSecretsFiles(fs)
 	if err != nil {
@@ -100,11 +100,15 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	agentRepo := files.NewAgentFiles(fs)
 
 	idGen := uuid.NewUUIDGenerator()
+	sessFiles := files.NewSessionFiles(fs)
 	sessSvc := session.NewService(
-		files.NewSessionFiles(fs),
+		sessFiles,
 		idGen,
 		logger,
 	)
+
+	sessCleaner := session.NewCleaner(agentRepo, sessFiles, 5, logger)
+	sessCleaner.Clean()
 
 	skillFiles := files.NewSkillFiles(fs, logger)
 	memoryFiles := files.NewMemoryFiles(fs, logger)

@@ -10,6 +10,7 @@ type SessionsRepo interface {
 	Session(agentID agent.ID, SessionID ID) (Session, error)
 	Save(agentID agent.ID, Session Session) error
 	Delete(agentID agent.ID, SessionID ID) error
+	Headers(agentID agent.ID) ([]SessionHeader, error)
 }
 
 type UUIDGenerator interface {

@@ -4,6 +4,7 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/session"
 	"arch-agent/internal/types"
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -70,11 +71,64 @@ func (r *SessionFiles) List(agentID agent.ID) ([]session.ID, error) {
 
 		fileName := file.Name()
 
-		sessionID := strings.TrimRight(fileName, filepath.Ext(fileName))
+		sessionID := strings.TrimSuffix(fileName, filepath.Ext(fileName))
 		sessionIDs = append(sessionIDs, session.ID(sessionID))
 	}
 
 	return sessionIDs, nil
+}
+
+func (r *SessionFiles) Headers(agentID agent.ID) ([]session.SessionHeader, error) {
+	sessionDir := resolveSessionFolderPath(agentID)
+	files, err := r.fs.ReadDir(sessionDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var brokenHeaders []*session.ErrBrokenHeader
+	headers := []session.SessionHeader{}
+	for _, file := range files {
+		fileName := file.Name()
+		rawId := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+		sessID := session.ID(rawId)
+
+		pathToFile := filepath.Join(sessionDir, fileName)
+		f, err := r.fs.OpenFile(pathToFile, os.O_RDONLY, 0)
+		if err != nil {
+			brokenHeader := session.NewErrBrokenHeader(sessID, agentID, err)
+			brokenHeaders = append(brokenHeaders, brokenHeader)
+			continue
+		}
+
+		// scan read only first line
+		scanner := bufio.NewScanner(f)
+		scanner.Scan()
+		data := scanner.Bytes()
+		f.Close()
+
+		var header SessionHeaderDTO
+		dec := json.NewDecoder(bytes.NewReader(data))
+		if err := dec.Decode(&header); err != nil {
+			brokenHeader := session.NewErrBrokenHeader(sessID, agentID, err)
+			brokenHeaders = append(brokenHeaders, brokenHeader)
+			continue
+		}
+
+		headers = append(headers, session.NewHeader(
+			sessID,
+			header.InputTokens,
+			header.OutputTokens,
+			header.CreatedAt,
+			header.UpdatedAt,
+			header.Extras,
+		))
+	}
+
+	if len(brokenHeaders) > 0 {
+		err = session.NewErrBrokenHeaders(brokenHeaders...)
+	}
+
+	return headers, err
 }
 
 type SessionHeaderDTO struct {
@@ -140,12 +194,15 @@ func dtoToSession(sessionID session.ID, headerDTO SessionHeaderDTO, messagesDTO 
 		return nil, err
 	}
 	return session.NewRestoredSession(
-		sessionID,
+		session.NewHeader(
+			sessionID,
+			headerDTO.InputTokens,
+			headerDTO.OutputTokens,
+			headerDTO.CreatedAt,
+			headerDTO.UpdatedAt,
+			headerDTO.Extras,
+		),
 		msgs,
-		headerDTO.InputTokens,
-		headerDTO.OutputTokens,
-		headerDTO.CreatedAt,
-		headerDTO.Extras,
 	), nil
 }
 
