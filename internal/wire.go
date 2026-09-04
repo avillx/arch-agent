@@ -32,9 +32,8 @@ import (
 )
 
 type Config struct {
-	DataPath        string
-	TelegramGroupID int64
-	ShellEnv        []string
+	DataPath string
+	ShellEnv []string
 
 	LogLevel  slog.Level
 	AddSource bool
@@ -74,6 +73,12 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	)
 
 	logger := slog.New(agentVisibleLogHandler)
+
+	tmpFiles, err := files.NewTemporaryFiles(fs, logger)
+	if err != nil {
+		return nil, err
+	}
+	go tmpFiles.Run(ctx)
 
 	secretsRepo, err := files.NewSecretsFiles(fs)
 	if err != nil {
@@ -286,8 +291,13 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		return nil, err
 	}
 
+	tmpSent, err := files.NewSentinel(fs, files.TMPDir, tmpFiles.Reload, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	// run all sentinels
-	sents := []*files.Sentinel{mcpSent, memoSent, modelsSent, tasksSent, secretsSent}
+	sents := []*files.Sentinel{mcpSent, memoSent, modelsSent, tasksSent, secretsSent, tmpSent}
 	for _, s := range sents {
 		go func() {
 			if err := s.Run(ctx); err != nil {

@@ -31,6 +31,11 @@ System (read-only):
   ( MCP, sessions, memory consolidations, agent runs, runtime errors, 
   agent awakes by schedule tasks etc...).
   Do not read it raw, prefer to use tail / grep.
+- [temporary](./tmp) - Folder for temporary files. All files and folders placed 
+  in this directory will be automatically deleted after 10 minutes. 
+  File deletion events are logged in the system log.
+  Move a file to `./tmp` to have it automatically deleted.
+
 
 Rules:
 - Keep `CWD` clean, follow introduced convetions.
