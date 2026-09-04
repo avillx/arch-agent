@@ -74,6 +74,7 @@ func (r *OpenAIReasoner) Complete(
 	internalMsgs []agent.Message,
 ) (*agent.Completion, error) {
 
+	internalMsgs = excludeUnsupportedModalities(internalMsgs, r.SupportedModalities())
 	messages := messagesToOpenAI(internalMsgs)
 	agentTools := toolsToOpenAI(tools)
 	completionParams := r.buildCompletionParams(messages, agentTools)
@@ -139,4 +140,28 @@ func (r *OpenAIReasoner) buildCompletionParams(
 	}
 
 	return completionParams
+}
+
+func excludeUnsupportedModalities(msgs []agent.Message, mdls []agent.Modality) []agent.Message {
+
+	if !slices.Contains(mdls, agent.ImageModality) {
+		msgs = excludeImageModality(msgs)
+	}
+
+	return msgs
+}
+
+func excludeImageModality(msgs []agent.Message) []agent.Message {
+	const unsupportedLabel = " image modality unsupported by model"
+	for _, msg := range msgs {
+		contentParts := msg.Content()
+		safeContent := make([]agent.ContentPart, 0, len(contentParts))
+		for _, contentPart := range contentParts {
+			contentPart.Text += unsupportedLabel
+			contentPart.ImageURL = ""
+			safeContent = append(safeContent, contentPart)
+		}
+		msg.SetContent(safeContent)
+	}
+	return msgs
 }

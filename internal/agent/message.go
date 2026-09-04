@@ -205,23 +205,3 @@ func ExcludeToolCallsData(msgs []Message, toolNames []ToolName) []Message {
 		return false
 	})
 }
-
-// agent package
-func CloneMessage(m Message) Message {
-	switch v := m.(type) {
-	case *UserMessage:
-		c := *v
-		return &c
-	case *AgentMessage:
-		c := *v
-		return &c
-	case *ToolResultMessage:
-		c := *v
-		return &c
-	case *SystemMessage:
-		c := *v
-		return &c
-	default:
-		return m
-	}
-}
