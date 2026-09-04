@@ -38,14 +38,11 @@ agent discribed in a md file `/data/<agent_name>/agent.md`
 ```yaml
 ---
 # unique id of agent. id is a agent name and identity. other agents see this name
-id: calude
+id: claude
 description: a helpful assistant 
 model: sonnet-4.6
 #if true activity has been logged and once per day consolidated as memory database
 memory: true
-# white list of allowed skills, other skill is invisible for agent
-skills:
-    - reglament
 # white list of build in tool bundles and connected mcp servers
 tool_servers:
     - filesystem
@@ -53,48 +50,25 @@ tool_servers:
     - tasks
     - web
     - agent
-# white list of current tools
-tools:
-    - read_file 
-    - write_file
 ---
 
 You are helpful assistant
 ```
 ---
 
-### Config
-Must be runned with `--config` flag and path to config file e.g. `config.toml`
-Example in `example.config.toml`
-
 ### ENV
 Accepts unneccecary vars:
-LOG_INDEND (true/false)
-LOG_SOURCE (true/false)
-LOG_JSON (true/false)
-LOG_LEVEL (debug/info/warn/error)
+| Name                | Allow                | Default |
+|:--------------------|:---------------------|:-------:|
+| `LOG_INDEND`        | true/false           | false   |
+| `LOG_SOURCE`        | true/false           | false   |
+| `LOG_JSON`          | true/false           | false   |
+| `LOG_LEVEL`         | debug/info/warn/error| error   |
+| `CLEAN_UP_INTERVAL` | int (hours)          | 12      |
+| `SESSION_RETENTION` | int (hours)          | 240     |
+| `MAX_LOG_LINES`     | int                  | 1000    |
 
-
+ 
 ### For compose
 Workdir is `/agent`
 All memory stores in `/agent/data/...`
-
----
-
-### TODO
-**v1**
-- [ ] search_files issue (glob/grep divide?)
-- [ ] runtime fallback models pool
-- [ ] runtime toolcall loop detection
-- [ ] runtime toolcall service as separated responsobility
-- [ ] eliminate edge case vulnurabilities for every package
-- [ ] add doc's
-- [ ] add tests
-- [ ] add validations
-- [ ] e2e tests 
-- [ ] from zero launch (preloaded agent, cli, skills)
-
-**v1.1**
-- [ ] scheduled tasks with skill prefill
-- [ ] skill allow tools for agent
-- [ ] sub agent call with skill prefill

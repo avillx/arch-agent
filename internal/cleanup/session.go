@@ -1,37 +1,36 @@
-package session
+package cleanup
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/session"
 	"errors"
 	"log/slog"
 	"sync"
 	"time"
 )
 
-type Cleaner struct {
-	agentRepo       agent.Repo
-	sessRepo        SessionsRepo
-	sessStorePeriod int
-	logger          *slog.Logger
+type SessionsCleaner struct {
+	agentRepo agent.Repo
+	sessRepo  session.SessionsRepo
+	logger    *slog.Logger
 
 	mu sync.Mutex
 }
 
-func NewCleaner(
+func NewSessionsCleaner(
 	agentRepo agent.Repo,
-	sessRepo SessionsRepo,
-	sessStorePeriod int,
+	sessRepo session.SessionsRepo,
+
 	logger *slog.Logger,
-) *Cleaner {
-	return &Cleaner{
-		agentRepo:       agentRepo,
-		sessRepo:        sessRepo,
-		sessStorePeriod: sessStorePeriod,
-		logger:          logger.WithGroup("session_cleaner"),
+) *SessionsCleaner {
+	return &SessionsCleaner{
+		agentRepo: agentRepo,
+		sessRepo:  sessRepo,
+		logger:    logger.WithGroup("session_cleaner"),
 	}
 }
 
-func (c *Cleaner) Clean() error {
+func (c *SessionsCleaner) Clean(retention time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -44,7 +43,7 @@ func (c *Cleaner) Clean() error {
 		headers, err := c.sessRepo.Headers(agt.ID())
 		if err != nil {
 
-			var brokenHeadersErr *ErrBrokenHeaders
+			var brokenHeadersErr *session.ErrBrokenHeaders
 			if !errors.As(err, &brokenHeadersErr) {
 				c.logger.Error("read session headers", "agent", agt.ID(), "error", err)
 				continue
@@ -54,13 +53,13 @@ func (c *Cleaner) Clean() error {
 
 		}
 
-		c.eliminateDepricatedSessions(agt.ID(), headers)
+		c.eliminateDepricatedSessions(retention, agt.ID(), headers)
 	}
 
 	return nil
 }
 
-func (c *Cleaner) handleBrokenSessions(brokenHeadersErr *ErrBrokenHeaders) {
+func (c *SessionsCleaner) handleBrokenSessions(brokenHeadersErr *session.ErrBrokenHeaders) {
 	for _, brokenHeaderErr := range brokenHeadersErr.Errors {
 		logger := c.logger.With(
 			"agent", brokenHeaderErr.AgentID,
@@ -77,8 +76,12 @@ func (c *Cleaner) handleBrokenSessions(brokenHeadersErr *ErrBrokenHeaders) {
 	}
 }
 
-func (c *Cleaner) eliminateDepricatedSessions(agentID agent.ID, headers []SessionHeader) {
-	cutDate := time.Now().AddDate(0, 0, -c.sessStorePeriod)
+func (c *SessionsCleaner) eliminateDepricatedSessions(
+	retention time.Duration,
+	agentID agent.ID,
+	headers []session.SessionHeader,
+) {
+	cutDate := time.Now().Add(retention)
 	for _, h := range headers {
 		if h.UpdatedAt().After(cutDate) {
 			continue

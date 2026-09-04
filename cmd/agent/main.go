@@ -11,15 +11,19 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 )
 
 type RunParameters struct {
-	DataPath    string
-	Port        string
-	LogIndented bool
-	LogSource   bool
-	LogLevel    slog.Level
-	LogJSON     bool
+	DataPath        string
+	Port            string
+	LogIndented     bool
+	LogSource       bool
+	LogLevel        slog.Level
+	LogJSON         bool
+	cleanupInterval time.Duration
+	sessRetention   time.Duration
+	maxLogLines     int
 }
 
 func NewRunParameters(
@@ -29,6 +33,9 @@ func NewRunParameters(
 	logSource string,
 	logLevel string,
 	logJSON string,
+	cleanupInterval string,
+	sessRetention string,
+	maxLogLines string,
 ) (RunParameters, error) {
 
 	if dataPath == "" {
@@ -55,6 +62,31 @@ func NewRunParameters(
 		logLevel = "error"
 	}
 
+	if cleanupInterval == "" {
+		cleanupInterval = "12"
+	}
+	if sessRetention == "" {
+		sessRetention = "240"
+	}
+	if maxLogLines == "" {
+		maxLogLines = "1000"
+	}
+
+	cleanupIntervalInt, err := strconv.ParseInt(cleanupInterval, 64, 10)
+	if err != nil {
+		return RunParameters{}, err
+	}
+
+	sessRetentionInt, err := strconv.ParseInt(sessRetention, 64, 10)
+	if err != nil {
+		return RunParameters{}, err
+	}
+
+	maxLogLinesInt, err := strconv.ParseInt(maxLogLines, 64, 10)
+	if err != nil {
+		return RunParameters{}, err
+	}
+
 	logSourceBool, err := strconv.ParseBool(logSource)
 	if err != nil {
 		return RunParameters{}, err
@@ -76,12 +108,15 @@ func NewRunParameters(
 	}
 
 	return RunParameters{
-		DataPath:    dataPath,
-		Port:        port,
-		LogIndented: logIndentedBool,
-		LogSource:   logSourceBool,
-		LogLevel:    logLevelTyped,
-		LogJSON:     logJSONBool,
+		DataPath:        dataPath,
+		Port:            port,
+		LogIndented:     logIndentedBool,
+		LogSource:       logSourceBool,
+		LogLevel:        logLevelTyped,
+		LogJSON:         logJSONBool,
+		sessRetention:   time.Duration(sessRetentionInt) * time.Hour,
+		cleanupInterval: time.Duration(cleanupIntervalInt) * time.Hour,
+		maxLogLines:     int(maxLogLinesInt),
 	}, nil
 }
 
@@ -104,6 +139,9 @@ func run(
 		getENV("LOG_SOURCE"),
 		getENV("LOG_LEVEL"),
 		getENV("LOG_JSON"),
+		getENV("CLEAN_UP_INTERVAL"),
+		getENV("SESSION_RETENTION"),
+		getENV("MAX_LOG_LINES"),
 	)
 	if err != nil {
 		return fmt.Errorf("bad envirement variable: %w", err)
@@ -148,6 +186,5 @@ func main() {
 		slog.Error("system run", "error", err)
 		os.Exit(1)
 	}
-
 	slog.Warn("system shutdown")
 }

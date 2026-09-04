@@ -4,6 +4,7 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/api"
 	"arch-agent/internal/chat"
+	"arch-agent/internal/cleanup"
 	"arch-agent/internal/cron"
 	"arch-agent/internal/files"
 	"arch-agent/internal/hooks"
@@ -27,6 +28,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"time"
 )
 
 type Config struct {
@@ -38,6 +40,10 @@ type Config struct {
 	AddSource bool
 	Indented  bool
 	JSON      bool
+
+	MaxLogLines     int
+	SessRetention   time.Duration
+	CleanUpInterval time.Duration
 }
 
 func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
@@ -60,7 +66,7 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	// write logs to agents visible log file with simplified format
 	// and in stdio in json format
 	// must be used for common logic
-	lf := logging.NewLogFile(filepath.Join(fs.Cwd(), "agents.log"), 1000)
+	lf := logging.NewLogFile(filepath.Join(fs.Cwd(), "agents.log"))
 
 	agentVisibleLogHandler := logging.WithAgentLog(
 		defaultHandler,
@@ -68,10 +74,6 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	)
 
 	logger := slog.New(agentVisibleLogHandler)
-
-	if err := lf.Truncate(); err != nil {
-		logger.Error("trunctaion test", "error", err)
-	}
 
 	secretsRepo, err := files.NewSecretsFiles(fs)
 	if err != nil {
@@ -107,8 +109,21 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		logger,
 	)
 
-	sessCleaner := session.NewCleaner(agentRepo, sessFiles, 5, logger)
-	sessCleaner.Clean()
+	cleanupSvc, err := cleanup.NewCleanUpService(
+		cleanup.CleanUpConfig{
+			MaxLogLines:     cfg.MaxLogLines,
+			SessRetention:   cfg.SessRetention,
+			CleanUpInterval: cfg.CleanUpInterval,
+		},
+		cleanup.NewSessionsCleaner(agentRepo, sessFiles, logger),
+		lf,
+		logger,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	go cleanupSvc.Run(ctx)
 
 	skillFiles := files.NewSkillFiles(fs, logger)
 	memoryFiles := files.NewMemoryFiles(fs, logger)

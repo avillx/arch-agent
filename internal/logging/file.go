@@ -12,15 +12,13 @@ var _ io.Writer = (*LogFile)(nil)
 
 type LogFile struct {
 	filePath string
-	maxLines int
 
 	mu sync.Mutex
 }
 
-func NewLogFile(filePath string, maxlines int) *LogFile {
+func NewLogFile(filePath string) *LogFile {
 	return &LogFile{
 		filePath: filePath,
-		maxLines: maxlines,
 	}
 }
 
@@ -37,7 +35,7 @@ func (w *LogFile) Write(p []byte) (int, error) {
 	return f.Write(p)
 }
 
-func (s *LogFile) Truncate() error {
+func (s *LogFile) Trim(maxLines int) error {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -55,11 +53,11 @@ func (s *LogFile) Truncate() error {
 	linesCount := bytes.Count(data, []byte{'\n'})
 
 	// no need to truncate
-	if linesCount < s.maxLines {
+	if linesCount < maxLines {
 		return nil
 	}
 
-	truncation := linesCount - s.maxLines
+	truncation := linesCount - maxLines
 	idx := 0
 	lines := bytes.SplitN(data, []byte{'\n'}, truncation+1)
 	for _, line := range lines[:truncation] {
