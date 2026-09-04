@@ -221,6 +221,33 @@ func (fs *FileSystem) MkdirAll(p string) error {
 	return nil
 }
 
+type openedFilePtr struct {
+	*os.File
+	unlockFunc func()
+}
+
+func (f *openedFilePtr) Close() error {
+	defer f.unlockFunc()
+	return f.File.Close()
+}
+
+func (fs *FileSystem) OpenFile(name string, flag int, perm os.FileMode) (*openedFilePtr, error) {
+	p, err := fs.resolvePath(name)
+	if err != nil {
+		return nil, err
+	}
+
+	unlock := fs.locks.Lock(p)
+
+	f, err := os.OpenFile(p, flag, perm)
+	if err != nil {
+		unlock()
+		return nil, toInternalNotExist(err)
+	}
+
+	return &openedFilePtr{unlockFunc: unlock, File: f}, nil
+}
+
 func (fs *FileSystem) DeleteAll(p string) error {
 	unlock := fs.locks.Lock(p)
 	defer unlock()
