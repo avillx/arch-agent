@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	minSessRetention   = 24 * time.Hour
+	minSessRetention   = 10 * time.Hour
 	minCleanUpInterval = 5 * time.Hour
 )
 
@@ -70,13 +70,13 @@ func (s *CleanUpService) Run(ctx context.Context) {
 func (s *CleanUpService) doCleanUp() {
 	s.logger.Error("invoke")
 
+	s.logger.Info("cleaning sessions")
 	if err := s.sessionsCleaner.Clean(s.cfg.SessRetention); err != nil {
 		s.logger.Error("sessions", "error", err)
 	}
-	s.logger.Error("sessions cleaned")
 
+	s.logger.Info("cleaning log")
 	if err := s.logFile.Trim(s.cfg.MaxLogLines); err != nil {
 		s.logger.Error("agent log file", "error", err)
 	}
-	s.logger.Error("log cleaned")
 }

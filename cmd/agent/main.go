@@ -72,17 +72,17 @@ func NewRunParameters(
 		maxLogLines = "1000"
 	}
 
-	cleanupIntervalInt, err := strconv.ParseInt(cleanupInterval, 64, 10)
+	cleanupIntervalInt, err := strconv.ParseInt(cleanupInterval, 10, 64)
 	if err != nil {
 		return RunParameters{}, err
 	}
 
-	sessRetentionInt, err := strconv.ParseInt(sessRetention, 64, 10)
+	sessRetentionInt, err := strconv.ParseInt(sessRetention, 10, 64)
 	if err != nil {
 		return RunParameters{}, err
 	}
 
-	maxLogLinesInt, err := strconv.ParseInt(maxLogLines, 64, 10)
+	maxLogLinesInt, err := strconv.ParseInt(maxLogLines, 10, 64)
 	if err != nil {
 		return RunParameters{}, err
 	}
@@ -149,11 +149,14 @@ func run(
 
 	// App composing
 	srv, err := wire.BuildServer(ctx, wire.Config{
-		DataPath:  params.DataPath,
-		Indented:  params.LogIndented,
-		LogLevel:  params.LogLevel,
-		AddSource: params.LogSource,
-		JSON:      params.LogJSON,
+		DataPath:        params.DataPath,
+		Indented:        params.LogIndented,
+		LogLevel:        params.LogLevel,
+		AddSource:       params.LogSource,
+		JSON:            params.LogJSON,
+		SessRetention:   params.sessRetention,
+		CleanUpInterval: params.cleanupInterval,
+		MaxLogLines:     params.maxLogLines,
 	})
 	if err != nil {
 		return err

@@ -81,7 +81,7 @@ func (c *SessionsCleaner) eliminateDepricatedSessions(
 	agentID agent.ID,
 	headers []session.SessionHeader,
 ) {
-	cutDate := time.Now().Add(retention)
+	cutDate := time.Now().Add(-retention)
 	for _, h := range headers {
 		if h.UpdatedAt().After(cutDate) {
 			continue
