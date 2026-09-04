@@ -26,7 +26,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"path"
 	"path/filepath"
 )
 
@@ -61,12 +60,18 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	// write logs to agents visible log file with simplified format
 	// and in stdio in json format
 	// must be used for common logic
+	lf := logging.NewLogFile(filepath.Join(fs.Cwd(), "agents.log"), 1000)
+
 	agentVisibleLogHandler := logging.WithAgentLog(
 		defaultHandler,
-		path.Join(fs.Cwd(), "agents.log"),
+		lf,
 	)
 
 	logger := slog.New(agentVisibleLogHandler)
+
+	// if err := lf.Truncate(); err != nil {
+	// 	logger.Error("trunctaion test", "error", err)
+	// }
 
 	secretsRepo, err := files.NewSecretsFiles(fs)
 	if err != nil {

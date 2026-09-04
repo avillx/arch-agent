@@ -3,39 +3,8 @@ package logging
 import (
 	"context"
 	"errors"
-	"fmt"
-	"io"
 	"log/slog"
-	"os"
-	"sync"
 )
-
-var _ io.Writer = (*fileWriter)(nil)
-
-type fileWriter struct {
-	filePath string
-
-	mu sync.Mutex
-}
-
-func newFileWriter(filePath string) *fileWriter {
-	return &fileWriter{
-		filePath: filePath,
-	}
-}
-
-func (w *fileWriter) Write(p []byte) (int, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	f, err := os.OpenFile(w.filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0640)
-	if err != nil {
-		return 0, fmt.Errorf("open log file: %w", err)
-	}
-	defer f.Close()
-
-	return f.Write(p)
-}
 
 var _ slog.Handler = (*multiHandler)(nil)
 

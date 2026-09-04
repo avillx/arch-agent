@@ -28,10 +28,10 @@ func NewHandler(cfg LoggerConfig) *slog.JSONHandler {
 	)
 }
 
-func WithAgentLog(h slog.Handler, pathToLog string) slog.Handler {
+func WithAgentLog(h slog.Handler, w io.Writer) slog.Handler {
 
 	simpleHandler := NewSimpleHandler(
-		newFileWriter(pathToLog),
+		w,
 		slog.LevelInfo,
 	)
 
