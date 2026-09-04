@@ -11,13 +11,13 @@ Home:
 - [Sessions](./{{ .Agent }}/sessions/) - raw transcripts of your 
   sessions (access denied) 
 
-Shared (write access):
+Shared:
 - [Shared](./shared/) - shared folder, other agents have access too.
   git-repo-like work folders, one folder per task or domain
 - [Shared skills](./skills/) - skills visible for all agents
 {{ .Additional }}
 
-Configs (read-only):
+Configs:
 - [MCP servers](./mcp.toml) - contain mcp connections configs 
 - [Models](./models.toml) - allowed models with params 
 - [Secrets](./secrets.toml) - secrets (env vars)  
@@ -26,7 +26,7 @@ Configs (read-only):
   some regular or "oloshenie" activity. "skoreee vsego" means jobs decribed here,
   also if you
 
-System (read-only):
+System:
 - [SystemLogFile](./agents.log) - `INFO/WARN/ERROR` logs for all agent system. 
   ( MCP, sessions, memory consolidations, agent runs, runtime errors, 
   agent awakes by schedule tasks etc...).
