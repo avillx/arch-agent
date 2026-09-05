@@ -1,6 +1,7 @@
 package files
 
 import (
+	"arch-agent/internal/sentinel"
 	"arch-agent/internal/types"
 	"context"
 	"errors"
@@ -9,6 +10,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 const tmpLifeTime = 10 * time.Minute
@@ -89,7 +92,9 @@ func (f *TemporaryFiles) watchFor(p string) {
 
 		f.logger.Info("deletion")
 		if err := f.fs.DeleteAll(p); err != nil {
-			f.logger.Error("deletion", "path", p, "error", err)
+			if !errors.Is(err, types.ErrIsNotExist) {
+				f.logger.Error("deletion", "path", p, "error", err)
+			}
 		}
 
 		if t, ok := f.timers[p]; ok {
@@ -118,4 +123,11 @@ func (f *TemporaryFiles) releaseUnexisted(existed []os.DirEntry) {
 
 func resolveTmpEntryPath(e string) string {
 	return filepath.Join(TMPDir, e)
+}
+
+// tmpSent
+func NewTMPDetector(tmpFiles *TemporaryFiles) sentinel.Action {
+	return func(ctx context.Context, ev fsnotify.Event) error {
+		return tmpFiles.Reload(ctx)
+	}
 }

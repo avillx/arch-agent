@@ -14,6 +14,7 @@ import (
 	"arch-agent/internal/model"
 	"arch-agent/internal/openai"
 	"arch-agent/internal/secrets"
+	"arch-agent/internal/sentinel"
 	"arch-agent/internal/session"
 	"arch-agent/internal/subagent"
 	"arch-agent/internal/task"
@@ -245,74 +246,29 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 
 	chatDispatcher := chat.NewDispatcher(chatSvc)
 
-	// sentinel mcp
-	mcpSent, err := files.NewSentinel(fs, "mcp.toml", mcpSvc.Reload, logger)
-	if err != nil {
-		return nil, err
-	}
+	// all sentinels
+	sent := sentinel.New(fs.Cwd(), logger,
+		sentinel.WithWatch(filepath.Join(fs.Cwd(), files.TMPDir), files.NewTMPDetector(tmpFiles)),
+		sentinel.WithWatch(filepath.Join(fs.Cwd(), files.MCPConfigFile), files.NewMCPReloader(mcpSvc)),
+		sentinel.WithWatch(filepath.Join(fs.Cwd(), files.MemoryConfigFile), files.NewMemoReloader(memoryConsolidator, activityService)),
+		sentinel.WithWatch(filepath.Join(fs.Cwd(), files.ModelsConfigFile), files.NewModelsReloader(providerSvc)),
+		sentinel.WithWatch(filepath.Join(fs.Cwd(), files.SecretsConfigFile), files.NewSecretsReloader(secretService)),
+		sentinel.WithWatch(filepath.Join(fs.Cwd(), files.TaskConfigFile), files.NewTasksReloader(taskSvc)),
+	)
 
-	// sentinel tasks
-	tasksSent, err := files.NewSentinel(fs, "tasks.toml", taskSvc.Reload, logger)
-	if err != nil {
-		return nil, err
-	}
-
-	// sentinel memory
-	reloadMemory := func(_ context.Context) error {
-		if err := activityService.Reload(); err != nil {
-			return err
-		}
-		return memoryConsolidator.Reload()
-	}
-	memoSent, err := files.NewSentinel(fs, "memory.toml", reloadMemory, logger)
-	if err != nil {
-		return nil, err
-	}
-
-	// sentinel models
-	reloadProviders := func(_ context.Context) error {
-		return providerSvc.Reload()
-	}
-	modelsSent, err := files.NewSentinel(fs, "models.toml", reloadProviders, logger)
-	if err != nil {
-		return nil, err
-	}
-
-	// secrets sentinel
-	reloadSecrets := func(ctx context.Context) error {
-		if err := secretService.Reload(ctx); err != nil {
-			return err
-		}
-		secretReplacer.Reload()
-		return nil
-	}
-	secretsSent, err := files.NewSentinel(fs, "secrets.toml", reloadSecrets, logger)
-	if err != nil {
-		return nil, err
-	}
-
-	tmpSent, err := files.NewSentinel(fs, files.TMPDir, tmpFiles.Reload, logger)
-	if err != nil {
-		return nil, err
-	}
-
-	// run all sentinels
-	sents := []*files.Sentinel{mcpSent, memoSent, modelsSent, tasksSent, secretsSent, tmpSent}
-	for _, s := range sents {
-		go func() {
-			if err := s.Run(ctx); err != nil {
-				if errors.Is(err, files.ErrClosedWatcher) {
-					return
-				}
-
-				if errors.Is(err, context.Canceled) {
-					return
-				}
-
-				agentUnreachibleLogger.Error("file_sentinel", "error", err)
+	go func() {
+		if err := sent.Run(ctx); err != nil {
+			if errors.Is(err, sentinel.ErrClosedWatcher) {
+				return
 			}
-		}()
-	}
+
+			if errors.Is(err, context.Canceled) {
+				return
+			}
+
+			agentUnreachibleLogger.Error("file_sentinel", "error", err)
+		}
+	}()
 
 	return api.NewHTTPServer(
 		agentUnreachibleLogger,

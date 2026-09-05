@@ -2,15 +2,18 @@ package files
 
 import (
 	"arch-agent/internal/mcp"
+	"arch-agent/internal/sentinel"
 	"arch-agent/internal/types"
 	"bytes"
+	"context"
 	"fmt"
 	"sync"
 
+	"github.com/fsnotify/fsnotify"
 	toml "github.com/pelletier/go-toml/v2"
 )
 
-const mcpServersFile = "mcp.toml"
+const MCPConfigFile = "mcp.toml"
 const mcpConfigDoc = `# MCP servers connections config
 # All MCP servers described here will be connected
 
@@ -50,7 +53,7 @@ type MCPFiles struct {
 
 func NewMCPFiles(fs *FileSystem) (*MCPFiles, error) {
 
-	if err := ensureFilePlaceholder(fs, mcpServersFile, []byte(mcpConfigDoc)); err != nil {
+	if err := ensureFilePlaceholder(fs, MCPConfigFile, []byte(mcpConfigDoc)); err != nil {
 		return nil, err
 	}
 
@@ -71,10 +74,10 @@ func (f *MCPFiles) Save(id mcp.MCPServerID, cfg mcp.ServerGatewayConfig) error {
 
 	data, err := MarshalMCPConfig(dtoMap)
 	if err != nil {
-		return fmt.Errorf("marshal %s: %w", mcpServersFile, err)
+		return fmt.Errorf("marshal %s: %w", MCPConfigFile, err)
 	}
 
-	return f.fs.WriteToFile(mcpServersFile, data)
+	return f.fs.WriteToFile(MCPConfigFile, data)
 }
 
 func (f *MCPFiles) Load() (map[mcp.MCPServerID]mcp.ServerGatewayConfig, error) {
@@ -91,7 +94,7 @@ func (f *MCPFiles) Load() (map[mcp.MCPServerID]mcp.ServerGatewayConfig, error) {
 }
 
 func (f *MCPFiles) LoadDTO() (map[mcp.MCPServerID]mcp.ServerGatewayConfig, error) {
-	data, err := f.fs.ReadFile(mcpServersFile)
+	data, err := f.fs.ReadFile(MCPConfigFile)
 	if err != nil {
 		return nil, err
 	}
@@ -218,4 +221,11 @@ func UnmarshalMCPConfig(data []byte) (map[mcp.MCPServerID]mcp.ServerGatewayConfi
 	}
 
 	return config, nil
+}
+
+// mcpSent
+func NewMCPReloader(mcpSvc *mcp.Service) sentinel.Action {
+	return func(ctx context.Context, ev fsnotify.Event) error {
+		return mcpSvc.Reload(ctx)
+	}
 }

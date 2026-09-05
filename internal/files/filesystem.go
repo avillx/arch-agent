@@ -295,7 +295,7 @@ func ensureFilePlaceholder(
 		if !errors.Is(err, types.ErrIsNotExist) {
 			return err
 		}
-		if err := fs.WriteToFile(TaskFile, defaultEntry); err != nil {
+		if err := fs.WriteToFile(TaskConfigFile, defaultEntry); err != nil {
 			return err
 		}
 	}

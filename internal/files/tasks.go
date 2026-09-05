@@ -2,17 +2,20 @@ package files
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/sentinel"
 	"arch-agent/internal/task"
 	"arch-agent/internal/types"
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"sync"
 
+	"github.com/fsnotify/fsnotify"
 	toml "github.com/pelletier/go-toml/v2"
 )
 
-const TaskFile = "tasks.toml"
+const TaskConfigFile = "tasks.toml"
 const taskConfigDoc = `# Cron tasks config
 
 # Tasks are planned requests sent to agent recipients on a cron schedule.
@@ -58,7 +61,7 @@ type TaskFiles struct {
 
 func NewTaskFiles(fs *FileSystem) (*TaskFiles, error) {
 
-	if err := ensureFilePlaceholder(fs, TaskFile, []byte(taskConfigDoc)); err != nil {
+	if err := ensureFilePlaceholder(fs, TaskConfigFile, []byte(taskConfigDoc)); err != nil {
 		return nil, err
 	}
 
@@ -126,7 +129,7 @@ func (tf *TaskFiles) Delete(id string) error {
 }
 
 func loadTasks(fs *FileSystem) (map[string]task.TaskConfig, error) {
-	data, err := fs.ReadFile(TaskFile)
+	data, err := fs.ReadFile(TaskConfigFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return map[string]task.TaskConfig{}, nil
@@ -145,7 +148,7 @@ func flush(fs *FileSystem, tasks map[string]task.TaskConfig) error {
 	if err != nil {
 		return err
 	}
-	return fs.WriteToFile(TaskFile, data)
+	return fs.WriteToFile(TaskConfigFile, data)
 }
 
 type TaskDTO struct {
@@ -204,4 +207,11 @@ func MarshalTasks(tasks map[string]task.TaskConfig) ([]byte, error) {
 		[][]byte{[]byte(taskConfigDoc), rawData},
 		[]byte("\n\n"),
 	), nil
+}
+
+// tasksSent
+func NewTasksReloader(tasksSvc *task.Service) sentinel.Action {
+	return func(ctx context.Context, ev fsnotify.Event) error {
+		return tasksSvc.Reload(ctx)
+	}
 }

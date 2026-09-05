@@ -2,14 +2,17 @@ package files
 
 import (
 	"arch-agent/internal/model"
+	"arch-agent/internal/sentinel"
 	"arch-agent/internal/types"
 	"bytes"
+	"context"
 	"sync"
 
+	"github.com/fsnotify/fsnotify"
 	toml "github.com/pelletier/go-toml/v2"
 )
 
-const modelsFile = "models.toml"
+const ModelsConfigFile = "models.toml"
 const modelsConfigDoc = `# Models config file
 # LLM models available for agents
 
@@ -68,7 +71,7 @@ type ProviderFiles struct {
 
 func NewProviderFiles(fs *FileSystem) (*ProviderFiles, error) {
 
-	if err := ensureFilePlaceholder(fs, modelsFile, []byte(modelsConfigDoc)); err != nil {
+	if err := ensureFilePlaceholder(fs, ModelsConfigFile, []byte(modelsConfigDoc)); err != nil {
 		return nil, err
 	}
 
@@ -162,7 +165,7 @@ func (f *ProviderFiles) Delete(id model.ProviderID) error {
 func (f *ProviderFiles) loadConfig() (modelsConfigDTO, error) {
 	var dto modelsConfigDTO
 
-	data, err := f.fs.ReadFile(modelsFile)
+	data, err := f.fs.ReadFile(ModelsConfigFile)
 	if err != nil {
 		// TODO: create place holder if not exist
 		return dto, err
@@ -187,5 +190,12 @@ func (f *ProviderFiles) saveConfig(dto modelsConfigDTO) error {
 		[]byte("\n\n"),
 	)
 
-	return f.fs.WriteToFile(modelsFile, dataWithDoc)
+	return f.fs.WriteToFile(ModelsConfigFile, dataWithDoc)
+}
+
+// modelsSent
+func NewModelsReloader(modelsSvc *model.ProviderService) sentinel.Action {
+	return func(ctx context.Context, ev fsnotify.Event) error {
+		return modelsSvc.Reload()
+	}
 }

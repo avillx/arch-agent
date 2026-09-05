@@ -2,13 +2,16 @@ package files
 
 import (
 	"arch-agent/internal/memory"
+	"arch-agent/internal/sentinel"
 	"bytes"
+	"context"
 	"sync"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/pelletier/go-toml/v2"
 )
 
-const memoryConfig = "memory.toml"
+const MemoryConfigFile = "memory.toml"
 const memoryConfigDoc string = `# Memory config
 
 # Agent for **consolidation** memory is invoked once every 24h;
@@ -45,28 +48,28 @@ const memoryConfigDoc string = `# Memory config
 # Do not touch this comment!
 # After edit, ensure file consistency and comment integrity`
 
-type MemoryConfigFile struct {
+type MemoryFile struct {
 	fs *FileSystem
 
 	mu sync.Mutex
 }
 
-func NewMemoryConfigFile(fs *FileSystem) (*MemoryConfigFile, error) {
+func NewMemoryConfigFile(fs *FileSystem) (*MemoryFile, error) {
 
-	if err := ensureFilePlaceholder(fs, memoryConfig, []byte(memoryConfigDoc)); err != nil {
+	if err := ensureFilePlaceholder(fs, MemoryConfigFile, []byte(memoryConfigDoc)); err != nil {
 		return nil, err
 	}
 
-	return &MemoryConfigFile{
+	return &MemoryFile{
 		fs: fs,
 	}, nil
 }
 
-func (r *MemoryConfigFile) Save(new MemoryConfigDTO) error {
+func (r *MemoryFile) Save(new MemoryConfigDTO) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	data, err := r.fs.ReadFile(memoryConfig)
+	data, err := r.fs.ReadFile(MemoryConfigFile)
 	if err != nil {
 		return err
 	}
@@ -95,14 +98,14 @@ func (r *MemoryConfigFile) Save(new MemoryConfigDTO) error {
 		[]byte("\n\n"),
 	)
 
-	return r.fs.WriteToFile(memoryConfig, data)
+	return r.fs.WriteToFile(MemoryConfigFile, data)
 }
 
-func (r *MemoryConfigFile) Load() (MemoryConfigDTO, error) {
+func (r *MemoryFile) Load() (MemoryConfigDTO, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	data, err := r.fs.ReadFile(memoryConfig)
+	data, err := r.fs.ReadFile(MemoryConfigFile)
 	if err != nil {
 		return MemoryConfigDTO{}, err
 	}
@@ -119,23 +122,23 @@ func (r *MemoryConfigFile) Load() (MemoryConfigDTO, error) {
 var _ memory.ActivityConfigRepo = (*ActivityRepo)(nil)
 
 type ActivityRepo struct {
-	*MemoryConfigFile
+	*MemoryFile
 }
 
-func NewActivityRepo(c *MemoryConfigFile) *ActivityRepo {
+func NewActivityRepo(c *MemoryFile) *ActivityRepo {
 	return &ActivityRepo{
-		MemoryConfigFile: c,
+		MemoryFile: c,
 	}
 }
 
 func (r *ActivityRepo) Save(ac memory.ActivityConfig) error {
-	return r.MemoryConfigFile.Save(MemoryConfigDTO{
+	return r.MemoryFile.Save(MemoryConfigDTO{
 		Activity: &ac,
 	})
 }
 
 func (r *ActivityRepo) Load() (memory.ActivityConfig, error) {
-	cfg, err := r.MemoryConfigFile.Load()
+	cfg, err := r.MemoryFile.Load()
 	if err != nil {
 		return memory.ActivityConfig{}, err
 	}
@@ -147,23 +150,23 @@ func (r *ActivityRepo) Load() (memory.ActivityConfig, error) {
 var _ memory.MemoryRepo = (*ConsolidatorRepo)(nil)
 
 type ConsolidatorRepo struct {
-	*MemoryConfigFile
+	*MemoryFile
 }
 
-func NewConsolidatorRepo(c *MemoryConfigFile) *ConsolidatorRepo {
+func NewConsolidatorRepo(c *MemoryFile) *ConsolidatorRepo {
 	return &ConsolidatorRepo{
-		MemoryConfigFile: c,
+		MemoryFile: c,
 	}
 }
 
 func (r *ConsolidatorRepo) Save(c memory.ConsolidatorConfig) error {
-	return r.MemoryConfigFile.Save(MemoryConfigDTO{
+	return r.MemoryFile.Save(MemoryConfigDTO{
 		Consolidator: &c,
 	})
 }
 
 func (r *ConsolidatorRepo) Load() (memory.ConsolidatorConfig, error) {
-	cfg, err := r.MemoryConfigFile.Load()
+	cfg, err := r.MemoryFile.Load()
 	if err != nil {
 		return memory.ConsolidatorConfig{}, err
 	}
@@ -174,4 +177,17 @@ func (r *ConsolidatorRepo) Load() (memory.ConsolidatorConfig, error) {
 type MemoryConfigDTO struct {
 	Consolidator *memory.ConsolidatorConfig `toml:"consolidation,omitempty"`
 	Activity     *memory.ActivityConfig     `toml:"activity,omitempty"`
+}
+
+// memoSent
+func NewMemoReloader(
+	consolidationSvc *memory.ConsolidationService,
+	activitySvc *memory.ActivityService,
+) sentinel.Action {
+	return func(ctx context.Context, ev fsnotify.Event) error {
+		if err := activitySvc.Reload(); err != nil {
+			return err
+		}
+		return consolidationSvc.Reload()
+	}
 }

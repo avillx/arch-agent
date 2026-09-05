@@ -2,12 +2,15 @@ package files
 
 import (
 	"arch-agent/internal/secrets"
+	"arch-agent/internal/sentinel"
 	"bytes"
+	"context"
 
+	"github.com/fsnotify/fsnotify"
 	toml "github.com/pelletier/go-toml/v2"
 )
 
-const SecretsFile = "secrets.toml"
+const SecretsConfigFile = "secrets.toml"
 const secretsFileDoc = `# Secrets storage
 
 # Key names should prefer upper snake case (e.g. SOME_VARIABLE)
@@ -29,7 +32,7 @@ type SecretsFiles struct {
 
 func NewSecretsFiles(fs *FileSystem) (*SecretsFiles, error) {
 
-	if err := ensureFilePlaceholder(fs, SecretsFile, []byte(secretsFileDoc)); err != nil {
+	if err := ensureFilePlaceholder(fs, SecretsConfigFile, []byte(secretsFileDoc)); err != nil {
 		return nil, err
 	}
 
@@ -39,7 +42,7 @@ func NewSecretsFiles(fs *FileSystem) (*SecretsFiles, error) {
 }
 
 func (sf *SecretsFiles) Load() (map[string]string, error) {
-	data, err := sf.fs.ReadFile(SecretsFile)
+	data, err := sf.fs.ReadFile(SecretsConfigFile)
 	if err != nil {
 		return nil, err
 	}
@@ -62,5 +65,12 @@ func (sf *SecretsFiles) Save(secrets map[string]string) error {
 		[]byte("\n\n"),
 	)
 
-	return sf.fs.WriteToFile(SecretsFile, dataWithDoc)
+	return sf.fs.WriteToFile(SecretsConfigFile, dataWithDoc)
+}
+
+// secretsSent
+func NewSecretsReloader(secretSvc *secrets.Service) sentinel.Action {
+	return func(ctx context.Context, ev fsnotify.Event) error {
+		return secretSvc.Reload(ctx)
+	}
 }

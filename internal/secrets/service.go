@@ -22,17 +22,16 @@ type Service struct {
 
 func New(repo Repo, logger *slog.Logger) (*Service, error) {
 
-	svc := &Service{
-		secrets: map[string]string{},
-		repo:    repo,
-		logger:  logger.WithGroup("secrets"),
-	}
-
-	if err := svc.Reload(context.Background()); err != nil {
+	secrets, err := repo.Load()
+	if err != nil {
 		return nil, err
 	}
 
-	return svc, nil
+	return &Service{
+		secrets: secrets,
+		repo:    repo,
+		logger:  logger.WithGroup("secrets"),
+	}, nil
 }
 
 func (s *Service) Reload(_ context.Context) error {
