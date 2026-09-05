@@ -4,7 +4,10 @@ import (
 	"arch-agent/internal/session"
 	"fmt"
 	"sync"
+	"time"
 )
+
+const todoTTL = 1 * time.Hour
 
 // Store manages todos per session+agent scope.
 type Store interface {
@@ -28,8 +31,10 @@ var _ Store = (*InMemoryStore)(nil)
 
 // InMemoryStore is a simple thread-safe in-memory Store.
 type InMemoryStore struct {
-	mu    sync.Mutex
-	todos map[session.ID][]TodoItem
+	todos       map[session.ID][]TodoItem
+	cleanTimers map[session.ID]*time.Timer
+
+	mu sync.Mutex
 }
 
 func NewInMemoryStore() *InMemoryStore {
@@ -42,6 +47,8 @@ func (s *InMemoryStore) Add(sessID session.ID, items []TodoItem) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	s.touchTimer(sessID)
+
 	currentLen := len(s.todos[sessID])
 	for i, item := range items {
 		item.ID = currentLen + i
@@ -53,6 +60,8 @@ func (s *InMemoryStore) Add(sessID session.ID, items []TodoItem) {
 func (s *InMemoryStore) Update(sessID session.ID, todoID int, status Status) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	s.touchTimer(sessID)
 
 	sessTodos := s.todos[sessID]
 
@@ -69,8 +78,29 @@ func (s *InMemoryStore) List(sessID session.ID) []TodoItem {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	s.touchTimer(sessID)
+
 	items := make([]TodoItem, len(s.todos[sessID]))
 	copy(items, s.todos[sessID])
 
 	return items
+}
+
+func (s *InMemoryStore) touchTimer(sessID session.ID) {
+	timer, ok := s.cleanTimers[sessID]
+	if !ok {
+		timer = time.AfterFunc(todoTTL, func() {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+
+			delete(s.todos, sessID)
+
+			if t, ok := s.cleanTimers[sessID]; ok {
+				t.Stop()
+				delete(s.cleanTimers, sessID)
+			}
+		})
+	}
+
+	timer.Reset(todoTTL)
 }
