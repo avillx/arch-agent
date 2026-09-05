@@ -82,15 +82,14 @@ func (t *CreateTodoTool) Call(ctx context.Context, rawArgs agent.ToolArguments) 
 	}
 
 	sessionID := tools.MustSessionID(ctx)
-	agentID := tools.MustAgentID(ctx)
 
 	items := make([]TodoItem, len(args.Titles))
 	for i, title := range args.Titles {
 		items[i] = TodoItem{Title: title}
 	}
-	t.Store.Add(sessionID, agentID, items)
+	t.Store.Add(sessionID, items)
 
-	all := t.Store.List(sessionID, agentID)
+	all := t.Store.List(sessionID)
 	return tools.Result("Todos created:\n" + renderList(all)), nil
 }
 
@@ -127,13 +126,12 @@ func (t *UpdateTodoTool) Call(ctx context.Context, rawArgs agent.ToolArguments) 
 	}
 
 	sessionID := tools.MustSessionID(ctx)
-	agentID := tools.MustAgentID(ctx)
 
-	if err := t.Store.Update(sessionID, agentID, args.ID, args.Status); err != nil {
+	if err := t.Store.Update(sessionID, args.ID, args.Status); err != nil {
 		return nil, err
 	}
 
-	all := t.Store.List(sessionID, agentID)
+	all := t.Store.List(sessionID)
 
 	resulMessage := fmt.Sprintf("Todo #%d updated to **%s**:\n%s", args.ID, args.Status, renderList(all))
 	return tools.Result(resulMessage), nil
@@ -150,8 +148,7 @@ func (t *ListTodoTool) Schema() any { return nil }
 
 func (t *ListTodoTool) Call(ctx context.Context, _ agent.ToolArguments) ([]agent.ContentPart, error) {
 	sessionID := tools.MustSessionID(ctx)
-	agentID := tools.MustAgentID(ctx)
 
-	items := t.Store.List(sessionID, agentID)
+	items := t.Store.List(sessionID)
 	return tools.Result("**Todo list:**\n" + renderList(items)), nil
 }

@@ -1,7 +1,6 @@
 package todo
 
 import (
-	"arch-agent/internal/agent"
 	"arch-agent/internal/session"
 	"fmt"
 	"sync"
@@ -9,9 +8,9 @@ import (
 
 // Store manages todos per session+agent scope.
 type Store interface {
-	Add(session.ID, agent.ID, []TodoItem)
-	Update(session.ID, agent.ID, int, Status) error
-	List(session.ID, agent.ID) []TodoItem
+	Add(session.ID, []TodoItem)
+	Update(session.ID, int, Status) error
+	List(session.ID) []TodoItem
 }
 
 type TodoItem struct {
@@ -25,64 +24,53 @@ func (i *TodoItem) String() string {
 	return fmt.Sprintf("- %s #%d %s", badge, i.ID, i.Title)
 }
 
-type storeKey struct {
-	sessID  session.ID
-	agentID agent.ID
-}
-
 var _ Store = (*InMemoryStore)(nil)
 
 // InMemoryStore is a simple thread-safe in-memory Store.
 type InMemoryStore struct {
 	mu    sync.Mutex
-	todos map[storeKey][]TodoItem
+	todos map[session.ID][]TodoItem
 }
 
 func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
-		todos: map[storeKey][]TodoItem{},
+		todos: map[session.ID][]TodoItem{},
 	}
 }
 
-func (s *InMemoryStore) Add(sessionID session.ID, agentID agent.ID, items []TodoItem) {
+func (s *InMemoryStore) Add(sessID session.ID, items []TodoItem) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	key := storeKey{sessID: sessionID, agentID: agentID}
-
-	currentLen := len(s.todos[key])
+	currentLen := len(s.todos[sessID])
 	for i, item := range items {
 		item.ID = currentLen + i
 		item.Status = Pending
-		s.todos[key] = append(s.todos[key], item)
+		s.todos[sessID] = append(s.todos[sessID], item)
 	}
 }
 
-func (s *InMemoryStore) Update(sessionID session.ID, agentID agent.ID, todoID int, status Status) error {
+func (s *InMemoryStore) Update(sessID session.ID, todoID int, status Status) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	key := storeKey{sessID: sessionID, agentID: agentID}
-
-	sessTodos := s.todos[key]
+	sessTodos := s.todos[sessID]
 
 	if len(sessTodos) <= todoID || todoID < 0 {
 		return fmt.Errorf("bad todo id")
 	}
 
-	s.todos[key][todoID].Status = status
+	s.todos[sessID][todoID].Status = status
 
 	return nil
 }
 
-func (s *InMemoryStore) List(sessionID session.ID, agentID agent.ID) []TodoItem {
+func (s *InMemoryStore) List(sessID session.ID) []TodoItem {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	key := storeKey{sessID: sessionID, agentID: agentID}
-
-	items := make([]TodoItem, len(s.todos[key]))
-	copy(items, s.todos[key])
+	items := make([]TodoItem, len(s.todos[sessID]))
+	copy(items, s.todos[sessID])
 
 	return items
 }

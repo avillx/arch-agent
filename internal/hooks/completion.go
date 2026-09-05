@@ -63,7 +63,7 @@ func (h *EmptyAnswerHook) Apply(
 }
 
 type todoStorage interface {
-	List(session.ID, agent.ID) []todo.TodoItem
+	List(session.ID) []todo.TodoItem
 }
 
 const maxIncomplitedTodoAttempts = 3
@@ -94,16 +94,12 @@ func (h *UndoneTodoHook) Apply(
 		return c, nil
 	}
 
-	agentID, ok := chat.AgentIDFromContext(ctx)
-	if !ok {
-		return c, fmt.Errorf("todo hook: has no agent ID")
-	}
 	sessID, ok := chat.SessionIDFromContext(ctx)
 	if !ok {
 		return c, fmt.Errorf("todo hook: has no session ID")
 	}
 
-	undoneTodos := h.extractUndoneTodos(sessID, agentID)
+	undoneTodos := h.extractUndoneTodos(sessID)
 
 	if len(undoneTodos) > 0 {
 
@@ -128,9 +124,9 @@ func (h *UndoneTodoHook) Apply(
 	return c, nil
 }
 
-func (h *UndoneTodoHook) extractUndoneTodos(sessID session.ID, agentID agent.ID) []todo.TodoItem {
+func (h *UndoneTodoHook) extractUndoneTodos(sessID session.ID) []todo.TodoItem {
 	var undoneTodos []todo.TodoItem
-	for _, item := range h.storage.List(sessID, agentID) {
+	for _, item := range h.storage.List(sessID) {
 		if item.Status != todo.Done && item.Status != todo.Declined {
 			undoneTodos = append(undoneTodos, item)
 		}
