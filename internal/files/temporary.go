@@ -90,10 +90,11 @@ func (f *TemporaryFiles) watchFor(p string) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
 
-		f.logger.Info("deletion")
+		logger := f.logger.With("path", p)
+		logger.Info("deletion")
 		if err := f.fs.DeleteAll(p); err != nil {
 			if !errors.Is(err, types.ErrIsNotExist) {
-				f.logger.Error("deletion", "path", p, "error", err)
+				logger.Error("deletion", "error", err)
 			}
 		}
 
