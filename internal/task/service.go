@@ -150,7 +150,6 @@ func (s *Service) start(cfg TaskConfig) error {
 		// external stopper must:
 		// - take lock
 		// - eliminate rt pointer from runtimes or shift it to actual
-		// TODO: this is a super complex shit. should simplify it.
 		if s.runtimes[cfg.Name] != rt {
 			return
 		}
