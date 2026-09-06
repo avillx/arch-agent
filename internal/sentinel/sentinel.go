@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -88,7 +89,6 @@ func (s *Sentinel) Run(ctx context.Context) error {
 				return ErrClosedWatcher
 			}
 
-			// TODO: prefix + ev.Name event name?
 			s.mu.RLock()
 			if a, ok := s.actions[ev.Name]; ok {
 				go a.Do(ctx, ev)
@@ -107,14 +107,16 @@ func (s *Sentinel) Run(ctx context.Context) error {
 	}
 }
 
-func WithWatch(pathPrefix string, a Action) Option {
+func WithWatch(p string, a Action) Option {
 	return func(s *Sentinel) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
-		s.actions[pathPrefix] = &debouncedAction{
+		p = filepath.Join(s.cwd, p)
+
+		s.actions[p] = &debouncedAction{
 			action: a,
-			logger: s.logger.With("path", pathPrefix),
+			logger: s.logger.With("path", p),
 		}
 	}
 }

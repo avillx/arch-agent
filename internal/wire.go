@@ -248,12 +248,12 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 
 	// all sentinels
 	sent := sentinel.New(fs.Cwd(), logger,
-		sentinel.WithWatch(filepath.Join(fs.Cwd(), files.TMPDir), files.NewTMPDetector(tmpFiles)),
-		sentinel.WithWatch(filepath.Join(fs.Cwd(), files.MCPConfigFile), files.NewMCPReloader(mcpSvc)),
-		sentinel.WithWatch(filepath.Join(fs.Cwd(), files.MemoryConfigFile), files.NewMemoReloader(memoryConsolidator, activityService)),
-		sentinel.WithWatch(filepath.Join(fs.Cwd(), files.ModelsConfigFile), files.NewModelsReloader(providerSvc)),
-		sentinel.WithWatch(filepath.Join(fs.Cwd(), files.SecretsConfigFile), files.NewSecretsReloader(secretService)),
-		sentinel.WithWatch(filepath.Join(fs.Cwd(), files.TaskConfigFile), files.NewTasksReloader(taskSvc)),
+		sentinel.WithWatch(files.TMPDir, files.NewTMPDetector(tmpFiles)),
+		sentinel.WithWatch(files.MCPConfigFile, files.NewMCPReloader(mcpSvc)),
+		sentinel.WithWatch(files.MemoryConfigFile, files.NewMemoReloader(memoryConsolidator, activityService)),
+		sentinel.WithWatch(files.ModelsConfigFile, files.NewModelsReloader(providerSvc)),
+		sentinel.WithWatch(files.SecretsConfigFile, files.NewSecretsReloader(secretService)),
+		sentinel.WithWatch(files.TaskConfigFile, files.NewTasksReloader(taskSvc)),
 	)
 
 	go func() {
