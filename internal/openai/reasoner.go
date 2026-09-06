@@ -157,8 +157,10 @@ func excludeImageModality(msgs []agent.Message) []agent.Message {
 		contentParts := msg.Content()
 		safeContent := make([]agent.ContentPart, 0, len(contentParts))
 		for _, contentPart := range contentParts {
-			contentPart.Text += unsupportedLabel
-			contentPart.ImageURL = ""
+			if contentPart.ImageURL != "" {
+				contentPart.Text += unsupportedLabel
+				contentPart.ImageURL = ""
+			}
 			safeContent = append(safeContent, contentPart)
 		}
 		msg.SetContent(safeContent)
