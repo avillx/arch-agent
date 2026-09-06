@@ -8,6 +8,13 @@ import (
 	"fmt"
 )
 
+type WriteMode string
+
+const (
+	Append    WriteMode = "append"
+	Overwrite WriteMode = "overwrite"
+)
+
 type WriteTool struct {
 	fs *files.FileSystem
 }
@@ -36,16 +43,16 @@ e.g. './shared/project-x/README.md', './shared/non/exist/path/README.md'`,
 			Required:    false,
 			Type:        agent.TypeString,
 			Description: `"Overwrite" (default) or "append"`,
-			Enum:        []string{"overwrite", "append"},
+			Enum:        []string{string(Overwrite), string(Append)},
 		},
 	}
 }
 
 func (t *WriteTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	args, err := tools.UnwrapArgs[struct {
-		Path    string `json:"path"`
-		Content string `json:"content"`
-		Mode    string `json:"mode"`
+		Path    string    `json:"path"`
+		Content string    `json:"content"`
+		Mode    WriteMode `json:"mode"`
 	}](rawArgs)
 	if err != nil {
 		return nil, err
@@ -53,7 +60,7 @@ func (t *WriteTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]ag
 
 	data := []byte(args.Content)
 
-	if args.Mode == "append" {
+	if args.Mode == Append {
 		err = t.fs.AppendToFile(args.Path, data)
 	} else {
 		err = t.fs.WriteToFile(args.Path, data)
