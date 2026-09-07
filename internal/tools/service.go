@@ -20,7 +20,7 @@ func NewService() *Service {
 	}
 }
 
-func (s *Service) AllToolServers(names ...string) map[string]agent.ToolServer {
+func (s *Service) AllToolServers() map[string]agent.ToolServer {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
