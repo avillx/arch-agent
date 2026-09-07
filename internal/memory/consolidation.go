@@ -109,7 +109,9 @@ func (m *ConsolidationService) ConsolidateImmidate(ctx context.Context, agentID 
 
 func (m *ConsolidationService) consolidateMemoryFor(ctx context.Context, agt agent.Agent, evCh chan runtime.Event) error {
 
+	m.mu.RLock()
 	model := m.model
+	m.mu.RUnlock()
 
 	if model == nil {
 		return fmt.Errorf("consolidation model is not set")
