@@ -258,11 +258,8 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 
 	go func() {
 		if err := sent.Run(ctx); err != nil {
-			if errors.Is(err, sentinel.ErrClosedWatcher) {
-				return
-			}
-
-			if errors.Is(err, context.Canceled) {
+			if errors.Is(err, sentinel.ErrClosedWatcher) ||
+				errors.Is(err, context.Canceled) {
 				return
 			}
 
