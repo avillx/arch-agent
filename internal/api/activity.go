@@ -29,6 +29,8 @@ func (h *activityHandler) Activity(w http.ResponseWriter, r *http.Request) Respo
 
 	request, err := decode[RequestDTO](r)
 	if err != nil {
+		// TODO: 400 on invalid
+
 		return NewInternalError(err)
 	}
 

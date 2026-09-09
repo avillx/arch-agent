@@ -55,10 +55,14 @@ func (h *agentHandler) Create(w http.ResponseWriter, r *http.Request) Response {
 
 	agentDTO, err := decode[AgentDTO](r)
 	if err != nil {
+		// TODO: validations
+
 		return NewInternalError(err)
 	}
 
 	if err := h.repo.Save(dtoToAgent(id, agentDTO)); err != nil {
+		// TODO: uniqueness validations + 400
+
 		return NewInternalError(err)
 	}
 
@@ -79,10 +83,14 @@ func (h *agentHandler) Update(w http.ResponseWriter, r *http.Request) Response {
 
 	updated, err := decode[AgentDTO](r)
 	if err != nil {
+		// TODO: validations + 400
+
 		return NewInvalidRequest(err)
 	}
 
 	if err := h.repo.Save(dtoToAgent(id, updated)); err != nil {
+		// TODO: validations + 400
+
 		return NewInternalError(err)
 	}
 

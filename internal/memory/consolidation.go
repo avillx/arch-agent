@@ -111,6 +111,7 @@ func (m *ConsolidationService) consolidateMemoryFor(ctx context.Context, agt age
 
 	m.mu.RLock()
 	model := m.model
+	instruction := m.instruction
 	m.mu.RUnlock()
 
 	if model == nil {
@@ -122,7 +123,7 @@ func (m *ConsolidationService) consolidateMemoryFor(ctx context.Context, agt age
 	systemPrompt := prompt.Memorization(agt.ID())
 	systemMessage := agent.NewSystemMessage(systemPrompt)
 
-	memoRequest := prompt.MemorizationRequest(agt.ID(), m.Instuction())
+	memoRequest := prompt.MemorizationRequest(agt.ID(), instruction)
 	userMessage := agent.NewUserMessage(memoRequest)
 
 	messages := []agent.Message{systemMessage, userMessage}
@@ -142,62 +143,32 @@ func (m *ConsolidationService) consolidateMemoryFor(ctx context.Context, agt age
 	)
 }
 
-func (m *ConsolidationService) Enabled() bool {
+// without mutex
+func (m *ConsolidationService) Config() ConsolidatorConfig {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	return m.enabled
+	return ConsolidatorConfig{
+		Instruction: m.instruction,
+		Model:       m.modelName,
+		Enabled:     m.enabled,
+	}
 }
 
-func (m *ConsolidationService) Model() agent.Model {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	return m.model
-}
-
-func (m *ConsolidationService) Instuction() string {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	return m.instruction
-}
-
-func (m *ConsolidationService) SetEnabled(state bool) error {
+func (m *ConsolidationService) SetConfig(cfg ConsolidatorConfig) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.enabled = state
-
-	return m.saveConfig()
-}
-
-func (m *ConsolidationService) SetModel(modelName string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	model, err := m.modelRepo.Get(modelName)
+	model, err := m.modelRepo.Get(cfg.Model)
 	if err != nil {
 		return err
 	}
 
 	m.model = model
-	m.modelName = modelName
+	m.modelName = cfg.Model
+	m.instruction = cfg.Instruction
+	m.enabled = cfg.Enabled
 
-	return m.saveConfig()
-}
-
-func (m *ConsolidationService) SetInstuction(i string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.instruction = i
-
-	return m.saveConfig()
-}
-
-// without mutex
-func (m *ConsolidationService) saveConfig() error {
 	return m.memoryRepo.Save(ConsolidatorConfig{
 		Instruction: m.instruction,
 		Model:       m.modelName,
@@ -241,13 +212,18 @@ func (m *ConsolidationService) Run(ctx context.Context) {
 		case <-ticker:
 			m.logger.Info("automatic consolidation started")
 
-			if !m.Enabled() {
+			m.mu.RLock()
+			enabled := m.enabled
+			model := m.model
+			m.mu.RUnlock()
+
+			if !enabled {
 				// unneccecary noise in logs better than silent disable consolidation
 				m.logger.Info("skip memory consolidation, consolidation is disabled")
 				continue
 			}
 
-			if m.Model() == nil {
+			if model == nil {
 				m.logger.Warn("consolidation declined, model is not defined")
 				continue
 			}
