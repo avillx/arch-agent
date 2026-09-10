@@ -25,7 +25,7 @@ Configs:
   also if you
 
 System:
-- [SystemLogFile](agents.log) - `INFO/WARN/ERROR` logs for all agent system. 
+- [SystemLogFile](agent.log) - `INFO/WARN/ERROR` logs for all agent system. 
   ( MCP, sessions, memory consolidations, agent runs, runtime errors, 
   agent awakes by schedule tasks etc...).
   Do not read it raw, prefer to use tail / grep.
