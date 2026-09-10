@@ -11,7 +11,7 @@ import (
 )
 
 type EditTool struct {
-	fs *files.FileSystem
+	storage files.FileStorage
 }
 
 func (t *EditTool) Name() agent.ToolName { return "edit" }
@@ -52,7 +52,7 @@ func (t *EditTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]age
 		return nil, err
 	}
 
-	data, err := t.fs.ReadFile(args.Path)
+	data, err := t.storage.ReadFile(args.Path)
 	if err != nil {
 		return nil, mapErrs(err)
 	}
@@ -68,7 +68,7 @@ func (t *EditTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]age
 	}
 
 	updated := strings.Replace(content, args.Old, args.New, 1)
-	if err := t.fs.WriteToFile(args.Path, []byte(updated)); err != nil {
+	if err := t.storage.WriteFile(args.Path, []byte(updated), files.ModeFilePerm); err != nil {
 		return nil, mapErrs(err)
 	}
 

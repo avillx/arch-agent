@@ -19,7 +19,7 @@ func (h *activityHandler) Activity(w http.ResponseWriter, r *http.Request) Respo
 	type RequestDTO struct {
 		Agent agent.ID  `json:"agent"`
 		From  time.Time `json:"from"`
-		To    time.Time `json:"to,omitempty"`
+		To    time.Time `json:"to"`
 	}
 
 	type ActivityDTO struct {

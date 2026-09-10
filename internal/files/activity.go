@@ -12,21 +12,34 @@ import (
 
 var _ agent.ActivityRepo = (*ActivityFiles)(nil)
 
+const ActivityFolder = "activity"
+
 type ActivityFiles struct {
-	fs *FileSystem
+	storage FileStorage
 }
 
-func NewActivityFiles(fs *FileSystem) *ActivityFiles {
-	return &ActivityFiles{fs: fs}
+func NewActivityFiles(storage FileStorage) *ActivityFiles {
+	return &ActivityFiles{
+		storage: storage,
+	}
 }
 
-func (f *ActivityFiles) Log(id agent.ID, r agent.ActivityRecord) error {
+func (a *ActivityFiles) Log(id agent.ID, r agent.ActivityRecord) error {
 	data := []byte(r.String())
-	return f.fs.AppendToFile(resolveActivityFilePath(id, time.Now()), data)
+
+	p := resolveActivityFilePath(id, time.Now())
+	f, err := a.storage.OpenFile(p, os.O_CREATE|os.O_APPEND|os.O_WRONLY, ModeAppend)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	return err
 }
 
-func (f *ActivityFiles) GetActivity(id agent.ID, date time.Time) (string, error) {
-	data, err := f.fs.ReadFile(resolveActivityFilePath(id, date))
+func (a *ActivityFiles) GetActivity(id agent.ID, date time.Time) (string, error) {
+	data, err := a.storage.ReadFile(resolveActivityFilePath(id, date))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", types.ErrIsNotExist
@@ -36,7 +49,7 @@ func (f *ActivityFiles) GetActivity(id agent.ID, date time.Time) (string, error)
 	return string(data), nil
 }
 
-func (f *ActivityFiles) GetRange(
+func (a *ActivityFiles) GetRange(
 	agentID agent.ID,
 	from time.Time,
 	to time.Time,
@@ -50,7 +63,7 @@ func (f *ActivityFiles) GetRange(
 	for i := from; !i.After(to); i = i.AddDate(0, 0, 1) {
 
 		p := resolveActivityFilePath(agentID, i)
-		data, err := f.fs.ReadFile(p)
+		data, err := a.storage.ReadFile(p)
 		if err != nil && !errors.Is(err, types.ErrIsNotExist) {
 			return nil, err
 		}
@@ -68,10 +81,10 @@ func (f *ActivityFiles) GetRange(
 func resolveActivityFilePath(agentID agent.ID, t time.Time) string {
 	d := t.UTC().Truncate(24 * time.Hour)
 	return filepath.Join(
-		fmt.Sprintf("/%s/activity", agentID),
+		string(agentID),
+		ActivityFolder,
 		d.Format("2006"),
 		d.Format("01"),
-		d.Format("02"),
-		fmt.Sprintf("%s.md", d.Format("2006-01-02")),
+		fmt.Sprintf("%s.md", d.Format("02")),
 	)
 }

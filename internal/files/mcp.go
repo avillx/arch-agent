@@ -46,18 +46,18 @@ const mcpConfigDoc = `# MCP servers connections config
 var _ mcp.ConfigRepo = (*MCPFiles)(nil)
 
 type MCPFiles struct {
-	fs *FileSystem
+	storage FileStorage
 
 	mu sync.Mutex
 }
 
-func NewMCPFiles(fs *FileSystem) (*MCPFiles, error) {
+func NewMCPFiles(storage FileStorage) (*MCPFiles, error) {
 
-	if err := ensureFilePlaceholder(fs, MCPConfigFile, []byte(mcpConfigDoc)); err != nil {
+	if err := ensureFilePlaceholder(storage, MCPConfigFile, []byte(mcpConfigDoc)); err != nil {
 		return nil, err
 	}
 
-	return &MCPFiles{fs: fs}, nil
+	return &MCPFiles{storage: storage}, nil
 }
 
 func (f *MCPFiles) Save(id mcp.MCPServerID, cfg mcp.ServerGatewayConfig) error {
@@ -77,7 +77,7 @@ func (f *MCPFiles) Save(id mcp.MCPServerID, cfg mcp.ServerGatewayConfig) error {
 		return fmt.Errorf("marshal %s: %w", MCPConfigFile, err)
 	}
 
-	return f.fs.WriteToFile(MCPConfigFile, data)
+	return f.storage.WriteFile(MCPConfigFile, data, ModeFilePerm)
 }
 
 func (f *MCPFiles) Load() (map[mcp.MCPServerID]mcp.ServerGatewayConfig, error) {
@@ -94,7 +94,7 @@ func (f *MCPFiles) Load() (map[mcp.MCPServerID]mcp.ServerGatewayConfig, error) {
 }
 
 func (f *MCPFiles) LoadDTO() (map[mcp.MCPServerID]mcp.ServerGatewayConfig, error) {
-	data, err := f.fs.ReadFile(MCPConfigFile)
+	data, err := f.storage.ReadFile(MCPConfigFile)
 	if err != nil {
 		return nil, err
 	}

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	rt "runtime"
 	"strings"
 	"time"
@@ -39,7 +40,7 @@ func NewShellToolServer(defaultCWD string, secretsSource SecretsSource) *ShellTo
 func (t *ShellToolServer) Instruction() string {
 	return `## Shell Tool
 
-- Current OS is "` + rt.GOOS + `." 
+- Current OS is "` + rt.GOOS + `."
 - Your shell is "` + shell + `"
 - Each call runs in a fresh shell session — no state persists between calls
 - Default timeout: 30s. Set "timeout" for longer operations (builds, tests)
@@ -116,13 +117,9 @@ func (t *ShellTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]ag
 
 	cmd := exec.Command(shell, append(shellAttributes, args.Command)...)
 	cmd.Env = envs
-	cmd.Dir = t.defaultCWD
+	cmd.Dir = filepath.Join(t.defaultCWD, args.Cwd)
 	cmd.SysProcAttr = platformSpecificSysProcAttr()
 	cmd.WaitDelay = waitDelayAfterShellExit
-
-	if args.Cwd != "" {
-		cmd.Dir = args.Cwd
-	}
 
 	var output bytes.Buffer
 	cmd.Stdout = &output

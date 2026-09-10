@@ -27,22 +27,22 @@ const secretsFileDoc = `# Secrets storage
 var _ secrets.Repo = (*SecretsFiles)(nil)
 
 type SecretsFiles struct {
-	fs *FileSystem
+	storage FileStorage
 }
 
-func NewSecretsFiles(fs *FileSystem) (*SecretsFiles, error) {
+func NewSecretsFiles(storage FileStorage) (*SecretsFiles, error) {
 
-	if err := ensureFilePlaceholder(fs, SecretsConfigFile, []byte(secretsFileDoc)); err != nil {
+	if err := ensureFilePlaceholder(storage, SecretsConfigFile, []byte(secretsFileDoc)); err != nil {
 		return nil, err
 	}
 
 	return &SecretsFiles{
-		fs: fs,
+		storage: storage,
 	}, nil
 }
 
 func (sf *SecretsFiles) Load() (map[string]string, error) {
-	data, err := sf.fs.ReadFile(SecretsConfigFile)
+	data, err := sf.storage.ReadFile(SecretsConfigFile)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (sf *SecretsFiles) Save(secrets map[string]string) error {
 		[]byte("\n\n"),
 	)
 
-	return sf.fs.WriteToFile(SecretsConfigFile, dataWithDoc)
+	return sf.storage.WriteFile(SecretsConfigFile, dataWithDoc, ModeFilePerm)
 }
 
 // secretsSent

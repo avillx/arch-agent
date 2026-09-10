@@ -9,7 +9,7 @@ import (
 )
 
 type MoveTool struct {
-	fs *files.FileSystem
+	storage files.FileStorage
 }
 
 func (t *MoveTool) Name() agent.ToolName { return "move" }
@@ -43,7 +43,7 @@ func (t *MoveTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]age
 		return nil, err
 	}
 
-	if err := t.fs.Rename(args.Src, args.Dst); err != nil {
+	if err := t.storage.Rename(args.Src, args.Dst); err != nil {
 		return nil, mapErrs(err)
 	}
 

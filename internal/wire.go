@@ -28,7 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"path/filepath"
+	"path"
 	"time"
 )
 
@@ -48,7 +48,7 @@ type Config struct {
 
 func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 
-	fs, err := files.NewFS(cfg.DataPath)
+	fileStorage, err := files.NewFileStorage(cfg.DataPath)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	// write logs to agents visible log file with simplified format
 	// and in stdio in json format
 	// must be used for common logic
-	lf := logging.NewLogFile(filepath.Join(fs.Cwd(), "agents.log"))
+	lf := logging.NewLogFile(fileStorage)
 
 	agentVisibleLogHandler := logging.WithAgentLog(
 		defaultHandler,
@@ -75,13 +75,13 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 
 	logger := slog.New(agentVisibleLogHandler)
 
-	tmpFiles, err := files.NewTemporaryFiles(fs, logger)
+	tmpFiles, err := files.NewTemporaryFiles(fileStorage, logger)
 	if err != nil {
 		return nil, err
 	}
 	go tmpFiles.Run(ctx)
 
-	secretsRepo, err := files.NewSecretsFiles(fs)
+	secretsRepo, err := files.NewSecretsFiles(fileStorage)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 
 	modelsSvc := model.NewModelService(openaiFactory)
 
-	providerFiles, err := files.NewProviderFiles(fs)
+	providerFiles, err := files.NewProviderFiles(fileStorage)
 	if err != nil {
 		return nil, err
 	}
@@ -105,10 +105,10 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		return nil, err
 	}
 
-	agentRepo := files.NewAgentFiles(fs)
+	agentRepo := files.NewAgentFiles(fileStorage)
 
 	idGen := uuid.NewUUIDGenerator()
-	sessFiles := files.NewSessionFiles(fs)
+	sessFiles := files.NewSessionFiles(fileStorage)
 	sessSvc := session.NewService(
 		sessFiles,
 		idGen,
@@ -131,13 +131,13 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 
 	go cleanupSvc.Run(ctx)
 
-	skillFiles := files.NewSkillFiles(fs, logger)
-	memoryFiles := files.NewMemoryFiles(fs, logger)
+	skillFiles := files.NewSkillFiles(fileStorage, logger)
+	memoryFiles := files.NewMemoryFiles(fileStorage, logger)
 	contextAssembler := chat.NewContextAssembler(skillFiles, memoryFiles)
 
 	toolSvc := tools.NewService()
 
-	mcpRepo, err := files.NewMCPFiles(fs)
+	mcpRepo, err := files.NewMCPFiles(fileStorage)
 	if err != nil {
 		return nil, err
 	}
@@ -148,12 +148,12 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 
 	todoStorage := todo.NewInMemoryStore()
 
-	memoryRepo, err := files.NewMemoryConfigFile(fs)
+	memoryRepo, err := files.NewMemoryConfigFile(fileStorage)
 	if err != nil {
 		return nil, err
 	}
 
-	activityRepo := files.NewActivityFiles(fs)
+	activityRepo := files.NewActivityFiles(fileStorage)
 	activityConfigRepo := files.NewActivityRepo(memoryRepo)
 	activityService := memory.NewActivityService(
 		modelsSvc,
@@ -164,7 +164,7 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 
 	secretReplacer := secrets.NewReplacer(secretService)
 
-	agentHooks, err := hooks.NewAgentHooks(fs, todoStorage, secretReplacer)
+	agentHooks, err := hooks.NewAgentHooks(todoStorage, secretReplacer)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		logger,
 	)
 
-	taskRepo, err := files.NewTaskFiles(fs)
+	taskRepo, err := files.NewTaskFiles(fileStorage)
 	if err != nil {
 		return nil, err
 	}
@@ -205,15 +205,15 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	// built in tools
 
 	skipPatterns := []string{
-		filepath.Join(fs.Cwd(), "**", "sessions", "**.jsonl"),
+		path.Join("*", "sessions", "**.jsonl"),
 	}
 
-	fsToolSrv, err := fstools.NewFileSystemToolServer(fs, skipPatterns)
+	fsToolSrv, err := fstools.NewFileSystemToolServer(fileStorage, skipPatterns)
 	if err != nil {
 		return nil, err
 	}
 	toolSvc.Connect("filesystem", fsToolSrv)
-	toolSvc.Connect("shell", shell.NewShellToolServer(fs.Cwd(), secretService))
+	toolSvc.Connect("shell", shell.NewShellToolServer(cfg.DataPath, secretService))
 	toolSvc.Connect("web", fetch.NewFetchToolServer())
 	toolSvc.Connect("todo", todo.NewTodoToolServer(todoStorage))
 	toolSvc.Connect("agent", tools.NewCallAgentToolServer(
@@ -221,12 +221,12 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		agentRepo,
 	))
 
-	memoryHooksResolver, err := hooks.NewMemoryHooksResolver(fs, memoryFiles)
+	memoryHooksResolver, err := hooks.NewMemoryHooksResolver(memoryFiles)
 	if err != nil {
 		return nil, fmt.Errorf("harness: %w", err)
 	}
 
-	consolidationFsToolSrv, err := fstools.NewConsolidationInstuctFS(fs, skipPatterns)
+	consolidationFsToolSrv, err := fstools.NewConsolidationInstuctFS(fileStorage, skipPatterns)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +247,7 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	chatDispatcher := chat.NewDispatcher(chatSvc)
 
 	// all sentinels
-	sent := sentinel.New(fs.Cwd(), logger,
+	sent := sentinel.New(cfg.DataPath, logger,
 		sentinel.WithWatch(files.TMPDir, files.NewTMPDetector(tmpFiles)),
 		sentinel.WithWatch(files.MCPConfigFile, files.NewMCPReloader(mcpSvc)),
 		sentinel.WithWatch(files.MemoryConfigFile, files.NewMemoReloader(memoryConsolidator, activityService)),

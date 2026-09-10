@@ -2,31 +2,28 @@ package hooks
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/files"
+	"arch-agent/internal/logging"
 	"path/filepath"
 )
 
 const _24kb = 24 * 1024
 
-type cwdBearer interface {
-	Cwd() string
-}
-
 func NewAgentHooks(
-	b cwdBearer,
 	todoStorage todoStorage,
 	r Replcaer,
 ) ([]any, error) {
 
 	accessRules := []Rule{
-		{Pattern: filepath.Join(b.Cwd(), "agents.log"), Access: Read},
-		{Pattern: filepath.Join(b.Cwd(), "secrets.toml"), Access: Read},
-		{Pattern: filepath.Join(b.Cwd(), "*/agent.md"), Access: No},
-		{Pattern: filepath.Join(b.Cwd(), "*/sessions/**"), Access: No},
-		{Pattern: filepath.Join(b.Cwd(), "*/activity/**"), Access: Read},
-		{Pattern: filepath.Join(b.Cwd(), "**"), Access: Write},
+		{Pattern: logging.AgentLogFile, Access: Read},
+		{Pattern: files.SecretsConfigFile, Access: Read},
+		{Pattern: filepath.Join("*", files.AgentFile), Access: No},
+		{Pattern: filepath.Join("*", files.SessionsFolder, "**"), Access: No},
+		{Pattern: filepath.Join("*", files.ActivityFolder, "**"), Access: Read},
+		{Pattern: "**", Access: Write},
 	}
 
-	accessHook, err := NewFileAccessHook(b.Cwd(), accessRules...)
+	accessHook, err := NewFileAccessHook(accessRules...)
 	if err != nil {
 		return nil, err
 	}
@@ -43,43 +40,42 @@ func NewAgentHooks(
 }
 
 func NewMemoryHooksResolver(
-	b cwdBearer,
 	indexer agent.MemoryIndexer,
 ) (func(agentID agent.ID) []any, error) {
 
 	// for validation path patterns
-	_, err := NewMemoryHooks("unexisted_agent", b, indexer)
+	_, err := NewMemoryHooks("unexisted_agent", indexer)
 	if err != nil {
 		return nil, err
 	}
 
 	// produce factory
 	return func(agentID agent.ID) []any {
-		hooks, _ := NewMemoryHooks(agentID, b, indexer)
+		hooks, _ := NewMemoryHooks(agentID, indexer)
 		return hooks
 	}, nil
 }
 
 func NewMemoryHooks(
 	agentID agent.ID,
-	b cwdBearer,
 	indexer agent.MemoryIndexer,
 ) ([]any, error) {
 
 	// Readability helper
 	// Concat cwd with pattern and inject agentID in
 	// also normalize with filepath
-	cwdAndAgentFolder := func(pattern string) string {
-		return filepath.Join(b.Cwd(), string(agentID), pattern)
+	fp := func(pattern ...string) string {
+		sp := filepath.Join(pattern...)
+		return filepath.Join(string(agentID), sp)
 	}
 
 	accessRules := []Rule{
-		{Pattern: cwdAndAgentFolder("activity/**"), Access: Read},
-		{Pattern: cwdAndAgentFolder("memory/**"), Access: Write},
-		{Pattern: cwdAndAgentFolder("agent.md"), Access: No},
+		{Pattern: fp(files.ActivityFolder, "**"), Access: Read},
+		{Pattern: fp(files.MemoryFolder, "**"), Access: Write},
+		{Pattern: fp(files.AgentFile), Access: No},
 	}
 
-	accessHook, err := NewFileAccessHook(b.Cwd(), accessRules...)
+	accessHook, err := NewFileAccessHook(accessRules...)
 	if err != nil {
 		return nil, err
 	}

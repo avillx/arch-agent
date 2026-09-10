@@ -1,6 +1,6 @@
 FROM golang:1.25.5-alpine AS builder
 
-WORKDIR /agent
+WORKDIR /arch
 
 COPY ./go.mod ./go.sum ./
 
@@ -9,13 +9,14 @@ RUN go mod download
 COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -ldflags="-s -w" -o /agent/arch_agent ./cmd/agent/
+    go build -ldflags="-s -w" -o /arch/arch-agent ./cmd/agent/
 
 FROM ubuntu:resolute-20260811.1
 
 ENV USER=runner
+ENV DATA_PATH=/agents
 
-WORKDIR /agent
+WORKDIR /
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
@@ -26,10 +27,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN useradd -m -d /home/$USER -s /bin/bash $USER
 
-RUN chown -R $USER:$USER /agent
+RUN chown -R $USER:$USER /arch/
+
+RUN mkdir $DATA_PATH && chown -R $USER:$USER $DATA_PATH
 
 USER $USER
 
-COPY --from=builder /agent/arch_agent .
+COPY --from=builder /arch/arch-agent /arch/arch-agent
 
-ENTRYPOINT ["/agent/arch_agent"]
+ENTRYPOINT ["/arch/arch-agent"]

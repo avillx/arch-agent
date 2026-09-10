@@ -6,7 +6,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -16,17 +18,19 @@ import (
 
 var _ agent.Repo = (*AgentFiles)(nil)
 
+const AgentFile = "agent.md"
+
 // Files
 type AgentFiles struct {
-	fs *FileSystem
-	mu sync.RWMutex
+	storage FileStorage
+	mu      sync.RWMutex
 }
 
 func NewAgentFiles(
-	fs *FileSystem,
+	storage FileStorage,
 ) *AgentFiles {
 	return &AgentFiles{
-		fs: fs,
+		storage: storage,
 	}
 }
 
@@ -34,7 +38,7 @@ func (s *AgentFiles) All() ([]agent.Agent, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	entries, err := s.fs.ReadDir(".")
+	entries, err := fs.ReadDir(s.storage.FS(), ".")
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -121,18 +125,18 @@ func (s *AgentFiles) Save(agt agent.Agent) error {
 		return err
 	}
 
-	return s.fs.WriteToFile(resolveAgentFilePath(agt.ID()), data)
+	return s.storage.WriteFile(resolveAgentFilePath(agt.ID()), data, ModeFilePerm)
 }
 
 func (s *AgentFiles) Delete(agentID agent.ID) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.fs.DeleteAll(fmt.Sprintf("/%s", agentID))
+	return s.storage.RemoveAll(fmt.Sprintf("/%s", agentID))
 }
 
 func (s *AgentFiles) readConfig(id agent.ID) (AgentDTO, error) {
-	data, err := s.fs.ReadFile(resolveAgentFilePath(id))
+	data, err := s.storage.ReadFile(resolveAgentFilePath(id))
 	if err != nil {
 		return AgentDTO{}, err
 	}
@@ -214,5 +218,5 @@ func marshalAgentFile(agt agent.Agent) ([]byte, error) {
 }
 
 func resolveAgentFilePath(agentID agent.ID) string {
-	return fmt.Sprintf("/%s/agent.md", agentID)
+	return filepath.Join(string(agentID), AgentFile)
 }

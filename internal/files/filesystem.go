@@ -6,274 +6,267 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
-const FileMode = 0644
+type FileMode = fs.FileMode
+type FileInfo = os.FileInfo
 
-var _ fs.FS = (*FileSystem)(nil)
+const (
+	ModeFilePerm = 0644
+	ModeDirPerm  = 0755
 
-type FileSystem struct {
-	locks *lockTable
-	dir   string
-}
+	ModePerm       = os.ModePerm
+	ModeAppend     = os.ModeAppend
+	ModeExclusive  = os.ModeExclusive
+	ModeTemporary  = os.ModeTemporary
+	ModeSymlink    = os.ModeSymlink
+	ModeDevice     = os.ModeDevice
+	ModeNamedPipe  = os.ModeNamedPipe
+	ModeSocket     = os.ModeSocket
+	ModeSetuid     = os.ModeSetuid
+	ModeSetgid     = os.ModeSetgid
+	ModeCharDevice = os.ModeCharDevice
+	ModeSticky     = os.ModeSticky
+	ModeIrregular  = os.ModeIrregular
 
-func NewFS(dir string) (*FileSystem, error) {
-	if err := os.MkdirAll(dir, FileMode); err != nil {
-		return nil, err
-	}
-	return &FileSystem{
-		locks: newLockTable(),
-		dir:   filepath.Clean(dir),
-	}, nil
-}
+	O_RDONLY = os.O_RDONLY
+	O_WRONLY = os.O_WRONLY
+	O_RDWR   = os.O_RDWR
+	O_APPEND = os.O_APPEND
+	O_CREATE = os.O_CREATE
+	O_EXCL   = os.O_EXCL
+	O_SYNC   = os.O_SYNC
+	O_TRUNC  = os.O_TRUNC
+)
 
-func (fs *FileSystem) ReadDir(p string) ([]os.DirEntry, error) {
-	unlock := fs.locks.RLock(p)
-	defer unlock()
-
-	p, err := fs.resolvePath(p)
-	if err != nil {
-		return nil, err
-	}
-
-	res, err := os.ReadDir(p)
-	return res, toInternalNotExist(err)
-}
-
-func (fs *FileSystem) WalkDir(root string, fn fs.WalkDirFunc) error {
-	p, err := fs.resolvePath(root)
-	if err != nil {
-		return err
-	}
-
-	return filepath.WalkDir(p, fn)
-}
-
-func (f *FileSystem) ToAbs(p string) (string, error) {
-	cleanPath := filepath.Clean(p)
-	if filepath.IsAbs(cleanPath) {
-		return cleanPath, nil
-	}
-	return filepath.Join(f.dir, cleanPath), nil
-}
-
-func (f *FileSystem) ToLocal(p string) (string, error) {
-	cleanPath := filepath.Clean(p)
-	after, found := strings.CutPrefix(cleanPath, f.dir)
-	if !found {
-		return "", fmt.Errorf("'%s' is not a abs path", cleanPath)
-	}
-	return after, nil
-}
-
-func (fs *FileSystem) Rename(old, new string) error {
-	unlockNew := fs.locks.RLock(new)
-	defer unlockNew()
-
-	unlockOld := fs.locks.RLock(old)
-	defer unlockOld()
-
-	new, err := fs.resolvePath(new)
-	if err != nil {
-		return err
-	}
-
-	old, err = fs.resolvePath(old)
-	if err != nil {
-		return err
-	}
-
-	if err := os.Rename(old, new); err != nil {
-		return toInternalNotExist(err)
-	}
-
-	return nil
-}
-
-func (fs *FileSystem) ReadFile(p string) ([]byte, error) {
-	unlock := fs.locks.RLock(p)
-	defer unlock()
-
-	p, err := fs.resolvePath(p)
-	if err != nil {
-		return nil, err
-	}
-
-	res, err := os.ReadFile(p)
-	return res, toInternalNotExist(err)
-}
-
-func (fs *FileSystem) WriteToFile(p string, data []byte) error {
-	unlock := fs.locks.Lock(p)
-	defer unlock()
-
-	p, err := fs.resolvePath(p)
-	if err != nil {
-		return err
-	}
-
-	if err := os.MkdirAll(filepath.Dir(p), FileMode); err != nil {
-		return err
-	}
-
-	return os.WriteFile(p, data, FileMode)
-}
-
-func (fs *FileSystem) AppendToFile(p string, data []byte) error {
-	unlock := fs.locks.Lock(p)
-	defer unlock()
-
-	p, err := fs.resolvePath(p)
-	if err != nil {
-		return err
-	}
-
-	if err := os.MkdirAll(filepath.Dir(p), FileMode); err != nil {
-		return err
-	}
-
-	f, err := os.OpenFile(p, os.O_CREATE|os.O_APPEND|os.O_WRONLY, FileMode)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = f.Write(data)
-
-	return err
-}
-
-type openedFile struct {
-	fs.File
-	unlockFunc func()
-}
-
-func (f *openedFile) Close() error {
-	defer f.unlockFunc()
-	return f.File.Close()
-}
-
-func (fs *FileSystem) Open(p string) (fs.File, error) {
-
-	p, err := fs.resolvePath(p)
-	if err != nil {
-		return nil, err
-	}
-
-	unlock := fs.locks.Lock(p)
-
-	file, err := os.Open(p)
-	if err != nil {
-		unlock()
-		return nil, toInternalNotExist(err)
-	}
-
-	return &openedFile{
-		File:       file,
-		unlockFunc: unlock,
-	}, nil
-}
-
-func (fs *FileSystem) Info(p string) (os.FileInfo, error) {
-	unlock := fs.locks.Lock(p)
-	defer unlock()
-
-	p, err := fs.resolvePath(p)
-	if err != nil {
-		return nil, err
-	}
-
-	info, err := os.Stat(p)
-	if err != nil {
-		return nil, toInternalNotExist(err)
-	}
-
-	return info, nil
-}
-
-func (fs *FileSystem) Delete(p string) error {
-	unlock := fs.locks.Lock(p)
-	defer unlock()
-
-	p, err := fs.resolvePath(p)
-	if err != nil {
-		return err
-	}
-
-	err = os.Remove(p)
-	return toInternalNotExist(err)
-}
-
-func (fs *FileSystem) MkdirAll(p string) error {
-
-	p, err := fs.resolvePath(p)
-	if err != nil {
-		return err
-	}
-
-	if err := os.MkdirAll(p, FileMode); err != nil {
-		return toInternalNotExist(err)
-	}
-	return nil
-}
-
-type openedFilePtr struct {
+type File struct {
 	*os.File
 	unlockFunc func()
 }
 
-func (f *openedFilePtr) Close() error {
+func (f *File) Close() error {
 	defer f.unlockFunc()
 	return f.File.Close()
 }
 
-func (fs *FileSystem) OpenFile(name string, flag int, perm os.FileMode) (*openedFilePtr, error) {
-	p, err := fs.resolvePath(name)
+type FileStorage interface {
+	Chmod(name string, mode FileMode) error
+	Chown(name string, uid int, gid int) error
+	Chtimes(name string, atime time.Time, mtime time.Time) error
+	Close() error
+	Create(name string) (*File, error)
+	FS() fs.FS
+	Lchown(name string, uid int, gid int) error
+	Link(oldname string, newname string) error
+	Lstat(name string) (FileInfo, error)
+	Mkdir(name string, perm FileMode) error
+	MkdirAll(name string, perm FileMode) error
+	Name() string
+	Open(name string) (*File, error)
+	OpenFile(name string, flag int, perm FileMode) (*File, error)
+	// OpenRoot(name string) (*fileStorage, error)
+	ReadFile(name string) ([]byte, error)
+	Readlink(name string) (string, error)
+	Remove(name string) error
+	RemoveAll(name string) error
+	Rename(oldname string, newname string) error
+	Stat(name string) (FileInfo, error)
+	Symlink(oldname string, newname string) error
+	WriteFile(name string, data []byte, perm FileMode) error
+}
+
+var _ FileStorage = (*fileStorage)(nil)
+
+type fileStorage struct {
+	root  *os.Root
+	flock *lockTable
+}
+
+func NewFileStorage(dir string) (*fileStorage, error) {
+
+	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return nil, err
 	}
 
-	unlock := fs.locks.Lock(p)
-
-	f, err := os.OpenFile(p, flag, perm)
-	if err != nil {
-		unlock()
-		return nil, toInternalNotExist(err)
-	}
-
-	return &openedFilePtr{unlockFunc: unlock, File: f}, nil
+	return &fileStorage{
+		root:  root,
+		flock: newLockTable(),
+	}, nil
 }
 
-func (fs *FileSystem) DeleteAll(p string) error {
-	unlock := fs.locks.Lock(p)
+func (r *fileStorage) Chmod(name string, mode FileMode) error {
+	unlock := r.flock.Lock(name)
 	defer unlock()
 
-	p, err := fs.resolvePath(p)
+	return r.root.Chmod(name, mode)
+}
+
+func (r *fileStorage) Chown(name string, uid int, gid int) error {
+	unlock := r.flock.Lock(name)
+	defer unlock()
+
+	return r.root.Chown(name, uid, gid)
+}
+
+func (r *fileStorage) Chtimes(name string, atime time.Time, mtime time.Time) error {
+	unlock := r.flock.Lock(name)
+	defer unlock()
+
+	return r.root.Chtimes(name, atime, mtime)
+}
+
+func (r *fileStorage) Close() error {
+	return r.root.Close()
+}
+
+func (r *fileStorage) Create(name string) (*File, error) {
+	unlock := r.flock.Lock(name)
+	defer unlock()
+
+	f, err := r.root.Create(name)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	err = os.RemoveAll(p)
-	return toInternalNotExist(err)
+	return &File{unlockFunc: unlock, File: f}, nil
 }
 
-func (fs *FileSystem) Cwd() string {
-	return fs.dir
+func (r *fileStorage) FS() fs.FS {
+	return r.root.FS()
 }
 
-func (fs *FileSystem) resolvePath(p string) (string, error) {
-	if filepath.IsAbs(p) {
-		localPath, err := fs.ToLocal(p)
-		if err != nil {
-			return "", err
-		}
-		p = localPath
+func (r *fileStorage) Lchown(name string, uid int, gid int) error {
+	unlock := r.flock.Lock(name)
+	defer unlock()
+
+	return r.root.Lchown(name, uid, gid)
+}
+
+func (r *fileStorage) Link(oldname string, newname string) error {
+	unlockOld := r.flock.Lock(oldname)
+	defer unlockOld()
+
+	unlockNew := r.flock.Lock(newname)
+	defer unlockNew()
+
+	return r.root.Link(oldname, newname)
+}
+
+func (r *fileStorage) Lstat(name string) (FileInfo, error) {
+	unlock := r.flock.Lock(name)
+	defer unlock()
+
+	return r.root.Lstat(name)
+}
+
+func (r *fileStorage) Mkdir(name string, perm FileMode) error {
+	unlock := r.flock.Lock(name)
+	defer unlock()
+
+	return r.root.Mkdir(name, perm)
+}
+
+func (r *fileStorage) MkdirAll(name string, perm FileMode) error {
+	unlock := r.flock.Lock(name)
+	defer unlock()
+
+	return r.root.MkdirAll(name, perm)
+}
+
+func (r *fileStorage) Name() string {
+	return r.root.Name()
+}
+
+func (r *fileStorage) Open(name string) (*File, error) {
+	unlock := r.flock.Lock(name)
+
+	f, err := r.root.Open(name)
+	if err != nil {
+		unlock()
+		return nil, err
 	}
-	return filepath.Join(fs.dir, p), nil
+
+	return &File{unlockFunc: unlock, File: f}, nil
+}
+
+func (r *fileStorage) OpenFile(name string, flag int, perm FileMode) (*File, error) {
+	unlock := r.flock.Lock(name)
+
+	f, err := r.root.OpenFile(name, flag, perm)
+	if err != nil {
+		unlock()
+		return nil, err
+	}
+
+	return &File{unlockFunc: unlock, File: f}, nil
+}
+
+func (r *fileStorage) ReadFile(name string) ([]byte, error) {
+	unlock := r.flock.Lock(name)
+	defer unlock()
+
+	return r.root.ReadFile(name)
+}
+
+func (r *fileStorage) Readlink(name string) (string, error) {
+	unlock := r.flock.Lock(name)
+	defer unlock()
+
+	return r.root.Readlink(name)
+}
+
+func (r *fileStorage) Remove(name string) error {
+	unlock := r.flock.Lock(name)
+	defer unlock()
+
+	return r.root.Remove(name)
+}
+
+func (r *fileStorage) RemoveAll(name string) error {
+	unlock := r.flock.Lock(name)
+	defer unlock()
+
+	return r.root.RemoveAll(name)
+}
+
+func (r *fileStorage) Rename(oldname string, newname string) error {
+	unlockOld := r.flock.Lock(oldname)
+	defer unlockOld()
+
+	unlockNew := r.flock.Lock(newname)
+	defer unlockNew()
+
+	return r.root.Rename(oldname, newname)
+}
+
+func (r *fileStorage) Stat(name string) (FileInfo, error) {
+	unlock := r.flock.Lock(name)
+	defer unlock()
+
+	return r.root.Stat(name)
+}
+
+func (r *fileStorage) Symlink(oldname string, newname string) error {
+	unlockOld := r.flock.Lock(oldname)
+	defer unlockOld()
+
+	unlockNew := r.flock.Lock(newname)
+	defer unlockNew()
+
+	return r.root.Symlink(oldname, newname)
+}
+
+func (r *fileStorage) WriteFile(name string, data []byte, perm FileMode) error {
+	unlock := r.flock.Lock(name)
+	defer unlock()
+
+	return r.root.WriteFile(name, data, perm)
 }
 
 func toInternalNotExist(err error) error {
@@ -287,15 +280,16 @@ func toInternalNotExist(err error) error {
 }
 
 func ensureFilePlaceholder(
-	fs *FileSystem,
+	root FileStorage,
 	pathToFile string,
 	defaultEntry []byte,
 ) error {
-	if _, err := fs.ReadFile(pathToFile); err != nil {
+	if _, err := root.ReadFile(pathToFile); err != nil {
+
 		if !errors.Is(err, types.ErrIsNotExist) {
 			return err
 		}
-		if err := fs.WriteToFile(TaskConfigFile, defaultEntry); err != nil {
+		if err := root.WriteFile(pathToFile, defaultEntry, ModePerm); err != nil {
 			return err
 		}
 	}

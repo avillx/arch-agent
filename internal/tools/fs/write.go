@@ -16,7 +16,7 @@ const (
 )
 
 type WriteTool struct {
-	fs *files.FileSystem
+	storage files.FileStorage
 }
 
 func (t *WriteTool) Name() agent.ToolName { return "write" }
@@ -29,7 +29,7 @@ func (t *WriteTool) Schema() any {
 			Name:     "path",
 			Required: true,
 			Type:     agent.TypeString,
-			Description: `File path, create full path when it is not exist. 
+			Description: `File path, create full path when it is not exist.
 e.g. './shared/project-x/README.md', './shared/non/exist/path/README.md'`,
 		},
 		{
@@ -61,13 +61,28 @@ func (t *WriteTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]ag
 	data := []byte(args.Content)
 
 	if args.Mode == Append {
-		err = t.fs.AppendToFile(args.Path, data)
-	} else {
-		err = t.fs.WriteToFile(args.Path, data)
+		f, err := t.storage.OpenFile(
+			args.Path,
+			files.O_APPEND|files.O_WRONLY|files.O_CREATE,
+			files.ModeFilePerm,
+		)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+
+		if _, err := f.Write(data); err != nil {
+			return nil, mapErrs(err)
+		}
+
+		msg := fmt.Sprintf("%d bytes appened to %s", len(data), args.Path)
+		return tools.Result(msg), nil
 	}
-	if err != nil {
+
+	if err := t.storage.WriteFile(args.Path, data, files.ModeFilePerm); err != nil {
 		return nil, mapErrs(err)
 	}
 
-	return tools.Result(fmt.Sprintf("wrote %d bytes to %s", len(data), args.Path)), nil
+	msg := fmt.Sprintf("wrote %d bytes to %s", len(data), args.Path)
+	return tools.Result(msg), nil
 }

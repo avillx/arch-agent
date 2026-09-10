@@ -14,15 +14,15 @@ type ConsolidationInstuctFS struct {
 	cwd string
 }
 
-func NewConsolidationInstuctFS(fs *files.FileSystem, skipPatterns []string) (*ConsolidationInstuctFS, error) {
+func NewConsolidationInstuctFS(storage files.FileStorage, skipPatterns []string) (*ConsolidationInstuctFS, error) {
 
-	ts, err := NewRawFileSystemToolServer(fs, skipPatterns)
+	ts, err := NewRawFileSystemToolServer(storage, skipPatterns)
 	if err != nil {
 		return nil, err
 	}
 	return &ConsolidationInstuctFS{
 		ToolServer: ts,
-		cwd:        fs.Cwd(),
+		cwd:        "", // TODO : eliminate
 	}, nil
 }
 
@@ -32,45 +32,45 @@ func (r *ConsolidationInstuctFS) AgentInstruction(agt agent.Agent) string {
 
 type FileSystemToolServer struct {
 	*tools.BuildInToolServer
-	fs *files.FileSystem
+	storage files.FileStorage
 }
 
-func NewFileSystemToolServer(fs *files.FileSystem, skipPatterns []string) (*FileSystemToolServer, error) {
+func NewFileSystemToolServer(storage files.FileStorage, skipPatterns []string) (*FileSystemToolServer, error) {
 
-	ts, err := NewRawFileSystemToolServer(fs, skipPatterns)
+	ts, err := NewRawFileSystemToolServer(storage, skipPatterns)
 	if err != nil {
 		return nil, err
 	}
 
 	return &FileSystemToolServer{
-		fs:                fs,
+		storage:           storage,
 		BuildInToolServer: ts,
 	}, nil
 }
 
-func NewRawFileSystemToolServer(fs *files.FileSystem, skipPatterns []string) (*tools.BuildInToolServer, error) {
+func NewRawFileSystemToolServer(storage files.FileStorage, skipPatterns []string) (*tools.BuildInToolServer, error) {
 
-	findTool, err := NewFindTool(fs, skipPatterns)
+	findTool, err := NewFindTool(storage, skipPatterns)
 	if err != nil {
 		return nil, err
 	}
 
-	readTool, err := NewReadTool(fs, skipPatterns)
+	readTool, err := NewReadTool(storage, skipPatterns)
 	if err != nil {
 		return nil, err
 	}
 
 	return tools.NewBuildInToolServer(
-		&EditTool{fs: fs},
-		&MoveTool{fs: fs},
+		&EditTool{storage: storage},
+		&MoveTool{storage: storage},
 		readTool,
 		findTool,
-		&WriteTool{fs: fs},
+		&WriteTool{storage: storage},
 	), nil
 }
 
 func (r *FileSystemToolServer) AgentInstruction(agt agent.Agent) string {
-	return prompt.FileSystemInstruction(r.fs.Cwd(), agt.ID(), agt.HasMemory())
+	return prompt.FileSystemInstruction("", agt.ID(), agt.HasMemory())
 }
 
 func mapErrs(err error) error {

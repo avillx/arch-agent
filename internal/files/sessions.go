@@ -10,21 +10,24 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 )
 
+const SessionsFolder = "sessions"
+
 var _ session.SessionsRepo = (*SessionFiles)(nil)
 
 type SessionFiles struct {
-	fs *FileSystem
+	storage FileStorage
 }
 
-func NewSessionFiles(fs *FileSystem) *SessionFiles {
+func NewSessionFiles(storage FileStorage) *SessionFiles {
 	return &SessionFiles{
-		fs: fs,
+		storage: storage,
 	}
 }
 
@@ -32,7 +35,7 @@ func (r *SessionFiles) Session(agentID agent.ID, sessionID session.ID) (session.
 
 	sessionFilePath := resolveSessionPath(agentID, sessionID)
 
-	data, err := r.fs.ReadFile(sessionFilePath)
+	data, err := r.storage.ReadFile(sessionFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, types.ErrIsNotExist
@@ -50,18 +53,20 @@ func (r *SessionFiles) Save(agentID agent.ID, s session.Session) error {
 	}
 
 	sessionFilePath := resolveSessionPath(agentID, s.ID())
-	return r.fs.WriteToFile(sessionFilePath, data)
+	return r.storage.WriteFile(sessionFilePath, data, 0644)
 }
 
 func (r *SessionFiles) Delete(agentID agent.ID, sessionID session.ID) error {
 	sessionFilePath := resolveSessionPath(agentID, sessionID)
-	return r.fs.Delete(sessionFilePath)
+
+	return r.storage.Remove(sessionFilePath)
 }
 
 func (r *SessionFiles) List(agentID agent.ID) ([]session.ID, error) {
 
 	sessionDir := resolveSessionFolderPath(agentID)
-	files, err := r.fs.ReadDir(sessionDir)
+	sessionDir = filepath.ToSlash(sessionDir)
+	files, err := fs.ReadDir(r.storage.FS(), sessionDir)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +85,8 @@ func (r *SessionFiles) List(agentID agent.ID) ([]session.ID, error) {
 
 func (r *SessionFiles) Headers(agentID agent.ID) ([]session.SessionHeader, error) {
 	sessionDir := resolveSessionFolderPath(agentID)
-	files, err := r.fs.ReadDir(sessionDir)
+	sessionDir = filepath.ToSlash(sessionDir)
+	files, err := fs.ReadDir(r.storage.FS(), sessionDir)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +99,7 @@ func (r *SessionFiles) Headers(agentID agent.ID) ([]session.SessionHeader, error
 		sessID := session.ID(rawId)
 
 		pathToFile := filepath.Join(sessionDir, fileName)
-		f, err := r.fs.OpenFile(pathToFile, os.O_RDONLY, 0)
+		f, err := r.storage.OpenFile(pathToFile, os.O_RDONLY, 0)
 		if err != nil {
 			brokenHeader := session.NewErrBrokenHeader(sessID, agentID, err)
 			brokenHeaders = append(brokenHeaders, brokenHeader)
@@ -210,5 +216,5 @@ func resolveSessionPath(agentID agent.ID, sessionID session.ID) string {
 	return filepath.Join(resolveSessionFolderPath(agentID), fmt.Sprintf("%s.jsonl", sessionID))
 }
 func resolveSessionFolderPath(agentID agent.ID) string {
-	return fmt.Sprintf("/%s/sessions", agentID)
+	return filepath.Join(string(agentID), SessionsFolder)
 }

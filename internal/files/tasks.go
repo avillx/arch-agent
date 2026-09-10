@@ -44,7 +44,7 @@ const taskConfigDoc = `# Cron tasks config
 # once=true
 
 # Exhaustive request that the recipient will receive on schedule
-# Prefer use multiline """...""" format over one line '...' 
+# Prefer use multiline """...""" format over one line '...'
 # request="""
 # Use your skill /some/path
 # do ...
@@ -55,18 +55,18 @@ const taskConfigDoc = `# Cron tasks config
 # After edit, ensure file consistency and comment integrity`
 
 type TaskFiles struct {
-	mu sync.RWMutex
-	fs *FileSystem
+	mu      sync.RWMutex
+	storage FileStorage
 }
 
-func NewTaskFiles(fs *FileSystem) (*TaskFiles, error) {
+func NewTaskFiles(storage FileStorage) (*TaskFiles, error) {
 
-	if err := ensureFilePlaceholder(fs, TaskConfigFile, []byte(taskConfigDoc)); err != nil {
+	if err := ensureFilePlaceholder(storage, TaskConfigFile, []byte(taskConfigDoc)); err != nil {
 		return nil, err
 	}
 
 	return &TaskFiles{
-		fs: fs,
+		storage: storage,
 	}, nil
 }
 
@@ -74,7 +74,7 @@ func (tf *TaskFiles) All() (map[string]task.TaskConfig, error) {
 	tf.mu.RLock()
 	defer tf.mu.RUnlock()
 
-	return loadTasks(tf.fs)
+	return loadTasks(tf.storage)
 }
 
 func (tf *TaskFiles) Get(id string) (task.TaskConfig, error) {
@@ -82,7 +82,7 @@ func (tf *TaskFiles) Get(id string) (task.TaskConfig, error) {
 	tf.mu.RLock()
 	defer tf.mu.RUnlock()
 
-	tasks, err := loadTasks(tf.fs)
+	tasks, err := loadTasks(tf.storage)
 	if err != nil {
 		return task.TaskConfig{}, err
 	}
@@ -100,13 +100,13 @@ func (tf *TaskFiles) Save(t task.TaskConfig) error {
 	tf.mu.Lock()
 	defer tf.mu.Unlock()
 
-	tasks, err := loadTasks(tf.fs)
+	tasks, err := loadTasks(tf.storage)
 	if err != nil {
 		return err
 	}
 	tasks[t.Name] = t
 
-	return flush(tf.fs, tasks)
+	return flushTasks(tf.storage, tasks)
 }
 
 func (tf *TaskFiles) Delete(id string) error {
@@ -114,7 +114,7 @@ func (tf *TaskFiles) Delete(id string) error {
 	tf.mu.Lock()
 	defer tf.mu.Unlock()
 
-	tasks, err := loadTasks(tf.fs)
+	tasks, err := loadTasks(tf.storage)
 	if err != nil {
 		return err
 	}
@@ -125,11 +125,11 @@ func (tf *TaskFiles) Delete(id string) error {
 
 	delete(tasks, id)
 
-	return flush(tf.fs, tasks)
+	return flushTasks(tf.storage, tasks)
 }
 
-func loadTasks(fs *FileSystem) (map[string]task.TaskConfig, error) {
-	data, err := fs.ReadFile(TaskConfigFile)
+func loadTasks(storage FileStorage) (map[string]task.TaskConfig, error) {
+	data, err := storage.ReadFile(TaskConfigFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return map[string]task.TaskConfig{}, nil
@@ -143,12 +143,12 @@ func loadTasks(fs *FileSystem) (map[string]task.TaskConfig, error) {
 	return UnmarshalTasks(data)
 }
 
-func flush(fs *FileSystem, tasks map[string]task.TaskConfig) error {
+func flushTasks(storage FileStorage, tasks map[string]task.TaskConfig) error {
 	data, err := MarshalTasks(tasks)
 	if err != nil {
 		return err
 	}
-	return fs.WriteToFile(TaskConfigFile, data)
+	return storage.WriteFile(TaskConfigFile, data, ModePerm)
 }
 
 type TaskDTO struct {

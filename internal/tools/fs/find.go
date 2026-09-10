@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -18,11 +19,11 @@ import (
 var lineBreaker = []byte("\n")
 
 type FindTool struct {
-	fs           *files.FileSystem
+	storage      files.FileStorage
 	skipPatterns []string
 }
 
-func NewFindTool(fs *files.FileSystem, skipPatterns []string) (*FindTool, error) {
+func NewFindTool(fs files.FileStorage, skipPatterns []string) (*FindTool, error) {
 
 	// validate skip patterns
 	for _, p := range skipPatterns {
@@ -32,7 +33,7 @@ func NewFindTool(fs *files.FileSystem, skipPatterns []string) (*FindTool, error)
 	}
 
 	return &FindTool{
-		fs:           fs,
+		storage:      fs,
 		skipPatterns: skipPatterns,
 	}, nil
 }
@@ -55,7 +56,7 @@ func (t *FindTool) Schema() any {
 			Name:     "regex",
 			Required: false,
 			Type:     agent.TypeString,
-			Description: `Go-compitable regular expression, 
+			Description: `Go-compitable regular expression,
 			serve to find content in files; Adds matched file entry to results`,
 		},
 	}
@@ -79,15 +80,10 @@ func (t *FindTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]age
 	}
 
 	var sb strings.Builder
-	err = doublestar.GlobWalk(t.fs, args.Glob, func(path string, d fs.DirEntry) error {
+	err = doublestar.GlobWalk(t.storage.FS(), filepath.ToSlash(args.Glob), func(path string, d fs.DirEntry) error {
 
 		if d.IsDir() {
 			return nil
-		}
-
-		path, err := t.fs.ToAbs(path)
-		if err != nil {
-			return err
 		}
 
 		// should skip
@@ -99,7 +95,7 @@ func (t *FindTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]age
 
 		if regex != nil {
 
-			data, err := t.fs.ReadFile(path)
+			data, err := t.storage.ReadFile(path)
 			if err != nil {
 				fmt.Fprintf(&sb, "%s err: %v", path, err)
 				return nil

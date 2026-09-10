@@ -68,7 +68,7 @@ func (s *CleanUpService) Run(ctx context.Context) {
 }
 
 func (s *CleanUpService) doCleanUp() {
-	s.logger.Error("invoke")
+	s.logger.Info("invoke")
 
 	s.logger.Info("cleaning sessions")
 	if err := s.sessionsCleaner.Clean(s.cfg.SessRetention); err != nil {

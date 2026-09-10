@@ -49,19 +49,19 @@ const memoryConfigDoc string = `# Memory config
 # After edit, ensure file consistency and comment integrity`
 
 type MemoryFile struct {
-	fs *FileSystem
+	storage FileStorage
 
 	mu sync.Mutex
 }
 
-func NewMemoryConfigFile(fs *FileSystem) (*MemoryFile, error) {
+func NewMemoryConfigFile(storage FileStorage) (*MemoryFile, error) {
 
-	if err := ensureFilePlaceholder(fs, MemoryConfigFile, []byte(memoryConfigDoc)); err != nil {
+	if err := ensureFilePlaceholder(storage, MemoryConfigFile, []byte(memoryConfigDoc)); err != nil {
 		return nil, err
 	}
 
 	return &MemoryFile{
-		fs: fs,
+		storage: storage,
 	}, nil
 }
 
@@ -69,7 +69,7 @@ func (r *MemoryFile) Save(new MemoryConfigDTO) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	data, err := r.fs.ReadFile(MemoryConfigFile)
+	data, err := r.storage.ReadFile(MemoryConfigFile)
 	if err != nil {
 		return err
 	}
@@ -98,14 +98,14 @@ func (r *MemoryFile) Save(new MemoryConfigDTO) error {
 		[]byte("\n\n"),
 	)
 
-	return r.fs.WriteToFile(MemoryConfigFile, data)
+	return r.storage.WriteFile(MemoryConfigFile, data, ModeFilePerm)
 }
 
 func (r *MemoryFile) Load() (MemoryConfigDTO, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	data, err := r.fs.ReadFile(MemoryConfigFile)
+	data, err := r.storage.ReadFile(MemoryConfigFile)
 	if err != nil {
 		return MemoryConfigDTO{}, err
 	}

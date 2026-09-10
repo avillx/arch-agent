@@ -16,19 +16,19 @@ const skillFile = "SKILL.md"
 var _ chat.SkillsRepo = (*SkillFiles)(nil)
 
 type SkillFiles struct {
-	fs     *FileSystem
-	logger *slog.Logger
+	storage FileStorage
+	logger  *slog.Logger
 
 	mu sync.RWMutex
 }
 
 func NewSkillFiles(
-	fs *FileSystem,
+	storage FileStorage,
 	logger *slog.Logger,
 ) *SkillFiles {
 	sf := &SkillFiles{
-		fs:     fs,
-		logger: logger.WithGroup("skill_files"),
+		storage: storage,
+		logger:  logger.WithGroup("skill_files"),
 	}
 
 	return sf
@@ -38,6 +38,7 @@ func (f *SkillFiles) Skills(agentID agent.ID) (map[string]string, error) {
 	skillsIndex := map[string]string{}
 
 	// private skills
+	// NOTE: path over filepath is required
 	privateSkillsPath := path.Join(string(agentID), skillsFolder)
 	privateSkills, err := f.loadSkills(privateSkillsPath)
 	if err != nil {
@@ -92,13 +93,8 @@ func (f *SkillFiles) loadSkills(p string) (map[string]string, error) {
 			return nil
 		}
 
-		localPath, err := f.fs.ToLocal(p)
-		if err != nil {
-			return err
-		}
-
 		// read file
-		data, err := f.fs.ReadFile(localPath)
+		data, err := f.storage.ReadFile(p)
 		if err != nil {
 			return err
 		}
@@ -116,7 +112,7 @@ func (f *SkillFiles) loadSkills(p string) (map[string]string, error) {
 		return nil
 	}
 
-	if err := f.fs.WalkDir(p, walkDirFunc); err != nil {
+	if err := fs.WalkDir(f.storage.FS(), p, walkDirFunc); err != nil {
 		return nil, err
 	}
 

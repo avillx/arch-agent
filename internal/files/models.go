@@ -64,18 +64,18 @@ type providerDTO struct {
 }
 
 type ProviderFiles struct {
-	fs *FileSystem
+	storage FileStorage
 
 	mu sync.RWMutex
 }
 
-func NewProviderFiles(fs *FileSystem) (*ProviderFiles, error) {
+func NewProviderFiles(storage FileStorage) (*ProviderFiles, error) {
 
-	if err := ensureFilePlaceholder(fs, ModelsConfigFile, []byte(modelsConfigDoc)); err != nil {
+	if err := ensureFilePlaceholder(storage, ModelsConfigFile, []byte(modelsConfigDoc)); err != nil {
 		return nil, err
 	}
 
-	return &ProviderFiles{fs: fs}, nil
+	return &ProviderFiles{storage: storage}, nil
 }
 
 func (f *ProviderFiles) All() ([]model.ProviderConfig, error) {
@@ -165,7 +165,7 @@ func (f *ProviderFiles) Delete(id model.ProviderID) error {
 func (f *ProviderFiles) loadConfig() (modelsConfigDTO, error) {
 	var dto modelsConfigDTO
 
-	data, err := f.fs.ReadFile(ModelsConfigFile)
+	data, err := f.storage.ReadFile(ModelsConfigFile)
 	if err != nil {
 		// TODO: create place holder if not exist
 		return dto, err
@@ -190,7 +190,7 @@ func (f *ProviderFiles) saveConfig(dto modelsConfigDTO) error {
 		[]byte("\n\n"),
 	)
 
-	return f.fs.WriteToFile(ModelsConfigFile, dataWithDoc)
+	return f.storage.WriteFile(ModelsConfigFile, dataWithDoc, ModeFilePerm)
 }
 
 // modelsSent

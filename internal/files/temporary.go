@@ -5,6 +5,7 @@ import (
 	"arch-agent/internal/types"
 	"context"
 	"errors"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -18,18 +19,18 @@ const tmpLifeTime = 10 * time.Minute
 const TMPDir = "tmp"
 
 type TemporaryFiles struct {
-	timers map[string]*time.Timer
-	fs     *FileSystem
+	timers  map[string]*time.Timer
+	storage FileStorage
 
 	logger *slog.Logger
 	mu     sync.Mutex
 }
 
-func NewTemporaryFiles(fs *FileSystem, logger *slog.Logger) (*TemporaryFiles, error) {
+func NewTemporaryFiles(storage FileStorage, logger *slog.Logger) (*TemporaryFiles, error) {
 	f := &TemporaryFiles{
-		timers: map[string]*time.Timer{},
-		fs:     fs,
-		logger: logger.WithGroup("tmp"),
+		timers:  map[string]*time.Timer{},
+		storage: storage,
+		logger:  logger.WithGroup("tmp"),
 	}
 
 	if err := f.stageEntry(); err != nil {
@@ -55,11 +56,11 @@ func (f *TemporaryFiles) Run(ctx context.Context) {
 
 func (f *TemporaryFiles) stageEntry() error {
 
-	entry, err := f.fs.ReadDir(TMPDir)
+	entry, err := fs.ReadDir(f.storage.FS(), TMPDir)
 	if err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
 			// create if has no
-			return f.fs.MkdirAll(TMPDir)
+			return f.storage.MkdirAll(TMPDir, ModeDirPerm)
 		}
 		return err
 	}
@@ -92,7 +93,7 @@ func (f *TemporaryFiles) watchFor(p string) {
 
 		logger := f.logger.With("path", p)
 		logger.Info("deletion")
-		if err := f.fs.DeleteAll(p); err != nil {
+		if err := f.storage.RemoveAll(p); err != nil {
 			if !errors.Is(err, types.ErrIsNotExist) {
 				logger.Error("deletion", "error", err)
 			}

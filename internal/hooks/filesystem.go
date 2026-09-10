@@ -16,8 +16,6 @@ import (
 	doublestar "github.com/bmatcuk/doublestar/v4"
 )
 
-const unixSeparator = "/"
-
 var readFileToolName = (&fstools.ReadTool{}).Name()   // read_file
 var editFileToolName = (&fstools.EditTool{}).Name()   // edit_file
 var moveFileToolName = (&fstools.MoveTool{}).Name()   // move_file
@@ -41,11 +39,10 @@ var _ runtime.ToolCallHook = (*FileAccessHook)(nil)
 
 type FileAccessHook struct {
 	rules []Rule
-	cwd   string
 }
 
 // First rule match wins, so be accuracy with order
-func NewFileAccessHook(cwd string, rules ...Rule) (*FileAccessHook, error) {
+func NewFileAccessHook(rules ...Rule) (*FileAccessHook, error) {
 
 	// validate patterns
 	for _, r := range rules {
@@ -56,7 +53,6 @@ func NewFileAccessHook(cwd string, rules ...Rule) (*FileAccessHook, error) {
 
 	return &FileAccessHook{
 		rules: rules,
-		cwd:   cwd,
 	}, nil
 }
 
@@ -81,11 +77,6 @@ func (h *FileAccessHook) Apply(ctx context.Context, tc *agent.ToolCall) (*agent.
 }
 
 func (h *FileAccessHook) verifyPath(toolName agent.ToolName, p string) error {
-
-	// /skills/test_note.md is abs for this validate
-	if !filepath.IsAbs(p) {
-		p = filepath.Join(h.cwd, p)
-	}
 
 	// deny symlinks
 	foundSymlink, err := containsSymlink(p)

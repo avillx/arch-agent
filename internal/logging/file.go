@@ -1,32 +1,36 @@
 package logging
 
 import (
+	"arch-agent/internal/files"
 	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"sync"
 )
+
+const AgentLogFile = "agent.log"
 
 var _ io.Writer = (*LogFile)(nil)
 
 type LogFile struct {
-	filePath string
+	storage  files.FileStorage
+	fileName string
 
 	mu sync.Mutex
 }
 
-func NewLogFile(filePath string) *LogFile {
+func NewLogFile(storage files.FileStorage) *LogFile {
 	return &LogFile{
-		filePath: filePath,
+		storage:  storage,
+		fileName: AgentLogFile,
 	}
 }
 
-func (w *LogFile) Write(p []byte) (int, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+func (s *LogFile) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	f, err := os.OpenFile(w.filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0640)
+	f, err := s.storage.OpenFile(s.fileName, files.O_APPEND|files.O_CREATE|files.O_WRONLY, 0640)
 	if err != nil {
 		return 0, fmt.Errorf("open log file: %w", err)
 	}
@@ -40,7 +44,7 @@ func (s *LogFile) Trim(maxLines int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	f, err := os.OpenFile(s.filePath, os.O_CREATE|os.O_RDWR, 0640)
+	f, err := s.storage.OpenFile(s.fileName, files.O_CREATE|files.O_RDWR, 0640)
 	if err != nil {
 		return fmt.Errorf("open log file: %w", err)
 	}

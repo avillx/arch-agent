@@ -11,17 +11,18 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
 )
 
 type ReadTool struct {
-	fs           *files.FileSystem
+	storage      files.FileStorage
 	skipPatterns []string
 }
 
-func NewReadTool(fs *files.FileSystem, skipPatterns []string) (*ReadTool, error) {
+func NewReadTool(storage files.FileStorage, skipPatterns []string) (*ReadTool, error) {
 
 	// validate skip patterns
 	for _, p := range skipPatterns {
@@ -31,7 +32,7 @@ func NewReadTool(fs *files.FileSystem, skipPatterns []string) (*ReadTool, error)
 	}
 
 	return &ReadTool{
-		fs:           fs,
+		storage:      storage,
 		skipPatterns: skipPatterns,
 	}, nil
 }
@@ -39,7 +40,7 @@ func NewReadTool(fs *files.FileSystem, skipPatterns []string) (*ReadTool, error)
 func (t *ReadTool) Name() agent.ToolName { return "read" }
 
 func (t *ReadTool) Description() string {
-	return `Read text files, image files and directories, text files optionally 
+	return `Read text files, image files and directories, text files optionally
 limited to a line range, reads dir structure in 2 levels depth`
 }
 
@@ -78,7 +79,7 @@ func (t *ReadTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]age
 	}
 
 	// read directory
-	info, err := t.fs.Info(args.Path)
+	info, err := t.storage.Stat(args.Path)
 	if err != nil {
 		return nil, mapErrs(err)
 	}
@@ -92,7 +93,7 @@ func (t *ReadTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]age
 
 	// if is image
 	if imageType := detectImageType(args.Path); imageType != "" {
-		data, err := t.fs.ReadFile(args.Path)
+		data, err := t.storage.ReadFile(args.Path)
 		if err != nil {
 			return nil, err
 		}
@@ -114,12 +115,12 @@ func (t *ReadTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]age
 
 func (t *ReadTool) ReadTextFile(p string, start, end *int) (string, error) {
 	if start != nil || end != nil {
-		res, err := t.fs.ReadFile(p)
+		res, err := t.storage.ReadFile(p)
 		lines := extractLines(res, start, end)
 		return lines, mapErrs(err)
 	}
 
-	data, err := t.fs.ReadFile(p)
+	data, err := t.storage.ReadFile(p)
 	if err != nil {
 		return "", mapErrs(err)
 	}
@@ -132,14 +133,10 @@ func (t *ReadTool) ReadTextFile(p string, start, end *int) (string, error) {
 }
 
 func (t *ReadTool) ReadDir(p string) (string, error) {
-	absPath, err := t.fs.ToAbs(p)
-	if err != nil {
-		return "", err
-	}
 
 	var sb strings.Builder
-	rootParts := strings.Split(absPath, string(os.PathSeparator))
-	err = t.fs.WalkDir(absPath, func(path string, d fs.DirEntry, err error) error {
+	rootParts := strings.Split(p, string(os.PathSeparator))
+	err := fs.WalkDir(t.storage.FS(), filepath.ToSlash(p), func(path string, d fs.DirEntry, err error) error {
 
 		// should skip
 		for _, pattern := range t.skipPatterns {
@@ -174,7 +171,7 @@ func (t *ReadTool) ReadDir(p string) (string, error) {
 			labels = append(labels, files.FormatSize(size))
 		}
 
-		data, err := t.fs.ReadFile(path)
+		data, err := t.storage.ReadFile(path)
 		if err == nil {
 			if isBinary(data) {
 
