@@ -27,8 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN useradd -m -d /home/$USER -s /bin/bash $USER
 
-RUN chown -R $USER:$USER /arch/
-
+RUN mkdir -p /arch && chown -R $USER:$USER /arch
 RUN mkdir $DATA_PATH && chown -R $USER:$USER $DATA_PATH
 
 USER $USER
