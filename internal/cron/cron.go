@@ -12,6 +12,7 @@ type RobfigCron struct {
 }
 
 func NewRobfigCron(expr string) (*RobfigCron, error) {
+
 	parser := robcron.NewParser(
 		robcron.Minute |
 			robcron.Hour |
@@ -33,7 +34,9 @@ func NewRobfigCron(expr string) (*RobfigCron, error) {
 
 func (r *RobfigCron) NextTime() time.Duration {
 	now := time.Now()
-	return r.schedule.Next(now).Sub(now)
+	next := r.schedule.Next(now)
+	nextLocal := next.In(now.Location())
+	return nextLocal.Sub(now)
 }
 
 func (r *RobfigCron) Expression() string {
