@@ -3,6 +3,7 @@ package api
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/types"
+	"context"
 	"errors"
 	"net/http"
 )
@@ -15,16 +16,21 @@ type AgentDTO struct {
 	SystemPrompt string   `json:"system_prompt,omitempty"`
 }
 
+func (d AgentDTO) Validate(_ context.Context) error {
+	if d.Model == "" {
+		return types.NewValidationError(map[string]string{
+			"model": "must specified",
+		})
+	}
+	return nil
+}
+
 type agentHandler struct {
 	repo agent.Repo
 }
 
 // GET /agent
 func (h *agentHandler) List(w http.ResponseWriter, r *http.Request) Response {
-
-	type AgentListDTO struct {
-		Agents []AgentDTO `json:"agents"`
-	}
 
 	agents, err := h.repo.All()
 	if err != nil {
@@ -36,9 +42,7 @@ func (h *agentHandler) List(w http.ResponseWriter, r *http.Request) Response {
 		dtos = append(dtos, agentToDTO(agt))
 	}
 
-	dto := AgentListDTO{Agents: dtos}
-
-	return NewJSONResponse(http.StatusOK, dto)
+	return NewJSONResponse(http.StatusOK, dtos)
 }
 
 // POST /agent/{id} DTO
@@ -53,26 +57,14 @@ func (h *agentHandler) Create(w http.ResponseWriter, r *http.Request) Response {
 		return NewInternalError(err)
 	}
 
-	agentDTO, err := decode[AgentDTO](r)
-	if err != nil {
-		// TODO: validations
-
-		return NewInternalError(err)
-	}
-
-	if err := h.repo.Save(dtoToAgent(id, agentDTO)); err != nil {
-		// TODO: uniqueness validations + 400
-
-		return NewInternalError(err)
-	}
-
-	return NewResponse(http.StatusOK)
+	return h.saveAgt(id, r)
 }
 
 // PUT /agent/{id}
 func (h *agentHandler) Update(w http.ResponseWriter, r *http.Request) Response {
 	id := agent.ID(r.PathValue("id"))
 
+	// To ensure existence
 	_, err := h.repo.Get(id)
 	if err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
@@ -81,15 +73,24 @@ func (h *agentHandler) Update(w http.ResponseWriter, r *http.Request) Response {
 		return NewInternalError(err)
 	}
 
-	updated, err := decode[AgentDTO](r)
-	if err != nil {
-		// TODO: validations + 400
+	return h.saveAgt(id, r)
+}
 
-		return NewInvalidRequest(err)
+func (h *agentHandler) saveAgt(agentID agent.ID, r *http.Request) Response {
+	agentDTO, err := decode[AgentDTO](r)
+	if err != nil {
+		if problems := types.ResovleValidationProblems(err); len(problems) > 0 {
+			return NewInvalidRequest(err)
+		}
+		return NewBadRequest(err.Error())
 	}
 
-	if err := h.repo.Save(dtoToAgent(id, updated)); err != nil {
-		// TODO: validations + 400
+	if err := h.repo.Save(dtoToAgent(agentID, agentDTO)); err != nil {
+
+		// On Model not exist or ToolServer not exist
+		if errors.Is(err, types.ErrIsNotExist) {
+			return NewBadRequest(err.Error())
+		}
 
 		return NewInternalError(err)
 	}
@@ -115,15 +116,11 @@ func (h *agentHandler) Read(w http.ResponseWriter, r *http.Request) Response {
 // DELETE /agent/{id}
 func (h *agentHandler) Delete(w http.ResponseWriter, r *http.Request) Response {
 	id := agent.ID(r.PathValue("id"))
-	_, err := h.repo.Get(id)
-	if err != nil {
-		if errors.Is(err, types.ErrIsNotExist) {
-			return NewBadRequest("agent is not exist")
-		}
-		return NewInternalError(err)
-	}
 
 	if err := h.repo.Delete(id); err != nil {
+		if errors.Is(err, types.ErrIsNotExist) {
+			return NewBadRequest(err.Error())
+		}
 		return NewInternalError(err)
 	}
 

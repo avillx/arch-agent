@@ -104,9 +104,11 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	toolSvc := tools.NewService()
 	agentRepo := files.NewAgentFiles(fileStorage)
 
+	// TODO: expose syncers
+	agentSvc := agent.NewService(toolSvc, modelsSvc, agentRepo, []agent.AgentSync{})
 	idGen := uuid.NewUUIDGenerator()
 	sessFiles := files.NewSessionFiles(fileStorage)
 	sessSvc := session.NewService(
@@ -121,7 +123,7 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 			SessRetention:   cfg.SessRetention,
 			CleanUpInterval: cfg.CleanUpInterval,
 		},
-		cleanup.NewSessionsCleaner(agentRepo, sessFiles, logger),
+		cleanup.NewSessionsCleaner(agentSvc, sessFiles, logger),
 		lf,
 		logger,
 	)
@@ -134,8 +136,6 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	skillFiles := files.NewSkillFiles(fileStorage, logger)
 	memoryFiles := files.NewMemoryFiles(fileStorage, logger)
 	contextAssembler := chat.NewContextAssembler(skillFiles, memoryFiles)
-
-	toolSvc := tools.NewService()
 
 	mcpRepo, err := files.NewMCPFiles(fileStorage)
 	if err != nil {
@@ -195,7 +195,7 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		taskRepo,
 		executor,
 		func(s string) (task.Cron, error) { return cron.NewRobfigCron(s) },
-		agentRepo,
+		agentSvc,
 		logger,
 	)
 	if err != nil {
@@ -278,7 +278,7 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		memoryFiles,
 		memoryConsolidator,
 		activityRepo,
-		agentRepo,
+		agentSvc,
 		providerSvc,
 		idGen,
 	), nil
