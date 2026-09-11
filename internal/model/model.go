@@ -3,7 +3,6 @@ package model
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/types"
-	"fmt"
 	"strings"
 	"sync"
 )
@@ -42,18 +41,11 @@ func (m *ModelService) Get(modelName string) (agent.Model, error) {
 	return nil, types.ErrIsNotExist
 }
 
-func (m *ModelService) delete(modelName ModelID) error {
+func (m *ModelService) delete(modelName ModelID) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	_, ok := m.models[modelName]
-	if !ok {
-		return types.ErrIsNotExist
-	}
-
 	delete(m.models, modelName)
-
-	return nil
 }
 
 func (m *ModelService) add(
@@ -68,7 +60,7 @@ func (m *ModelService) add(
 
 	f, ok := m.factories[apiType]
 	if !ok {
-		return fmt.Errorf("model api %s: %w", apiType, ErrUnsupportedAPI)
+		return ErrUnsupportedAPI
 	}
 
 	model, err := f.CreateModel(baseURL, keyReference, modelSettings)

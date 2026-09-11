@@ -34,6 +34,8 @@ type ProviderID string
 
 type ModelConfig map[string]any
 
+var _ types.Validator = ProviderConfig{}
+
 type ProviderConfig struct {
 	Name         ProviderID             `json:"name"`
 	BaseURL      string                 `json:"base_url"`
@@ -70,9 +72,32 @@ type ProviderConfigRepo interface {
 	Delete(ProviderID) error
 }
 
+var _ types.Validator = ProviderConfigPatch{}
+
 type ProviderConfigPatch struct {
 	Name         *ProviderID `json:"name"`
 	BaseURL      *string     `json:"base_url"`
 	KeyReference *string     `json:"key_ref"`
 	APIType      *APIType    `json:"api_type"`
+}
+
+func (c ProviderConfigPatch) Validate(_ context.Context) error {
+	problems := map[string]string{}
+	if c.APIType != nil && *c.APIType != APITypeOpenAI {
+		problems["api_type"] = ErrUnsupportedAPI.Error()
+	}
+
+	if c.Name != nil && *c.Name == "" {
+		problems["name"] = "must be not empty"
+	}
+
+	if c.BaseURL != nil && *c.BaseURL == "" {
+		problems["base_url"] = "empty field"
+	}
+
+	if len(problems) > 0 {
+		return types.NewValidationError(problems)
+	}
+
+	return nil
 }

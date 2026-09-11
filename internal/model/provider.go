@@ -4,6 +4,7 @@ import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/types"
 	"errors"
+	"fmt"
 	"log/slog"
 	"path"
 	"sync"
@@ -40,7 +41,13 @@ func (s *ProviderService) Reload() error {
 	}
 
 	for _, p := range providers {
-		s.loadModels(p)
+		for _, e := range s.loadModels(p) {
+			s.logger.Error("model not loaded",
+				"provider", e.Provider,
+				"model", e.ModelName,
+				"error", e.Unwrap(),
+			)
+		}
 	}
 
 	return nil
@@ -72,13 +79,7 @@ func (s *ProviderService) AddProvider(cfg ProviderConfig) error {
 		return err
 	}
 
-	if err := s.repo.Save(cfg); err != nil {
-		return err
-	}
-
-	s.loadModels(cfg)
-
-	return nil
+	return s.repo.Save(cfg)
 }
 
 func (s *ProviderService) UpdateProvider(id ProviderID, patch ProviderConfigPatch) error {
@@ -91,9 +92,7 @@ func (s *ProviderService) UpdateProvider(id ProviderID, patch ProviderConfigPatc
 	}
 
 	for modelName := range cfg.Models {
-		if err := s.modelSvc.delete(resolveModelID(id, modelName)); err != nil {
-			return err
-		}
+		s.modelSvc.delete(resolveModelID(id, modelName))
 	}
 
 	// patching
@@ -117,13 +116,7 @@ func (s *ProviderService) UpdateProvider(id ProviderID, patch ProviderConfigPatc
 		}
 	}
 
-	if err := s.repo.Save(cfg); err != nil {
-		return err
-	}
-
-	s.loadModels(cfg)
-
-	return nil
+	return s.repo.Save(cfg)
 }
 
 func (s *ProviderService) DeleteProvider(id ProviderID) error {
@@ -136,9 +129,7 @@ func (s *ProviderService) DeleteProvider(id ProviderID) error {
 	}
 
 	for modelName := range providerConf.Models {
-		if err := s.modelSvc.delete(resolveModelID(id, modelName)); err != nil {
-			return err
-		}
+		s.modelSvc.delete(resolveModelID(id, modelName))
 	}
 
 	return s.repo.Delete(id)
@@ -159,7 +150,9 @@ func (s *ProviderService) DeleteModel(providerID ProviderID, modelName string) e
 		return err
 	}
 
-	return s.modelSvc.delete(resolveModelID(providerID, modelName))
+	s.modelSvc.delete(resolveModelID(providerID, modelName))
+
+	return nil
 }
 
 func (s *ProviderService) SetModel(providerID ProviderID, modelName string, modelCfg ModelConfig) error {
@@ -192,7 +185,26 @@ func (s *ProviderService) SetModel(providerID ProviderID, modelName string, mode
 	return s.repo.Save(providerConf)
 }
 
-func (s *ProviderService) loadModels(cfg ProviderConfig) {
+type ErrModelLoad struct {
+	Provider  string
+	ModelName string
+	err       error
+}
+
+func (e *ErrModelLoad) Unwrap() error {
+	return e.err
+}
+
+func (e *ErrModelLoad) Error() string {
+	return fmt.Sprintf(
+		"model '%s' of '%s' provider is not loaded",
+		e.ModelName,
+		e.Provider,
+	)
+}
+
+func (s *ProviderService) loadModels(cfg ProviderConfig) []*ErrModelLoad {
+	loadErrs := []*ErrModelLoad{}
 	for modelName, modelCfg := range cfg.Models {
 		if err := s.modelSvc.add(
 			cfg.APIType,
@@ -201,9 +213,14 @@ func (s *ProviderService) loadModels(cfg ProviderConfig) {
 			resolveModelID(cfg.Name, modelName),
 			newModelSettings(modelName, modelCfg),
 		); err != nil {
-			s.logger.Error("load model", "model", modelName, "error", err)
+			loadErrs = append(loadErrs, &ErrModelLoad{
+				Provider:  string(cfg.Name),
+				ModelName: modelName,
+				err:       err,
+			})
 		}
 	}
+	return loadErrs
 }
 
 func resolveModelID(providerName ProviderID, modelName string) ModelID {

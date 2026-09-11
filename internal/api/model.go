@@ -69,9 +69,6 @@ func (h *providerHandler) UpdateProvider(w http.ResponseWriter, r *http.Request)
 		if errors.Is(err, types.ErrIsNotExist) {
 			return NewNotFound("provider is not exist")
 		}
-
-		// TODO: validation error?
-
 		return NewInternalError(err)
 	}
 
@@ -94,7 +91,7 @@ func (h *providerHandler) SetModel(w http.ResponseWriter, r *http.Request) Respo
 
 	modelNameData, err := base64.URLEncoding.DecodeString(encodedModelName)
 	if err != nil {
-		return NewBadRequest("model_name bad encoding")
+		return NewBadRequest("'model' path value bad encoding")
 	}
 
 	modelCfg, err := decode[model.ModelConfig](r)
@@ -104,8 +101,9 @@ func (h *providerHandler) SetModel(w http.ResponseWriter, r *http.Request) Respo
 
 	if err := h.providerSvc.SetModel(providerID, string(modelNameData), modelCfg); err != nil {
 
-		// TODO: validation errors in fact
 		switch {
+		// NOTE: So it error is already closed by architecture but it can changed
+		// so i leave it here
 		case errors.Is(err, model.ErrEmptyModelName):
 			return NewBadRequest("empty model name")
 		case errors.Is(err, model.ErrUnsupportedAPI):
@@ -129,7 +127,7 @@ func (h *providerHandler) DeleteModel(w http.ResponseWriter, r *http.Request) Re
 
 	if err := h.providerSvc.DeleteModel(providerID, string(modelNameData)); err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
-			return NewBadRequest("is not exist")
+			return NewBadRequest("provider is not exist")
 		}
 		return NewInternalError(err)
 	}
