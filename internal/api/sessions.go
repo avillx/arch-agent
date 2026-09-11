@@ -9,6 +9,21 @@ import (
 	"time"
 )
 
+type SessionHeaderDTO struct {
+	ID           session.ID     `json:"session_id"`
+	InputTokens  int64          `json:"input_tokens"`
+	OutputTokens int64          `json:"output_tokens"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	Extras       map[string]any `json:"extras,omitempty"`
+	Cause        string         `json:"error,omitempty"`
+}
+
+type SessionDTO struct {
+	SessionHeaderDTO
+	Messages []MessageDTO `json:"messages"`
+}
+
 type MessageDTO struct {
 	Role      string              `json:"role"`
 	Content   []agent.ContentPart `json:"content"`
@@ -36,53 +51,58 @@ type sessionHandler struct {
 
 func (h *sessionHandler) Get(w http.ResponseWriter, r *http.Request) Response {
 
-	type SessionDTO struct {
-		ID           session.ID     `json:"session_id"`
-		Messages     []MessageDTO   `json:"messages"`
-		InputTokens  int64          `json:"input_tokens"`
-		OutputTokens int64          `json:"output_tokens"`
-		CreatedAt    time.Time      `json:"created_at"`
-		UpdatedAt    time.Time      `json:"updated_at"`
-		Extras       map[string]any `json:"extras,omitempty"`
-	}
-
 	agentID := agent.ID(r.PathValue("agent"))
-	sessID := session.ID(r.PathValue("session_id"))
+	sessID := session.ID(r.PathValue("session"))
 
 	sess, err := h.sessSvc.Get(agentID, sessID)
 	if err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
-			return NewBadRequest("is not exist")
+			return NewBadRequest("session is not exist")
 		}
-
 		return NewInternalError(err)
 	}
 
 	dto := SessionDTO{
-		ID:           sess.ID(),
-		InputTokens:  sess.InputTokens(),
-		OutputTokens: sess.OutputTokens(),
-		CreatedAt:    sess.CreatedAt(),
-		UpdatedAt:    sess.UpdatedAt(),
-		Extras:       sess.Extras(),
-		Messages:     messagesToDTO(sess.Messages()),
+		SessionHeaderDTO: sessHeaderToDTO(sess),
+		Messages:         messagesToDTO(sess.Messages()),
 	}
 
 	return NewJSONResponse(http.StatusOK, dto)
 }
 
-func (h *sessionHandler) List(w http.ResponseWriter, r *http.Request) Response {
+func (h *sessionHandler) Sessions(w http.ResponseWriter, r *http.Request) Response {
 	agentID := agent.ID(r.PathValue("agent"))
 
-	sessions, err := h.sessSvc.List(agentID)
+	dtos := []SessionHeaderDTO{}
+
+	sessions, err := h.sessSvc.Sessions(agentID)
 	if err != nil {
+
+		// this route reaches only on agent is not exist
 		if errors.Is(err, types.ErrIsNotExist) {
-			return NewBadRequest("is not exist")
+			return NewBadRequest("agent is not exist")
 		}
-		return NewInternalError(err)
+
+		var errBrokenHeaders *session.ErrBrokenHeaders
+		// if is not a broken headers then is some the real internal problem
+		if !errors.As(err, &errBrokenHeaders) {
+			return NewInternalError(err)
+		}
+
+		// packing broken headers
+		for _, e := range errBrokenHeaders.Errors {
+			dtos = append(dtos, SessionHeaderDTO{
+				ID:    e.SessID,
+				Cause: e.Error(),
+			})
+		}
 	}
 
-	return NewJSONResponse(http.StatusOK, sessions)
+	for _, header := range sessions {
+		dtos = append(dtos, sessHeaderToDTO(header))
+	}
+
+	return NewJSONResponse(http.StatusOK, dtos)
 }
 
 func (h *sessionHandler) Create(w http.ResponseWriter, r *http.Request) Response {
@@ -101,7 +121,7 @@ func (h *sessionHandler) Create(w http.ResponseWriter, r *http.Request) Response
 	sessID, err := h.sessSvc.Create(agentID, requestDTO.Instructon)
 	if err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
-			return NewBadRequest("is not exist")
+			return NewBadRequest("agent is not exist")
 		}
 		return NewInternalError(err)
 	}
@@ -115,11 +135,25 @@ func (h *sessionHandler) Create(w http.ResponseWriter, r *http.Request) Response
 
 func (h *sessionHandler) Delete(w http.ResponseWriter, r *http.Request) Response {
 	agentID := agent.ID(r.PathValue("agent"))
-	sessID := session.ID(r.PathValue("session_id"))
+	sessID := session.ID(r.PathValue("session"))
 
 	if err := h.sessSvc.Delete(agentID, sessID); err != nil {
+		if errors.Is(err, types.ErrIsNotExist) {
+			return NewBadRequest("session is not exist")
+		}
 		return NewInternalError(err)
 	}
 
 	return NewResponse(http.StatusOK)
+}
+
+func sessHeaderToDTO(header session.SessionHeader) SessionHeaderDTO {
+	return SessionHeaderDTO{
+		ID:           header.ID(),
+		InputTokens:  header.InputTokens(),
+		OutputTokens: header.OutputTokens(),
+		CreatedAt:    header.CreatedAt(),
+		UpdatedAt:    header.UpdatedAt(),
+		Extras:       header.Extras(),
+	}
 }

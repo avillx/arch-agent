@@ -6,7 +6,6 @@ import (
 )
 
 type SessionsRepo interface {
-	List(agent.ID) ([]ID, error)
 	Session(agentID agent.ID, SessionID ID) (Session, error)
 	Save(agentID agent.ID, Session Session) error
 	Delete(agentID agent.ID, SessionID ID) error
@@ -47,6 +46,9 @@ func (s *Service) Create(agentID agent.ID, instruction string) (ID, error) {
 		newSession.SetExtras(newExtras)
 	}
 
+	// TODO: is agent is not exist expecting err not exist
+	// on other storage not existence path expect path was created and return no errors
+	// other problems is other problems
 	if err := s.repo.Save(agentID, newSession); err != nil {
 		return "", err
 	}
@@ -68,6 +70,6 @@ func (s *Service) Delete(agentID agent.ID, sessionID ID) error {
 	return s.repo.Delete(agentID, sessionID)
 }
 
-func (s *Service) List(agentID agent.ID) ([]ID, error) {
-	return s.repo.List(agentID)
+func (s *Service) Sessions(agentID agent.ID) ([]SessionHeader, error) {
+	return s.repo.Headers(agentID)
 }

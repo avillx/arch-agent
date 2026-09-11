@@ -3,7 +3,6 @@ package files
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/session"
-	"arch-agent/internal/types"
 	"bufio"
 	"bytes"
 	"encoding/json"
@@ -37,9 +36,6 @@ func (r *SessionFiles) Session(agentID agent.ID, sessionID session.ID) (session.
 
 	data, err := r.storage.ReadFile(sessionFilePath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, types.ErrIsNotExist
-		}
 		return nil, err
 	}
 
@@ -60,27 +56,6 @@ func (r *SessionFiles) Delete(agentID agent.ID, sessionID session.ID) error {
 	sessionFilePath := resolveSessionPath(agentID, sessionID)
 
 	return r.storage.Remove(sessionFilePath)
-}
-
-func (r *SessionFiles) List(agentID agent.ID) ([]session.ID, error) {
-
-	sessionDir := resolveSessionFolderPath(agentID)
-	sessionDir = filepath.ToSlash(sessionDir)
-	files, err := fs.ReadDir(r.storage.FS(), sessionDir)
-	if err != nil {
-		return nil, err
-	}
-
-	sessionIDs := make([]session.ID, len(files))
-	for _, file := range files {
-
-		fileName := file.Name()
-
-		sessionID := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-		sessionIDs = append(sessionIDs, session.ID(sessionID))
-	}
-
-	return sessionIDs, nil
 }
 
 func (r *SessionFiles) Headers(agentID agent.ID) ([]session.SessionHeader, error) {

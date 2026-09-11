@@ -81,10 +81,10 @@ func (s *HTTPServer) registerRoutes() {
 	s.HandleFunc("PATCH /task/{name}", taskHandler.Patch)
 
 	sessHandler := &sessionHandler{sessSvc: s.sessSvc}
-	s.HandleFunc("GET /session/{agent}", sessHandler.List)
-	s.HandleFunc("GET /session/{agent}/{session_id}", sessHandler.Get)
+	s.HandleFunc("GET /session/{agent}", sessHandler.Sessions)
+	s.HandleFunc("GET /session/{agent}/{session}", sessHandler.Get)
 	s.HandleFunc("POST /session/{agent}", sessHandler.Create)
-	s.HandleFunc("DELETE /session/{agent}/{session_id}", sessHandler.Delete)
+	s.HandleFunc("DELETE /session/{agent}/{session}", sessHandler.Delete)
 
 	toolsHandler := &toolsHandler{toolSvc: s.toolsSvc}
 	s.HandleFunc("GET /tools", toolsHandler.List)
