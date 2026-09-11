@@ -55,12 +55,10 @@ func (h *activityHandler) Activity(w http.ResponseWriter, r *http.Request) Respo
 
 	request, err := decode[RequestDTO](r)
 	if err != nil {
-
 		if problems := types.ResovleValidationProblems(err); len(problems) > 0 {
 			return NewInvalidRequest(err)
 		}
-
-		return NewInternalError(err)
+		return NewBadRequest(err.Error())
 	}
 
 	logs, err := h.store.GetRange(request.Agent, request.From, request.To)
