@@ -2,6 +2,7 @@ package api
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/memory"
 	"arch-agent/internal/types"
 	"context"
 	"errors"
@@ -43,7 +44,8 @@ type activityStore interface {
 }
 
 type activityHandler struct {
-	store activityStore
+	store       activityStore
+	activitySvc *memory.ActivityService
 }
 
 func (h *activityHandler) Activity(w http.ResponseWriter, r *http.Request) Response {
@@ -78,4 +80,25 @@ func (h *activityHandler) Activity(w http.ResponseWriter, r *http.Request) Respo
 	}
 
 	return NewJSONResponse(http.StatusOK, responseDTO)
+}
+
+// GET /acivity/config
+func (h *activityHandler) Config(w http.ResponseWriter, r *http.Request) Response {
+	cfg := h.activitySvc.Config()
+	return NewJSONResponse(http.StatusOK, cfg)
+}
+
+// POST /activity/config
+func (h *activityHandler) SetConfig(w http.ResponseWriter, r *http.Request) Response {
+	newCfg, err := decode[memory.ActivityConfig](r)
+	if err != nil {
+		return NewBadRequest(err.Error())
+	}
+	if err := h.activitySvc.SaveConfig(newCfg); err != nil {
+		if errors.Is(err, types.ErrIsNotExist) {
+			return NewBadRequest(err.Error())
+		}
+		return NewInternalError(err)
+	}
+	return NewResponse(http.StatusOK)
 }

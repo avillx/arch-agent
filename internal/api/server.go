@@ -30,6 +30,7 @@ type HTTPServer struct {
 	agentRepo        agent.Repo
 	providerSvc      *model.ProviderService
 	idGen            IDGenerator
+	activitySvc      *memory.ActivityService
 }
 
 func NewHTTPServer(
@@ -46,6 +47,7 @@ func NewHTTPServer(
 	agentRepo agent.Repo,
 	providerSvc *model.ProviderService,
 	idGen IDGenerator,
+	activitySvc *memory.ActivityService,
 ) *HTTPServer {
 
 	srv := &HTTPServer{
@@ -63,6 +65,7 @@ func NewHTTPServer(
 		agentRepo:        agentRepo,
 		providerSvc:      providerSvc,
 		idGen:            idGen,
+		activitySvc:      activitySvc,
 	}
 
 	srv.registerRoutes()
@@ -104,8 +107,10 @@ func (s *HTTPServer) registerRoutes() {
 	s.HandleFunc("POST /chat/{agent}/{session}", chatHandler.Chat)
 	s.HandleFunc("POST /chat/{agent}/{session}/interrupt", chatHandler.Interrupt)
 
-	activityHandler := &activityHandler{store: s.activityStore}
+	activityHandler := &activityHandler{store: s.activityStore, activitySvc: s.activitySvc}
 	s.HandleFunc("GET /activity", activityHandler.Activity)
+	s.HandleFunc("GET /activity/config", activityHandler.Config)
+	s.HandleFunc("POST /activity/config", activityHandler.SetConfig)
 
 	agentHandler := &agentHandler{repo: s.agentRepo}
 	s.HandleFunc("GET /agent", agentHandler.List)

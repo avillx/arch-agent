@@ -57,9 +57,9 @@ func (b *messageBuffer) transcript() string {
 }
 
 type ActivityConfig struct {
-	Enabled   bool   `toml:"enabled"`
-	Interval  int64  `toml:"interval"`
-	ModelName string `toml:"model"`
+	Enabled   bool   `toml:"enabled" json:"enabled"`
+	Interval  int64  `toml:"interval" json:"interval"`
+	ModelName string `toml:"model" json:"model"`
 }
 
 type ActivityConfigRepo interface {
@@ -219,10 +219,10 @@ func (s *ActivityService) Reload() error {
 	if err != nil {
 		return err
 	}
-	return s.SetConfig(cfg)
+	return s.applyConfig(cfg)
 }
 
-func (s *ActivityService) SetConfig(cfg ActivityConfig) error {
+func (s *ActivityService) applyConfig(cfg ActivityConfig) error {
 	s.cfgMu.Lock()
 	defer s.cfgMu.Unlock()
 
@@ -236,6 +236,16 @@ func (s *ActivityService) SetConfig(cfg ActivityConfig) error {
 	s.enabled = cfg.Enabled
 
 	return nil
+}
+
+func (s *ActivityService) SaveConfig(cfg ActivityConfig) error {
+
+	_, err := s.modelRepo.Get(s.modelName)
+	if err != nil {
+		return err
+	}
+
+	return s.cfgRepo.Save(cfg)
 }
 
 func (s *ActivityService) Config() ActivityConfig {
