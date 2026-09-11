@@ -41,7 +41,7 @@ func (a *ActivityFiles) Log(id agent.ID, r agent.ActivityRecord) error {
 func (a *ActivityFiles) GetActivity(id agent.ID, date time.Time) (string, error) {
 	data, err := a.storage.ReadFile(resolveActivityFilePath(id, date))
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, types.ErrIsNotExist) {
 			return "", types.ErrIsNotExist
 		}
 		return "", err
@@ -54,6 +54,16 @@ func (a *ActivityFiles) GetRange(
 	from time.Time,
 	to time.Time,
 ) ([]agent.ActivityLog, error) {
+
+	_, err := a.storage.Stat(resolveActivityFolderPath(agentID))
+	if err != nil {
+		var pathErr *os.PathError
+		if errors.As(err, &pathErr) {
+			return nil, types.ErrIsNotExist
+		}
+		return nil, err
+	}
+
 	logs := []agent.ActivityLog{}
 
 	if to.IsZero() {
@@ -81,10 +91,16 @@ func (a *ActivityFiles) GetRange(
 func resolveActivityFilePath(agentID agent.ID, t time.Time) string {
 	d := t.UTC().Truncate(24 * time.Hour)
 	return filepath.Join(
-		string(agentID),
-		ActivityFolder,
+		resolveActivityFolderPath(agentID),
 		d.Format("2006"),
 		d.Format("01"),
 		fmt.Sprintf("%s.md", d.Format("02")),
+	)
+}
+
+func resolveActivityFolderPath(agentID agent.ID) string {
+	return filepath.Join(
+		string(agentID),
+		ActivityFolder,
 	)
 }

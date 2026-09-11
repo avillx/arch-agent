@@ -2,9 +2,41 @@ package api
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/types"
+	"context"
+	"errors"
 	"net/http"
 	"time"
 )
+
+var _ types.Validator = RequestDTO{}
+
+type RequestDTO struct {
+	Agent agent.ID  `json:"agent"`
+	From  time.Time `json:"from"`
+	To    time.Time `json:"to"`
+}
+
+func (r RequestDTO) Validate(_ context.Context) error {
+	problems := map[string]string{}
+	if r.Agent == "" {
+		problems["agent"] = "agent must specified"
+	}
+
+	if r.From.IsZero() {
+		problems["from"] = "from is required"
+	}
+
+	if !r.To.IsZero() && r.To.Before(r.From) {
+		problems["to"] = "'to' must be after 'from'"
+	}
+
+	if len(problems) > 0 {
+		return types.NewValidationError(problems)
+	}
+
+	return nil
+}
 
 type activityStore interface {
 	GetRange(agent.ID, time.Time, time.Time) ([]agent.ActivityLog, error)
@@ -16,12 +48,6 @@ type activityHandler struct {
 
 func (h *activityHandler) Activity(w http.ResponseWriter, r *http.Request) Response {
 
-	type RequestDTO struct {
-		Agent agent.ID  `json:"agent"`
-		From  time.Time `json:"from"`
-		To    time.Time `json:"to"`
-	}
-
 	type ActivityDTO struct {
 		Date    string `json:"date"`
 		Content string `json:"content"`
@@ -29,13 +55,19 @@ func (h *activityHandler) Activity(w http.ResponseWriter, r *http.Request) Respo
 
 	request, err := decode[RequestDTO](r)
 	if err != nil {
-		// TODO: 400 on invalid
+
+		if problems := types.ResovleValidationProblems(err); len(problems) > 0 {
+			return NewInvalidRequest(err)
+		}
 
 		return NewInternalError(err)
 	}
 
 	logs, err := h.store.GetRange(request.Agent, request.From, request.To)
 	if err != nil {
+		if errors.Is(err, types.ErrIsNotExist) {
+			return NewNotFound("agent is not found")
+		}
 		return NewInternalError(err)
 	}
 

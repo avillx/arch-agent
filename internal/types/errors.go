@@ -5,12 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 )
 
 var (
 	ErrAlreadyExist = errors.New("already exist")
-	ErrIsNotExist   = errors.New("is not exist")
+	ErrIsNotExist   = os.ErrNotExist
 	ErrValidation   = errors.New("invalid")
 )
 
