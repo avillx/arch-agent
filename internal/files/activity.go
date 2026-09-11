@@ -28,7 +28,7 @@ func (a *ActivityFiles) Log(id agent.ID, r agent.ActivityRecord) error {
 	data := []byte(r.String())
 
 	p := resolveActivityFilePath(id, time.Now())
-	f, err := a.storage.OpenFile(p, os.O_CREATE|os.O_APPEND|os.O_WRONLY, ModeAppend)
+	f, err := a.storage.OpenFile(p, os.O_CREATE|os.O_APPEND|os.O_WRONLY, ModeFilePerm)
 	if err != nil {
 		return err
 	}
