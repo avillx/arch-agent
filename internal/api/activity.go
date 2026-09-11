@@ -57,10 +57,7 @@ func (h *activityHandler) Activity(w http.ResponseWriter, r *http.Request) Respo
 
 	request, err := decode[RequestDTO](r)
 	if err != nil {
-		if problems := types.ResovleValidationProblems(err); len(problems) > 0 {
-			return NewInvalidRequest(err)
-		}
-		return NewBadRequest(err.Error())
+		return NewInvalidRequest(err)
 	}
 
 	logs, err := h.store.GetRange(request.Agent, request.From, request.To)
@@ -92,7 +89,7 @@ func (h *activityHandler) Config(w http.ResponseWriter, r *http.Request) Respons
 func (h *activityHandler) SetConfig(w http.ResponseWriter, r *http.Request) Response {
 	newCfg, err := decode[memory.ActivityConfig](r)
 	if err != nil {
-		return NewBadRequest(err.Error())
+		return NewInvalidRequest(err)
 	}
 	if err := h.activitySvc.SaveConfig(newCfg); err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {

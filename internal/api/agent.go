@@ -79,10 +79,7 @@ func (h *agentHandler) Update(w http.ResponseWriter, r *http.Request) Response {
 func (h *agentHandler) saveAgt(agentID agent.ID, r *http.Request) Response {
 	agentDTO, err := decode[AgentDTO](r)
 	if err != nil {
-		if problems := types.ResovleValidationProblems(err); len(problems) > 0 {
-			return NewInvalidRequest(err)
-		}
-		return NewBadRequest(err.Error())
+		return NewInvalidRequest(err)
 	}
 
 	if err := h.repo.Save(dtoToAgent(agentID, agentDTO)); err != nil {
