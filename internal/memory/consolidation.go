@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+var ErrDisabledMemory = errors.New("agent memory is disabled")
+
 type ConsolidatorConfig struct {
 	Model       string `toml:"model"`
 	Enabled     bool   `toml:"enabled"`
@@ -71,7 +73,7 @@ func NewConsolidationService(
 		logger:       logger.WithGroup("memory"),
 	}
 
-	if err := svc.Reload(); err != nil {
+	if err := svc.load(); err != nil {
 		svc.logger.Error("service is not loaded", "error", err)
 	}
 
@@ -79,8 +81,16 @@ func NewConsolidationService(
 }
 
 func (m *ConsolidationService) Reload() error {
+
+	m.logger.Info("reload memory consolidator")
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	return m.load()
+}
+
+func (m *ConsolidationService) load() error {
 
 	cfg, err := m.memoryRepo.Load()
 	if err != nil {
@@ -108,6 +118,10 @@ func (m *ConsolidationService) ConsolidateImmidate(ctx context.Context, agentID 
 }
 
 func (m *ConsolidationService) consolidateMemoryFor(ctx context.Context, agt agent.Agent, evCh chan runtime.Event) error {
+
+	if !agt.HasMemory() {
+		return ErrDisabledMemory
+	}
 
 	m.mu.RLock()
 	model := m.model
@@ -155,25 +169,17 @@ func (m *ConsolidationService) Config() ConsolidatorConfig {
 	}
 }
 
-func (m *ConsolidationService) SetConfig(cfg ConsolidatorConfig) error {
+func (m *ConsolidationService) SaveConfig(cfg ConsolidatorConfig) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	model, err := m.modelRepo.Get(cfg.Model)
+	// validate model existence
+	_, err := m.modelRepo.Get(cfg.Model)
 	if err != nil {
 		return err
 	}
 
-	m.model = model
-	m.modelName = cfg.Model
-	m.instruction = cfg.Instruction
-	m.enabled = cfg.Enabled
-
-	return m.memoryRepo.Save(ConsolidatorConfig{
-		Instruction: m.instruction,
-		Model:       m.modelName,
-		Enabled:     m.enabled,
-	})
+	return m.memoryRepo.Save(cfg)
 }
 
 func (m *ConsolidationService) consolidateInBackground(ctx context.Context) error {

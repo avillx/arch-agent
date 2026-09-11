@@ -6,15 +6,16 @@ import (
 	"arch-agent/internal/runtime"
 	"arch-agent/internal/types"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
-	"path"
-	"strings"
 )
 
 type memoryHandler struct {
 	consolidationSvc *memory.ConsolidationService
 	memoryIndexer    agent.MemoryIndexer
 	memoryRepo       agent.MemoryRepo
+	logger           *slog.Logger
 }
 
 func NewMemoryHandler(
@@ -32,37 +33,19 @@ func NewMemoryHandler(
 // GET /memory/{agent}
 func (h *memoryHandler) List(w http.ResponseWriter, r *http.Request) Response {
 
-	type MemoryRecordDTO struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-	}
-
-	type MemoryIndexDTO struct {
-		Agent   agent.ID          `json:"agent"`
-		Records []MemoryRecordDTO `json:"memory_records"`
-	}
+	type MemoryRecordDTO map[string]string
 
 	agentID := agent.ID(r.PathValue("agent"))
 
 	idx, err := h.memoryIndexer.MemoryIndex(agentID)
 	if err != nil {
+		if errors.Is(err, types.ErrIsNotExist) {
+			return NewNotFound("agent memory is not found")
+		}
 		return NewInternalError(err)
 	}
 
-	memories := []MemoryRecordDTO{}
-	for k, v := range idx {
-		memories = append(memories, MemoryRecordDTO{
-			Name:        strings.TrimSuffix(path.Base(k), path.Ext(k)),
-			Description: v,
-		})
-	}
-
-	dto := MemoryIndexDTO{
-		Agent:   agentID,
-		Records: memories,
-	}
-
-	return NewJSONResponse(http.StatusOK, dto)
+	return NewJSONResponse(http.StatusOK, MemoryRecordDTO(idx))
 }
 
 // GET /memory/{agent}/{memory_name}
@@ -79,11 +62,9 @@ func (h *memoryHandler) Get(w http.ResponseWriter, r *http.Request) Response {
 
 	content, err := h.memoryRepo.GetMemory(agentID, memoryName)
 	if err != nil {
-
-		// TODO: agent not found
-
-		// TODO: memory not found
-
+		if errors.Is(err, types.ErrIsNotExist) {
+			return NewBadRequest("this memory is not exist")
+		}
 		return NewInternalError(err)
 	}
 
@@ -122,10 +103,43 @@ func (h *memoryHandler) Consolidate(w http.ResponseWriter, r *http.Request) Resp
 
 	if err := h.consolidationSvc.ConsolidateImmidate(r.Context(), agentID, evCh); err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
-			return NewNotFound("agent is not exist")
+			stream.sendError(http.StatusNotFound, err)
+			return nil
+		}
+
+		if errors.Is(err, memory.ErrDisabledMemory) {
+			stream.sendError(http.StatusBadRequest, err)
+			return nil
+		}
+
+		h.logger.Error("consolidation internal error occured", "error", err)
+		stream.sendError(http.StatusInternalServerError, fmt.Errorf("internal error occured"))
+		return nil
+	}
+
+	return nil
+}
+
+// GET /memory/config
+func (h *memoryHandler) GetConfig(w http.ResponseWriter, r *http.Request) Response {
+	cfg := h.consolidationSvc.Config()
+	return NewJSONResponse(http.StatusOK, cfg)
+}
+
+// POST /memory/config
+func (h *memoryHandler) SetConfig(w http.ResponseWriter, r *http.Request) Response {
+
+	newCfg, err := decode[memory.ConsolidatorConfig](r)
+	if err != nil {
+		return NewInvalidRequest(err)
+	}
+
+	if err := h.consolidationSvc.SaveConfig(newCfg); err != nil {
+		if errors.Is(err, types.ErrIsNotExist) {
+			return NewNotFound("model is not exist")
 		}
 		return NewInternalError(err)
 	}
 
-	return nil
+	return NewResponse(http.StatusOK)
 }

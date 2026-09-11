@@ -99,6 +99,8 @@ func (s *HTTPServer) registerRoutes() {
 	s.HandleFunc("POST /memory/{agent}/consolidate", memoryHandler.Consolidate)
 	s.HandleFunc("GET /memory/{agent}/{memory_name}", memoryHandler.Get)
 	s.HandleFunc("GET /memory/{agent}", memoryHandler.List)
+	s.HandleFunc("GET /memory/config", memoryHandler.GetConfig)
+	s.HandleFunc("POST /memory/config", memoryHandler.SetConfig)
 
 	provToolHandler := NewProvidedToolsRouter(s.idGen)
 	s.HandleFunc("POST /toolresult/{id}", provToolHandler.ResolveCall)

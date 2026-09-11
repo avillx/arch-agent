@@ -3,8 +3,6 @@ package files
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/types"
-	"errors"
-	"fmt"
 	"io/fs"
 	"log/slog"
 	"path"
@@ -82,9 +80,6 @@ func (f *MemoryFiles) GetMemory(agentID agent.ID, name string) (string, error) {
 
 	enties, err := fs.ReadDir(f.storage.FS(), memoryPath)
 	if err != nil {
-		if errors.Is(err, types.ErrIsNotExist) {
-			return "", nil
-		}
 		return "", err
 	}
 
@@ -98,5 +93,5 @@ func (f *MemoryFiles) GetMemory(agentID agent.ID, name string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("agent %s has no memory %s : %w", agentID, name, types.ErrIsNotExist)
+	return "", types.ErrIsNotExist
 }
