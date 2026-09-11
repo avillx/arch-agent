@@ -109,21 +109,17 @@ func (s *Service) load(ctx context.Context) error {
 
 func (s *Service) connectServers(ctx context.Context, cfgs map[MCPServerID]ServerGatewayConfig) {
 
-	var (
-		wg sync.WaitGroup
-	)
-
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
+	var wg sync.WaitGroup
+
 	for id, cfg := range cfgs {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			if _, err := s.connectServer(ctx, id, cfg); err != nil {
 				s.logger.Error("connect server", "server", id, "error", err)
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
