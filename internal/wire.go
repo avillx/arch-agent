@@ -281,5 +281,6 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		agentSvc,
 		providerSvc,
 		idGen,
+		activityService,
 	), nil
 }
