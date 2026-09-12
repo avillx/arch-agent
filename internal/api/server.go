@@ -95,7 +95,7 @@ func (s *HTTPServer) registerRoutes() {
 	s.HandleFunc("POST /mcp/reload", mcpHandler.Reload)
 	s.HandleFunc("DELETE /mcp/{id}", mcpHandler.Disconnect)
 
-	memoryHandler := NewMemoryHandler(s.consolidationSvc, s.memoryIndexer, s.memoryRepo)
+	memoryHandler := NewMemoryHandler(s.consolidationSvc, s.memoryIndexer, s.memoryRepo, s.logger)
 	s.HandleFunc("POST /memory/{agent}/consolidate", memoryHandler.Consolidate)
 	s.HandleFunc("GET /memory/{agent}/{memory_name}", memoryHandler.Get)
 	s.HandleFunc("GET /memory/{agent}", memoryHandler.List)
@@ -105,7 +105,7 @@ func (s *HTTPServer) registerRoutes() {
 	provToolHandler := NewProvidedToolsRouter(s.idGen)
 	s.HandleFunc("POST /toolresult/{id}", provToolHandler.ResolveCall)
 
-	chatHandler := &chatHandler{provToolRegister: provToolHandler, chatDispatcher: s.chatSvc}
+	chatHandler := NewChatHandler(s.chatSvc, provToolHandler, s.logger)
 	s.HandleFunc("POST /chat/{agent}/{session}", chatHandler.Chat)
 	s.HandleFunc("POST /chat/{agent}/{session}/interrupt", chatHandler.Interrupt)
 

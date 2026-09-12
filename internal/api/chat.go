@@ -41,6 +41,19 @@ type CompletionMistakeDTO struct {
 type chatHandler struct {
 	chatDispatcher   *chat.Dispatcher
 	provToolRegister providedToolRegister
+	logger           *slog.Logger
+}
+
+func NewChatHandler(
+	chatDispatcher *chat.Dispatcher,
+	provToolRegister providedToolRegister,
+	logger *slog.Logger,
+) *chatHandler {
+	return &chatHandler{
+		provToolRegister: provToolRegister,
+		chatDispatcher:   chatDispatcher,
+		logger:           logger.WithGroup("chat"),
+	}
 }
 
 func (h *chatHandler) Interrupt(w http.ResponseWriter, r *http.Request) Response {
@@ -71,6 +84,11 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) Response {
 	chatReqDTO, err := decode[RequestDTO](r)
 	if err != nil {
 		stream.sendError(http.StatusBadRequest, err)
+		h.logger.Error("bad request",
+			"agent", agentID,
+			"session", sessionID,
+			"error", err,
+		)
 		return nil
 	}
 
@@ -96,6 +114,11 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) Response {
 		})
 		if err != nil {
 			stream.sendError(http.StatusBadRequest, err)
+			h.logger.Error("chat error",
+				"agent", agentID,
+				"session", sessionID,
+				"error", err,
+			)
 		}
 	}()
 
