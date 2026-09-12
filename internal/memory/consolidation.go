@@ -20,6 +20,12 @@ type ConsolidatorConfig struct {
 	Instruction string `toml:"instruction"`
 }
 
+func (c ConsolidatorConfig) IsZero() bool {
+	return !c.Enabled &&
+		c.Model == "" &&
+		c.Instruction == ""
+}
+
 type MemoryRepo interface {
 	Load() (ConsolidatorConfig, error)
 	Save(ConsolidatorConfig) error
@@ -96,6 +102,12 @@ func (m *ConsolidationService) load() error {
 	if err != nil {
 		return err
 	}
+
+	if cfg.IsZero() {
+		m.logger.Warn("config is not specified, memory consolidation disabled")
+		return nil
+	}
+
 	model, err := m.modelRepo.Get(cfg.Model)
 	if err != nil {
 		return err

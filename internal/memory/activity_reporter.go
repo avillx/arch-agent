@@ -62,6 +62,12 @@ type ActivityConfig struct {
 	ModelName string `toml:"model" json:"model"`
 }
 
+func (c ActivityConfig) IsZero() bool {
+	return !c.Enabled &&
+		c.Interval == 0 &&
+		c.ModelName == ""
+}
+
 type ActivityConfigRepo interface {
 	Save(ActivityConfig) error
 	Load() (ActivityConfig, error)
@@ -225,6 +231,11 @@ func (s *ActivityService) Reload() error {
 func (s *ActivityService) applyConfig(cfg ActivityConfig) error {
 	s.cfgMu.Lock()
 	defer s.cfgMu.Unlock()
+
+	if cfg.IsZero() {
+		s.logger.Warn("config is specified, activity logging is disabled")
+		return nil
+	}
 
 	model, err := s.modelRepo.Get(s.modelName)
 	if err != nil {

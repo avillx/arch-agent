@@ -48,6 +48,11 @@ const memoryConfigDoc string = `# Memory config
 # Do not touch this comment!
 # After edit, ensure file consistency and comment integrity`
 
+type MemoryConfigDTO struct {
+	Consolidator *memory.ConsolidatorConfig `toml:"consolidation,omitempty"`
+	Activity     *memory.ActivityConfig     `toml:"activity,omitempty"`
+}
+
 type MemoryFile struct {
 	storage FileStorage
 
@@ -115,7 +120,11 @@ func (r *MemoryFile) Load() (MemoryConfigDTO, error) {
 		return MemoryConfigDTO{}, err
 	}
 
-	return *dto, nil
+	if dto != nil {
+		return *dto, nil
+	}
+
+	return MemoryConfigDTO{}, nil
 }
 
 // activity memory repo
@@ -143,7 +152,11 @@ func (r *ActivityRepo) Load() (memory.ActivityConfig, error) {
 		return memory.ActivityConfig{}, err
 	}
 
-	return *cfg.Activity, nil
+	if cfg.Activity != nil {
+		return *cfg.Activity, nil
+	}
+
+	return memory.ActivityConfig{}, nil
 }
 
 // Persistent memory repo
@@ -171,12 +184,11 @@ func (r *ConsolidatorRepo) Load() (memory.ConsolidatorConfig, error) {
 		return memory.ConsolidatorConfig{}, err
 	}
 
-	return *cfg.Consolidator, nil
-}
+	if cfg.Consolidator != nil {
+		return *cfg.Consolidator, nil
+	}
 
-type MemoryConfigDTO struct {
-	Consolidator *memory.ConsolidatorConfig `toml:"consolidation,omitempty"`
-	Activity     *memory.ActivityConfig     `toml:"activity,omitempty"`
+	return memory.ConsolidatorConfig{}, nil
 }
 
 // memoSent
