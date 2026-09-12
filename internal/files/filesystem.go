@@ -89,6 +89,19 @@ type fileStorage struct {
 
 func NewFileStorage(dir string) (*fileStorage, error) {
 
+	info, err := os.Stat(dir)
+	if err != nil {
+		if !errors.Is(err, types.ErrIsNotExist) {
+			return nil, err
+		}
+		if err := os.MkdirAll(dir, ModeDirPerm); err != nil {
+			return nil, err
+		}
+	}
+	if info != nil && (!info.IsDir()) {
+		return nil, fmt.Errorf("path %s must be folder", dir)
+	}
+
 	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return nil, err
