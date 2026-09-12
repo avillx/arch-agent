@@ -12,20 +12,25 @@ import (
 )
 
 type LoggerConfig struct {
+	LogJSON   bool
 	Level     slog.Level
 	AddSource bool
 	Indented  bool
 }
 
-func NewHandler(cfg LoggerConfig) *slog.JSONHandler {
-	return slog.NewJSONHandler(
-		os.Stdout,
-		&slog.HandlerOptions{
-			ReplaceAttr: replaceAttrs,
-			AddSource:   cfg.AddSource,
-			Level:       cfg.Level,
-		},
-	)
+func NewHandler(cfg LoggerConfig) slog.Handler {
+	opts := &slog.HandlerOptions{
+		ReplaceAttr: replaceAttrs,
+		AddSource:   cfg.AddSource,
+		Level:       cfg.Level,
+	}
+
+	if cfg.LogJSON {
+		return slog.NewJSONHandler(os.Stdout, opts)
+	}
+
+	return slog.NewTextHandler(os.Stdout, opts)
+
 }
 
 func WithAgentLog(h slog.Handler, w io.Writer) slog.Handler {

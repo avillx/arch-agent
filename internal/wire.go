@@ -54,6 +54,7 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	}
 
 	defaultHandler := logging.NewHandler(logging.LoggerConfig{
+		LogJSON:   cfg.JSON,
 		Level:     cfg.LogLevel,
 		AddSource: cfg.AddSource,
 		Indented:  cfg.Indented,

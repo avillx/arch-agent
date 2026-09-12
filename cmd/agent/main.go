@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -39,7 +40,12 @@ func NewRunParameters(
 ) (RunParameters, error) {
 
 	if dataPath == "" {
-		dataPath = "."
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return RunParameters{}, fmt.Errorf("Error getting home dir: %w", err)
+		}
+
+		dataPath = filepath.Join(homeDir, ".arch-agent")
 	}
 
 	if port == "" {
