@@ -153,7 +153,12 @@ Follow the existing code style and patterns already used in the project.
 Never use a service locator, global variables, or hidden dependencies.
 Expose all requirements explicitly as arguments via dependency injection.
 
-### Explicit Construction
+### Explicit Construction only situations
+
+explicit construction is used only when developer make this decigion do not chage it
+and never make explicit construction by yourself, only when developer say it directly
+prefer to use golang constructor function.
+
 Bad:
 ```golang
 obj, err := NewObject()
@@ -198,137 +203,167 @@ File structure:
 - Entry point: [main file](./cmd/agent/main.go)
 - All application logic lives in [internal packages](./internal)
 - Keep the file structure as flat and simple as possible
+- [api](./api) holds the OpenAPI specification of the HTTP API
 
 Hierarchy:
-- **Domain** (tier 1 and 2) — independent packages: `agent`, `session`, `prompt`.
-- **Service** — `AgentRuntime`, `TaskService`, `SessionService`, `ChatService`, `ModelSerivce`, `ToolService`.
-  This is the business logic layer; it works with domains and ports.
-- **Infra** — `files`, `cron implementation`, `uuid`, `searxng`, `api`, `config`, `logging`, `mcp`, `openai`, `tools` (implementations, not services), `telegram`.
+- **Domain** — independent packages without app dependencies: `agent`, `prompt`.
+  (`session` and `task` are "tier 2" domains: they own both the domain type and its service.)
+- **Service** — the business logic layer; works with domains and ports:
+  `chat` (with `runtime`), `agent.Service`, `session.Service`, `task.Service`, `model`,
+  `tools.Service`, `memory`, `mcp`, `subagent`, `secrets`, `cleanup`.
+- **Infra** — port implementations and plumbing:
+  `files`, `openai`, `cron`, `logging`, `sentinel`, `hooks`, `api`, `types`, `uuid`.
 
 > [data](./data/) — contains the application's data (a database). Never read it unless you're directly working with data.
 > Never read `.env` or `.secrets`.
 > No need to read `go.mod` and `go.sum` without a reason.
 
-## [a2a](./internal/a2a)
-This is not an implementation of the A2A protocol — it's a service that lets an agent safely call another agent.
-Used only by the `call_agent` tool (for agent-to-agent calls).
-
 ## [core domain](./internal/agent)
 The core domain of the entire app.
-It can't import any external packages or packages from other domains — only pure Go, the standard library, and `types` are allowed.
+It can't import any external packages or packages from other domains — only pure Go and the standard library.
 
 Widely used protection pattern: a public interface and constructor, with a private implementation.
 
-- [activity](./internal/agent/activity.go) — the `ActivityRepo` interface and record type, with formatting rules.
+- [activity](./internal/agent/activity.go) — the `ActivityRepo` interface and `ActivityRecord` type, with formatting rules.
 - [agent](./internal/agent/agent.go) — the core domain; contains `agent.ID` and the `Agent` interface with a protected implementation.
 - [message](./internal/agent/message.go) — the `Message` interface with a per-role implementation, including transcription rules.
-- [model](./internal/agent/model.go) — the `Model` interface, which represents the LLM itself. Its implementation lives in `openai`.
-- [skill](./internal/agent/skill.go) — `agent.SkillID`; an agent only has access to its allowed skills.
-- [tool](./internal/agent/tool.go) — the tool interface for tools used by the agent.
+- [model](./internal/agent/model.go) — the `Model` interface (the LLM itself) plus `Completion`, `ModelSettings`, and the `ModelRegistry` port. Its implementation lives in `openai`.
+- [service](./internal/agent/service.go) — `agent.Service`; thin validation over the agent storage (checks the model and tool servers exist before saving/deleting).
+- [tool](./internal/agent/tool.go) — the tool ports used by the agent: `Tool`, `ToolServer`, `ToolRegistry`, and `ToolProperty`.
 - [toolcall](./internal/agent/toolcall.go) — part of an agent message; when the agent calls a tool, it should be represented as a `ToolCall`.
 
 ## [session domain](./internal/session)
-This is the "tier 2" domain.
-Includes the `Session` interface and its implementation.
-Includes a service for operating on sessions.
+The "tier 2" domain for sessions.
+Includes the `Session` interface and its implementation, `SessionHeader`/`ErrBrokenHeaders`, and `session.Service` (with the `SessionsRepo` port) for operating on sessions.
+
+## [tasks](./internal/task)
+Tasks for autonomous calls that happen without a direct user request.
+
+- [task](./internal/task/task.go) — the `TaskConfig` domain and the `Cron` port.
+- [service](./internal/task/service.go) — `TaskService`; schedules tasks via the cron port.
+- [executor](./internal/task/executor.go) — runs a scheduled task by invoking the chat service in a fresh session for each recipient.
 
 ## [chat service](./internal/chat)
 Orchestrator for the common agent call flow. Launches a completion by `sessionID`, `agentID`, and request.
 
-## [files database](./internal/files)
-This is the database for the entire application.
-The app uses a file-based database for simplicity.
+- [service](./internal/chat/service.go) — `ChatService` (`ChatExecutor` port): resolves agent/model/tools/session, builds the context, runs the agent loop and applies its events to the session.
+- [context assembler](./internal/chat/context_assembler.go) — builds the system message from parts (agent system prompt, memory index, skill index, tool instructions, session extras) and caches it per session for 30 minutes.
+- [dispatcher](./internal/chat/dispatcher.go) — guarantees a single in-flight completion per session; a new request cancels the previous one, and exposes interruption.
 
-[locktable](./internal/files/locktable.go) — for concurrency-safe filesystem access.
-[Filesystem](./internal/files/filesystem.go) — for path-safe access.
+## [agent runtime](./internal/runtime)
+Not the app's runtime — the core of the agent's reasoning engine.
+[loop](./internal/runtime/loop.go) runs the ReAct loop: completion → hooks → tool calls → compaction → repeat, until the model finishes or a limit is reached.
 
-Also includes the following implementations:
-- [activity repository](./internal/files/activity.go)
-- [agents repository](./internal/files/agents.go)
-- [memory repository](./internal/files/memory.go)
-- [model repository](./internal/files/model.go)
-- [secrets repository](./internal/files/secrets.go)
-- [session repository](./internal/files/sessions.go)
-- [skill repository](./internal/files/skill.go)
-- [task repository](./internal/files/tasks.go)
+- [events](./internal/runtime/events.go) — events emitted by the loop (`CompleteEvent`, `ToolResultEvent`, `CompactionEvent`, `LoopExitEvent`, …).
+- [hook](./internal/runtime/hook.go) — generic hook interfaces (`CompletionHook`, `ToolCallHook`, `ToolResultHook`) applied by the loop.
+- [compaction](./internal/runtime/compaction.go) — compacts the conversation once it reaches a threshold, to avoid context overflow.
+- [error](./internal/runtime/error.go) — runtime and tool-call error types.
 
-### Ruled filesystem
-[ruled filesystem](./internal/files/rule)
-This is a strictly controlled access layer for agent file access — a rule-based wrapper around `Filesystem` with extensive validation.
+## [memory](./internal/memory)
+- [activity reporter](./internal/memory/activity_reporter.go) — `ActivityService`: buffers messages, then periodically makes a model call to produce a human-readable activity log.
+- [consolidation](./internal/memory/consolidation.go) — `ConsolidationService`, invoked once every 24 hours (and on demand); runs its own agent loop with dedicated tools to consolidate the day's logs into memory files.
 
 ## [model service](./internal/model)
-Service that manages models and their settings. Includes a model settings repository.
+- [model](./internal/model/model.go) — `ModelService`, the runtime registry of live `agent.Model` instances keyed by model id.
+- [provider](./internal/model/provider.go) — `ProviderService`, API providers and their models; loads models into `ModelService` on config changes.
+- [types](./internal/model/types.go) — provider/model config types (`ProviderConfig`, `ModelConfig`, `APIType`, `ProviderConfigRepo`).
+
+## [tools](./internal/tools)
+Tools for the agent, plus the tool registry `ToolService`.
+Tools are grouped into named [`ToolServer`s](./internal/agent/tool.go); agents reference servers by name.
+Built-in servers use fixed names (`filesystem`, `shell`, `web`, `todo`, `agent`); MCP tools register under their MCP server id.
+
+- [service](./internal/tools/service.go) — the tool registry (`Connect`/`Disconnect`/`ToolServers`).
+- [helpers](./internal/tools/helpers.go) — shared helpers for built-in tools (`BuildInToolServer`, arg unwrapping, context accessors).
+- [call_agent](./internal/tools/call_agent.go) — calls another agent as a subagent; uses [subagent](./internal/subagent).
+- [fetch](./internal/tools/fetch) — `fetch` tool for fetching web pages.
+- [fs](./internal/tools/fs) — filesystem access: `write`, `read`, `edit`, `move`, `find`.
+- [shell](./internal/tools/shell) — `shell` tool for running shell commands.
+- [todo](./internal/tools/todo) — `create_todo`, `update_todo`, `list_todo`; a lightweight harness for decomposing tasks.
+
+> Every tool is a thin interface providing safe agent usage on top of an `agent.Tool` implementation.
+> Any logic not tied to the agent-facing representation should live in the implementation, not in the tool itself.
+
+## [mcp](./internal/mcp)
+MCP (Model Context Protocol) integration: connects external MCP servers (HTTP or process) and registers their tools in the tool registry under the server id.
+
+- [service](./internal/mcp/service.go) — `mcp.Service`; loads servers from config and keeps them connected.
+- [gateway](./internal/mcp/gateway.go) — HTTP and process transport gateways.
+- [tool](./internal/mcp/tool.go) and [convert](./internal/mcp/convert.go) — adapt MCP tools to `agent.Tool`.
+
+## [secrets](./internal/secrets)
+- [service](./internal/secrets/service.go) — in-memory secrets store backed by `secrets.toml`.
+- [replacer](./internal/secrets/replacer.go) — replaces secret values with `{ env.KEY }` placeholders in agent-visible text.
+
+## [hooks](./internal/hooks)
+Agent safety hooks applied by the runtime loop.
+
+- [file access](./internal/hooks/filesystem.go) — path-based read/write access rules for file tools (replaces the old ruled filesystem).
+- [secrets](./internal/hooks/secrets.go) — keep secrets from leaking into completions, tool arguments, or tool results.
+- [content size](./internal/hooks/contentsize.go) — truncates oversized tool results.
+- [completion](./internal/hooks/completion.go) — completion-safety hooks: empty answer, undone todo, valid memory frontmatter.
+
+## [cleanup](./internal/cleanup)
+Periodic maintenance service.
+
+- [service](./internal/cleanup/service.go) — `CleanUpService`; runs on an interval.
+- [session](./internal/cleanup/session.go) — `SessionsCleaner`; removes broken and expired sessions, and trims the agent log file.
+
+## [sentinel](./internal/sentinel)
+Watches config files with `fsnotify` and triggers debounced reload actions (`.toml` hot reload).
+
+## [files database](./internal/files)
+The file-based database for the entire application (kept simple on purpose).
+
+[locktable](./internal/files/locktable.go) — path-keyed locks for concurrency-safe filesystem access.
+[filesystem](./internal/files/filesystem.go) — path-safe filesystem access.
+[format](./internal/files/format.go) and [dto](./internal/files/dto.go) — shared formatting and DTO helpers.
+
+Repositories and config files:
+- [agents](./internal/files/agents.go) — agent definitions (`agent.md`).
+- [activity](./internal/files/activity.go) — activity logs (the `activity` folder).
+- [models](./internal/files/models.go) — `models.toml`; providers and models, hot-reloaded.
+- [memory config](./internal/files/memory_config.go) — `memory.toml`; consolidation config, hot-reloaded.
+- [memory index](./internal/files/memory_index.go) — per-agent memory file index (the `memory` folder).
+- [mcp](./internal/files/mcp.go) — `mcp.toml`; MCP server connections, hot-reloaded.
+- [secrets](./internal/files/secrets.go) — `secrets.toml` storage.
+- [sessions](./internal/files/sessions.go) — conversation files (the `sessions` folder).
+- [skill](./internal/files/skill.go) — discovers agent skills (`skills` folder, `SKILL.md`).
+- [tasks](./internal/files/tasks.go) — `tasks.toml`; cron tasks, hot-reloaded.
+- [temporary](./internal/files/temporary.go) — the `tmp` folder with automatic cleanup.
 
 ## [open ai](./internal/openai)
-Implementation of `agent.Model` using the OpenAI API.
-Contains many converters: `internal <-> OpenAI`.
-Uses the official OpenAI SDK library.
-Should work with any OpenAI-compatible endpoint.
+Implementation of `agent.Model` using the OpenAI API, built on the `openai-go` SDK. Works with any OpenAI-compatible endpoint.
+
+- [factory](./internal/openai/factory.go) — `OpenAIModelFactory`; builds `agent.Model` instances for the model service.
+- [openai](./internal/openai/openai.go) — converters `internal <-> OpenAI`.
+- [reasoner](./internal/openai/reasoner.go) — `OpenAIReasoner`, the `agent.Model` implementation.
+- [settings](./internal/openai/settings.go) — model settings parsing.
 
 ## [prompts](./internal/prompt)
 The prompt package holds prompts embedded from `.md` templates using Go's templating.
 Never read the raw prompt templates in [templates](./internal/prompt/templates).
 If you just need to confirm a prompt exists, read [embeds](./internal/prompt/prompt.go) instead.
 
-## [agent runtime](./internal/runtime)
-Not the app's runtime — this is the core of the agent's runtime.
-Processes a requested session with the agent's settings using the ReAct pattern.
+## [api](./internal/api)
+The HTTP (REST) API server that all services are exposed through.
+Routes for agents, sessions, chat, tools, mcp, memory, tasks, providers, and activity are registered in [server.go](./internal/api/server.go).
+Its OpenAPI spec lives in [api](./api).
 
-[context assembler](./internal/runtime/context_assembler.go)
-Assembles the context for an agent call. Combines the summary, system prompt, and an explanation.
-If the agent has memory access, it loads the memory index and the tail of the logs.
-If the agent has skills, it loads descriptions of the available skills for skill indexing.
-This happens as a pre-context hook — a simple dialogue: user → explanation, agent → agreement.
+## [subagent](./internal/subagent)
+Lets an agent safely call another agent as a subagent (used only by the `call_agent` tool).
+Routes the call through the chat service and creates a fresh session for each subagent call.
+Tracks the delegation depth in context to prevent infinite chains (max depth 3).
 
-[compactor](./internal/runtime/compaction.go)
-Responsible for session compaction once it reaches a threshold, to avoid context overflow.
-
-[observer](./internal/runtime/observer.go)
-Responsible for logging activity. If the agent has memory or works autonomously on tasks, it makes an additional model call to process and log the activity, producing a human-readable explanation of the agent's actions.
-
-[memory](./internal/runtime/memory)
-Memory consolidation service, invoked once every 24 hours.
-It calls the agent runtime with its own ruled tools and model.
-Consolidates the day's logs with the already existing memory.
-
-## [tasks](./internal/task)
-Tasks for autonomous calls that happen without a direct user request.
-Uses a cron interface for scheduling calls.
-Includes the `Task` domain and `TaskService` for managing tasks.
-
-## [telegram](./internal/telegram)
-Implementation of the Telegram bot.
-This package will be separated out later — that's why its tools and other related code should stay inside this package rather than spreading into others, except for the root DI.
-
-## [tools](./internal/tools)
-Tools for the agent. Mainly contains the tool registry implementation, `ToolService`.
-Tools are stored by owner — the owner identifies who provides the tool; built-in tools have an empty owner (`""`).
-Other tools, like MCP tools, must use their MCP server as the owner.
-Contains multiple built-in tool implementations:
-
-- [fetch](./internal/tools/fetch) — tool for fetching web pages.
-- [fs](./internal/tools/fs) — tools for giving the agent filesystem access:
-  `delete`, `edit_file`, `list_dir`, `move`, `read_file`, `search`, `write_file`.
-- [search](./internal/tools/search/search.go) — tool for web search; has a `WebSearch` interface.
-- [task](./internal/tools/task) — tools that let the agent manage its own tasks.
-- [todo](./internal/tools/todo) — tools for creating and manipulating a `todo` list; a lightweight harness for decomposing tasks.
-- [call_agent](./internal/tools/call_agent.go) — tool for calling other agents as subagents; uses `A2AService`.
-
-> First and foremost, every tool is a thin interface providing safe agent usage on top of an `agent.Tool` implementation.
-> Any logic not tied to the agent-facing representation should live in the implementation, not in the tool itself.
-
-## [DI](./internal/app.go)
-Contains the `App` struct with all services, and `BuildApp` — the root composition point of the application.
-Should be very simple, with no logic — composition only.
+## [DI](./internal/wire.go)
+Root composition point of the application.
+[BuildServer](./internal/wire.go) wires all services together and returns the `*api.HTTPServer`.
+Should be simple, with no logic — composition only.
 
 ## Other packages
 These packages are not as important.
 
-- [api](./internal/api) — currently empty; intended to become RESTful API endpoints later.
-- [config](./internal/config) — thin TOML config parsing and implementation (Telegram bot and search settings).
-- [cron](./internal/cron) — implements the `task` package's cron interface using an external library.
-- [logging](./internal/logging) — wrappers for logging different things, with 2 logger modes (pretty and plain).
-- [mcp](./internal/mcp) — not yet implemented; intended to be a bridge from internal tools to MCP.
-- [searxng](./internal/searxng) — implementation of the web search interface using the SearXNG API.
-- [types](./internal/types) — contains a single widely-used type; will be eliminated eventually.
-- [uuid](./internal/uuid) — simple UUID generator using the `google/uuid` package.
+- [cron](./internal/cron) — implements the `task` package's `Cron` port using `robfig/cron`.
+- [logging](./internal/logging) — `slog` handlers: JSON console output, plain-text output for the agent-visible log file, and a multi-handler for both.
+- [types](./internal/types) — shared types: sentinel errors (`ErrIsNotExist`, `ErrAlreadyExist`), `AgentMistakeError`, and validation helpers.
+- [uuid](./internal/uuid) — ID generator using the `rs/xid` package.
