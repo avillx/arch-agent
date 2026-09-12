@@ -4,7 +4,6 @@ import (
 	"arch-agent/internal/mcp"
 	"arch-agent/internal/types"
 	"errors"
-	"fmt"
 	"net/http"
 )
 
@@ -16,92 +15,56 @@ type mcpHandler struct {
 // GET /mcp
 func (h *mcpHandler) List(w http.ResponseWriter, _ *http.Request) Response {
 
-	type MCPToolServerReprDTO struct {
-		Transport string `json:"transport"`
-		ToolServerReprDTO
+	type MCPServerDTO struct {
+		Config mcp.ServerGatewayConfig `json:"config"`
+		Tools  ToolReprDTO             `json:"tools"`
 	}
 
-	type MCPListResponseDTO struct {
-		Servers []MCPToolServerReprDTO `json:"mcp_servers"`
-	}
+	type MCPServersDTO map[mcp.MCPServerID]MCPServerDTO
 
-	toolServers := []MCPToolServerReprDTO{}
-	for _, mcpServers := range h.mcpSvc.List() {
+	mcpServers := MCPServersDTO{}
+	for _, srv := range h.mcpSvc.List() {
 
-		toolList := []ToolReprDTO{}
-		for _, t := range mcpServers.Tools() {
-			toolList = append(toolList, ToolReprDTO{
-				Name:        string(t.Name()),
-				Description: t.Description(),
-			})
+		tools := ToolReprDTO{}
+		for _, t := range srv.Tools() {
+			tools[t.Name()] = t.Description()
 		}
 
-		serverRepr := MCPToolServerReprDTO{
-			Transport: mcpServers.Gateway().Type(),
-			ToolServerReprDTO: ToolServerReprDTO{
-				Name:  string(mcpServers.ID()),
-				Tools: toolList,
-			},
+		mcpServers[srv.ID()] = MCPServerDTO{
+			Config: srv.Config(),
+			Tools:  tools,
 		}
-
-		toolServers = append(toolServers, serverRepr)
 	}
 
-	dto := MCPListResponseDTO{
-		Servers: toolServers,
-	}
-
-	return NewJSONResponse(http.StatusOK, dto)
+	return NewJSONResponse(http.StatusOK, mcpServers)
 }
 
-// POST /mcp
-// TODO: (rewrite to -> POST /mcp/some-mcp-server or decode map[serverID]Server Config)
+// POST /mcp/{mcp}
 func (h *mcpHandler) Connect(w http.ResponseWriter, r *http.Request) Response {
 
-	//
+	mcpID := mcp.MCPServerID(r.PathValue("mcp"))
 
-	// gatewayConfig, err := decode[mcp.ServerGatewayConfig](r)
-	// if err != nil {
-	// 	return NewInvalidRequest(err)
-	// }
-
-	// TODO: Real id issue, update spec
-	// id, err := h.mcpSvc.Connect(r.Context(), "0", gatewayConfig)
-	// if err != nil {
-	// 	var validationErr *types.ValidationError
-	// 	if errors.As(err, &validationErr) {
-	// 		return NewInvalidRequest(err)
-	// 	}
-	// 	if errors.Is(err, types.ErrAlreadyExist) {
-	// 		return NewBadRequest("already exist")
-	// 	}
-
-	// 	return NewInternalError(err)
-	// }
-
-	// return NewJSONResponse(http.StatusOK, map[string]string{
-	// 	"created_id": string(id),
-	// })
-
-	return NewInternalError(fmt.Errorf("api is not updated"))
-}
-
-// DELETE /mcp/{id}
-func (h *mcpHandler) Disconnect(w http.ResponseWriter, r *http.Request) Response {
-	mcpID := mcp.MCPServerID(r.PathValue("id"))
-
-	if err := h.mcpSvc.Disconnect(mcpID); err != nil {
-		if errors.Is(err, types.ErrIsNotExist) {
-			return NewBadRequest(err.Error())
-		}
-		return NewInternalError(err)
+	gatewayConfig, err := decode[mcp.ServerGatewayConfig](r)
+	if err != nil {
+		return NewInvalidRequest(err)
 	}
+
+	if err := h.mcpSvc.SetServer(r.Context(), mcpID, gatewayConfig); err != nil {
+		// if mcp server is not starting well so problem in config
+		// that's the reason of invalid request
+		return NewInvalidRequest(err)
+	}
+
 	return NewResponse(http.StatusOK)
 }
 
-// POST /mcp/reload
-func (h *mcpHandler) Reload(w http.ResponseWriter, r *http.Request) Response {
-	if err := h.mcpSvc.Reload(r.Context()); err != nil {
+// DELETE /mcp/{mcp}
+func (h *mcpHandler) Disconnect(w http.ResponseWriter, r *http.Request) Response {
+	mcpID := mcp.MCPServerID(r.PathValue("mcp"))
+	if err := h.mcpSvc.DeleteServer(mcpID); err != nil {
+		if errors.Is(err, types.ErrIsNotExist) {
+			return NewBadRequest(err.Error())
+		}
 		return NewInternalError(err)
 	}
 	return NewResponse(http.StatusOK)

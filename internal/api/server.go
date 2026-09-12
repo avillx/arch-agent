@@ -91,9 +91,8 @@ func (s *HTTPServer) registerRoutes() {
 
 	mcpHandler := &mcpHandler{mcpSvc: s.mcpSvc}
 	s.HandleFunc("GET /mcp", mcpHandler.List)
-	s.HandleFunc("POST /mcp", mcpHandler.Connect)
-	s.HandleFunc("POST /mcp/reload", mcpHandler.Reload)
-	s.HandleFunc("DELETE /mcp/{id}", mcpHandler.Disconnect)
+	s.HandleFunc("POST /mcp/{mcp}", mcpHandler.Connect)
+	s.HandleFunc("DELETE /mcp/{mcp}", mcpHandler.Disconnect)
 
 	memoryHandler := NewMemoryHandler(s.consolidationSvc, s.memoryIndexer, s.memoryRepo, s.logger)
 	s.HandleFunc("POST /memory/{agent}/consolidate", memoryHandler.Consolidate)

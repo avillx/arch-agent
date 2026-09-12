@@ -20,9 +20,40 @@ type MCPServerID string
 
 var _ agent.ToolServer = (MCPServer)(nil)
 
+var _ types.Validator = (*ServerGatewayConfig)(nil)
+
 type ServerGatewayConfig struct {
 	HTTPGateway    *HTTPGatewayConfig    `json:"http_gateway,omitempty"`
 	CommandGateway *CommandGatewayConfig `json:"command_gateway,omitempty"`
+}
+
+func (c ServerGatewayConfig) Validate(_ context.Context) error {
+
+	if c.CommandGateway == nil && c.HTTPGateway == nil {
+		return types.NewValidationError(map[string]string{
+			"config": "config is empty. At least one gateway must be specified",
+		})
+	}
+
+	if c.CommandGateway != nil && c.HTTPGateway != nil {
+		return types.NewValidationError(map[string]string{
+			"config": "expected only one gateway, specified both",
+		})
+	}
+
+	if c.HTTPGateway != nil && c.HTTPGateway.URL == "" {
+		return types.NewValidationError(map[string]string{
+			"http_gateway": "url is empty",
+		})
+	}
+
+	if c.CommandGateway != nil && c.CommandGateway.Command == "" {
+		return types.NewValidationError(map[string]string{
+			"command_gateway": "command is empty",
+		})
+	}
+
+	return nil
 }
 
 func (s ServerGatewayConfig) Equals(other ServerGatewayConfig) bool {
@@ -91,6 +122,8 @@ type MCPServer interface {
 	Config() ServerGatewayConfig
 	Run(ctx context.Context) error
 	Shutdown()
+	Err() error
+	setErr(err error)
 	agent.ToolServer
 }
 
@@ -111,7 +144,8 @@ type mcpServer struct {
 	gateway gateway
 	cfg     ServerGatewayConfig
 
-	shutdownCh    chan error
+	err           error
+	shutdownCh    chan struct{}
 	closeShutdown sync.Once
 	mu            sync.Mutex
 }
@@ -151,7 +185,7 @@ func NewMCPServer(ctx context.Context, id MCPServerID, cfg ServerGatewayConfig) 
 	srv := &mcpServer{
 		id:         id,
 		gateway:    g,
-		shutdownCh: make(chan error),
+		shutdownCh: make(chan struct{}),
 		cfg:        cfg,
 	}
 
@@ -165,6 +199,8 @@ func NewMCPServer(ctx context.Context, id MCPServerID, cfg ServerGatewayConfig) 
 	return srv, nil
 }
 
+func (s *mcpServer) setErr(err error)    { s.err = err }
+func (s *mcpServer) Err() error          { return s.err }
 func (s *mcpServer) Tools() []agent.Tool { return s.tools }
 
 // blocking

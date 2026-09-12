@@ -10,21 +10,21 @@ import (
 	"time"
 
 	"arch-agent/internal/tools"
-	"arch-agent/internal/types"
 )
 
 type ConfigRepo interface {
 	Load() (map[MCPServerID]ServerGatewayConfig, error)
 	Save(MCPServerID, ServerGatewayConfig) error
+	Delete(MCPServerID) error
 }
 
 type Service struct {
 	toolSvc    *tools.Service
 	configRepo ConfigRepo
-	servers    map[MCPServerID]MCPServer
 	logger     *slog.Logger
 
-	mu sync.RWMutex
+	servers map[MCPServerID]MCPServer
+	mu      sync.RWMutex
 }
 
 func NewService(
@@ -33,18 +33,18 @@ func NewService(
 	repo ConfigRepo,
 	logger *slog.Logger,
 ) (*Service, error) {
-	s := &Service{
+	svc := &Service{
 		toolSvc:    toolSvc,
 		configRepo: repo,
 		logger:     logger.WithGroup("mcp"),
 		servers:    make(map[MCPServerID]MCPServer),
 	}
 
-	if err := s.load(ctx); err != nil {
+	if err := svc.load(ctx); err != nil {
 		return nil, err
 	}
 
-	return s, nil
+	return svc, nil
 }
 
 func (s *Service) List() []MCPServer {
@@ -71,6 +71,7 @@ func (s *Service) Reload(ctx context.Context) error {
 		for id, srv := range s.servers {
 			if _, ok := cfgs[id]; !ok {
 				srv.Shutdown()
+				delete(s.servers, id)
 			}
 		}
 
@@ -87,6 +88,7 @@ func (s *Service) Reload(ctx context.Context) error {
 			// if config has updated
 			if !cfg.Equals(srv.Config()) {
 				srv.Shutdown()
+				delete(s.servers, id)
 				loadCandidates[id] = cfg
 			}
 		}
@@ -116,7 +118,7 @@ func (s *Service) connectServers(ctx context.Context, cfgs map[MCPServerID]Serve
 
 	for id, cfg := range cfgs {
 		wg.Go(func() {
-			if _, err := s.connectServer(ctx, id, cfg); err != nil {
+			if err := s.connectServer(ctx, id, cfg); err != nil {
 				s.logger.Error("connect server", "server", id, "error", err)
 			}
 		})
@@ -125,65 +127,78 @@ func (s *Service) connectServers(ctx context.Context, cfgs map[MCPServerID]Serve
 	wg.Wait()
 }
 
-func (s *Service) connectServer(ctx context.Context, id MCPServerID, cfg ServerGatewayConfig) (MCPServerID, error) {
+func (s *Service) connectServer(ctx context.Context, id MCPServerID, cfg ServerGatewayConfig) error {
 
 	srv, err := NewMCPServer(ctx, id, cfg)
 	if err != nil {
-		return "", fmt.Errorf("mcp: server initialization: %w", err)
+		return fmt.Errorf("mcp: server initialization: %w", err)
 	}
 
 	// connect to tool service
 	if err := s.toolSvc.Connect(string(srv.ID()), srv); err != nil {
-		return "", fmt.Errorf("mcp: register tools: %w", err)
+		return fmt.Errorf("mcp: register tools: %w", err)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.servers[srv.ID()] = srv
 
-	logger := s.logger.With("server", srv.ID())
-
 	go func() {
+		logger := s.logger.With("server", srv.ID())
 		// blocking
 		if err := srv.Run(context.Background()); err != nil {
 			logger.Error("bad connection", "error", err)
+			srv.setErr(err)
 		}
 
-		if err := s.toolSvc.Disconnect(string(srv.ID())); err != nil {
-			logger.Error("bad disconnection", "error", err)
-		}
+		s.toolSvc.Disconnect(string(srv.ID()))
 
 		logger.Info("disconnected")
-
-		if storedSrv, ok := s.servers[srv.ID()]; ok && storedSrv == srv {
-			s.mu.Lock()
-			defer s.mu.Unlock()
-
-			delete(s.servers, srv.ID())
-		}
 	}()
 
-	logger.Info("connected")
+	s.logger.Info("connected", "server", srv.ID())
 
-	return srv.ID(), nil
-}
-
-func (s *Service) Disconnect(id MCPServerID) error {
-
-	// s.configRepo.Delete
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	srv, ok := s.servers[id]
-	if !ok {
-		return fmt.Errorf("mcp server: %w", types.ErrIsNotExist)
-	}
-
-	srv.Shutdown()
 	return nil
 }
 
-// TODO: funcs for api
-// AddServer (add server if repo | sentinel trigger reload automaticly)
-// DeleteServer (disconnect and delete server from config |)
+func (s *Service) DeleteServer(id MCPServerID) error {
+	return s.configRepo.Delete(id)
+}
+
+// Override behaviour
+func (s *Service) SetServer(ctx context.Context, id MCPServerID, cfg ServerGatewayConfig) error {
+
+	var depricatedSrv MCPServer
+	func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		if srv, ok := s.servers[id]; ok {
+			depricatedSrv = srv
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	// NOTE: mcp service has detect of already connected servers
+	// and not trying to override succecceful working servers
+	// thaths the reason to connect it here directly.
+	// Cause if something going wrong func return error and not
+	// trying to swallow it on reload attempt. Reload leaves
+	// this connection untouched
+	if err := s.connectServer(ctx, id, cfg); err != nil {
+		return err
+	}
+
+	// NOTE: if something goes worng on edit server config then it
+	// never set on s.servers a new bad server
+	// connectServer can't return error after server is setted. if behaviour
+	// has been changed then this solutuin should changed too
+	// To prvent gorutine leak it shutdown's here
+	if depricatedSrv != nil {
+		depricatedSrv.Shutdown()
+	}
+
+	return s.configRepo.Save(id, cfg)
+}

@@ -22,11 +22,13 @@ func NewMemoryHandler(
 	consolidationSvc *memory.ConsolidationService,
 	memoryIndexer agent.MemoryIndexer,
 	memoryRepo agent.MemoryRepo,
+	logger *slog.Logger,
 ) *memoryHandler {
 	return &memoryHandler{
 		consolidationSvc: consolidationSvc,
 		memoryIndexer:    memoryIndexer,
 		memoryRepo:       memoryRepo,
+		logger:           logger.WithGroup("memory"),
 	}
 }
 

@@ -58,15 +58,9 @@ func (s *Service) Connect(serverName string, server agent.ToolServer) error {
 	return nil
 }
 
-func (s *Service) Disconnect(serverName string) error {
-
+func (s *Service) Disconnect(serverName string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	_, ok := s.servers[serverName]
-	if !ok {
-		return fmt.Errorf("server %s not connected", serverName)
-	}
 
 	delete(s.servers, serverName)
-	return nil
 }

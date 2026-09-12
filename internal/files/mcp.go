@@ -102,6 +102,25 @@ func (f *MCPFiles) LoadDTO() (map[mcp.MCPServerID]mcp.ServerGatewayConfig, error
 	return UnmarshalMCPConfig(data)
 }
 
+func (f *MCPFiles) Delete(mcpServerID mcp.MCPServerID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	dtoMap, err := f.LoadDTO()
+	if err != nil {
+		return err
+	}
+
+	delete(dtoMap, mcpServerID)
+
+	data, err := MarshalMCPConfig(dtoMap)
+	if err != nil {
+		return fmt.Errorf("marshal %s: %w", MCPConfigFile, err)
+	}
+
+	return f.storage.WriteFile(MCPConfigFile, data, ModeFilePerm)
+}
+
 type MCPServerConfigDTO struct {
 	URL     string            `json:"url" toml:"url,omitempty"`
 	Token   string            `json:"token,omitempty" toml:"token,omitempty"`
