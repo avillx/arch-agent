@@ -2,9 +2,19 @@ package agent
 
 import (
 	"errors"
+	"fmt"
 )
 
 var _ Repo = (*Service)(nil)
+
+var defaultAgent = NewAgent(
+	"default",
+	"agent placeholder",
+	"",
+	"",
+	nil,
+	false,
+)
 
 type AgentSync interface {
 	DeleteAgent(ID) error
@@ -22,13 +32,26 @@ func NewService(
 	modelRepo ModelRegistry,
 	storage Repo,
 	syncs []AgentSync,
-) *Service {
-	return &Service{
+) (*Service, error) {
+	svc := &Service{
 		toolReg:   toolReg,
 		modelRepo: modelRepo,
 		storage:   storage,
 		syncs:     syncs,
 	}
+
+	agts, err := svc.All()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(agts) <= 0 {
+		if err := svc.Save(defaultAgent); err != nil {
+			return nil, fmt.Errorf("failed to create default agent, %w", err)
+		}
+	}
+
+	return svc, nil
 }
 
 func (s *Service) All() ([]Agent, error) {

@@ -140,7 +140,6 @@ func dtoToAgent(id agent.ID, dto AgentDTO) agent.Agent {
 		dto.Description,
 		dto.SystemPrompt,
 		dto.Model,
-		nil,
 		dto.ToolServers,
 		dto.Memory,
 	)

@@ -108,7 +108,11 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	agentRepo := files.NewAgentFiles(fileStorage)
 
 	// TODO: expose syncers
-	agentSvc := agent.NewService(toolSvc, modelsSvc, agentRepo, []agent.AgentSync{})
+	agentSvc, err := agent.NewService(toolSvc, modelsSvc, agentRepo, []agent.AgentSync{})
+	if err != nil {
+		return nil, err
+	}
+
 	idGen := uuid.NewUUIDGenerator()
 	sessFiles := files.NewSessionFiles(fileStorage)
 	sessSvc := session.NewService(
