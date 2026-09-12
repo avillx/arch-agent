@@ -233,7 +233,7 @@ func (s *ActivityService) applyConfig(cfg ActivityConfig) error {
 	defer s.cfgMu.Unlock()
 
 	if cfg.IsZero() {
-		s.logger.Warn("config is specified, activity logging is disabled")
+		s.logger.Warn("config is not specified, activity logging is disabled")
 		return nil
 	}
 

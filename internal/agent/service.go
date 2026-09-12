@@ -46,7 +46,7 @@ func NewService(
 	}
 
 	if len(agts) <= 0 {
-		if err := svc.Save(defaultAgent); err != nil {
+		if err := storage.Save(defaultAgent); err != nil {
 			return nil, fmt.Errorf("failed to create default agent, %w", err)
 		}
 	}

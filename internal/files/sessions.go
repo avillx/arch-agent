@@ -3,6 +3,7 @@ package files
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/session"
+	"arch-agent/internal/types"
 	"bufio"
 	"bytes"
 	"encoding/json"
@@ -48,6 +49,11 @@ func (r *SessionFiles) Save(agentID agent.ID, s session.Session) error {
 		return err
 	}
 
+	sessionFolderPath := filepath.Join(string(agentID), SessionsFolder)
+	if err := r.storage.MkdirAll(sessionFolderPath, ModeDirPerm); err != nil {
+		return err
+	}
+
 	sessionFilePath := resolveSessionPath(agentID, s.ID())
 	return r.storage.WriteFile(sessionFilePath, data, 0644)
 }
@@ -63,6 +69,11 @@ func (r *SessionFiles) Headers(agentID agent.ID) ([]session.SessionHeader, error
 	sessionDir = filepath.ToSlash(sessionDir)
 	files, err := fs.ReadDir(r.storage.FS(), sessionDir)
 	if err != nil {
+
+		// if session folder or agent is not exist well it nil count of headers
+		if errors.Is(err, types.ErrIsNotExist) {
+			return []session.SessionHeader{}, nil
+		}
 		return nil, err
 	}
 

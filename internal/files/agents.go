@@ -125,6 +125,10 @@ func (s *AgentFiles) Save(agt agent.Agent) error {
 		return err
 	}
 
+	if err := s.storage.MkdirAll(string(agt.ID()), ModeDirPerm); err != nil {
+		return err
+	}
+
 	return s.storage.WriteFile(resolveAgentFilePath(agt.ID()), data, ModeFilePerm)
 }
 
@@ -153,7 +157,6 @@ func (s *AgentFiles) fromDTO(dtos ...AgentDTO) ([]agent.Agent, error) {
 			dto.Description,
 			dto.SystemPrompt,
 			dto.Model,
-			dto.Tools,
 			dto.ToolServers,
 			dto.HasMemory,
 		))
@@ -164,13 +167,12 @@ func (s *AgentFiles) fromDTO(dtos ...AgentDTO) ([]agent.Agent, error) {
 
 // DTO
 type AgentDTO struct {
-	ID           agent.ID         `yaml:"id"`
-	Description  string           `yaml:"description,omitempty"`
-	Model        string           `yaml:"model"`
-	SystemPrompt string           `yaml:"omitempty"`
-	Tools        []agent.ToolName `yaml:"tools,omitempty"`
-	ToolServers  []string         `yaml:"tool_servers,omitempty"`
-	HasMemory    bool             `yaml:"memory,omitempty"`
+	ID           agent.ID `yaml:"id"`
+	Description  string   `yaml:"description,omitempty"`
+	Model        string   `yaml:"model"`
+	SystemPrompt string   `yaml:"-"`
+	ToolServers  []string `yaml:"tool_servers,omitempty"`
+	HasMemory    bool     `yaml:"memory,omitempty"`
 }
 
 func parseAgentFile(data []byte) (AgentDTO, error) {
@@ -202,7 +204,6 @@ func marshalAgentFile(agt agent.Agent) ([]byte, error) {
 		ID:          agt.ID(),
 		Description: agt.Description(),
 		Model:       agt.Model(),
-		Tools:       agt.Tools(),
 		HasMemory:   agt.HasMemory(),
 	})
 	if err != nil {
