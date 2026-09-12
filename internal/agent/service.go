@@ -12,7 +12,7 @@ var defaultAgent = NewAgent(
 	"agent placeholder",
 	"",
 	"",
-	nil,
+	[]string{"filesystem"},
 	false,
 )
 
