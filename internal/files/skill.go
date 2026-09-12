@@ -3,6 +3,8 @@ package files
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/chat"
+	"arch-agent/internal/types"
+	"errors"
 	"io/fs"
 	"log/slog"
 	"maps"
@@ -71,6 +73,14 @@ func (f *SkillFiles) loadSkills(p string) (map[string]string, error) {
 	}
 
 	skillIndex := map[string]string{}
+
+	// missing folder means no skills
+	if _, err := fs.Stat(f.storage.FS(), p); err != nil {
+		if errors.Is(err, types.ErrIsNotExist) {
+			return skillIndex, nil
+		}
+		return nil, err
+	}
 
 	walkDirFunc := func(p string, d fs.DirEntry, err error) error {
 		if err != nil {

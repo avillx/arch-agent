@@ -3,6 +3,7 @@ package files
 import (
 	"arch-agent/internal/agent"
 	"arch-agent/internal/types"
+	"errors"
 	"io/fs"
 	"log/slog"
 	"path"
@@ -36,6 +37,14 @@ func (f *MemoryFiles) MemoryIndex(agentID agent.ID) (map[string]string, error) {
 	// and this stuff never read directory
 	memoryPath := path.Join(string(agentID), MemoryFolder)
 	index := map[string]string{}
+
+	// missing folder means no memories
+	if _, err := fs.Stat(f.storage.FS(), memoryPath); err != nil {
+		if errors.Is(err, types.ErrIsNotExist) {
+			return index, nil
+		}
+		return nil, err
+	}
 
 	fs.WalkDir(f.storage.FS(), memoryPath, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
