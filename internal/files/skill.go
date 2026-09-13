@@ -67,9 +67,8 @@ func (f *SkillFiles) Skills(agentID agent.ID) (map[string]string, error) {
 func (f *SkillFiles) loadSkills(p string) (map[string]string, error) {
 
 	type skillFrontmatterDTO struct {
-		ID          string           `yaml:"name"`
-		Description string           `yaml:"description,omitempty"`
-		Tools       []agent.ToolName `yaml:"allowed-tools,omitempty"`
+		ID          string `yaml:"name"`
+		Description string `yaml:"description,omitempty"`
 	}
 
 	skillIndex := map[string]string{}
