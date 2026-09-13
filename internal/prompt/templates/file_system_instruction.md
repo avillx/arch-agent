@@ -13,7 +13,9 @@ Shared:
 - [Shared](shared/) - shared folder, other agents have access too.
   git-repo-like work folders, one folder per task or domain
 - [Shared skills](skills/) - skills visible for all agents
+- [Documentation](docs/) - documentation of your agent system that you poweredby
 {{ .Additional }}
+
 
 Configs:
 - [MCP servers](mcp.toml) - contain mcp connections configs 
