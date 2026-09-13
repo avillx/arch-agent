@@ -14,6 +14,9 @@ Shared:
   git-repo-like work folders, one folder per task or domain
 - [Shared skills](skills/) - skills visible for all agents
 - [Documentation](docs/) - documentation of your agent system that you poweredby
+  never try to read a lot of them. Read [index](docs/index.md) to find only 
+  necceccary, thats enough. Read documentation only when needed, or when it 
+  mentioned directly in most cases you can solove problems without it.
 {{ .Additional }}
 
 
