@@ -41,5 +41,6 @@ COPY --from=builder /arch/arch-agent /arch/arch-agent
 
 # Copy documentation in container
 COPY ./docs /arch/docs
+COPY ./README.md ./LICENSE /arch/.
 
 ENTRYPOINT ["/arch/entrypoint.sh"]
