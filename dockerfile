@@ -31,12 +31,15 @@ RUN useradd -m -d /home/$USER -s /bin/bash $USER
 RUN mkdir -p /arch && chown -R $USER:$USER /arch
 RUN mkdir $DATA_PATH && chown -R $USER:$USER $DATA_PATH
 
+# Copy entrypoint and restore exec bit (build context may lose it)
+COPY ./scripts/entrypoint.sh /arch/entrypoint.sh
+RUN chmod +x /arch/entrypoint.sh
+
 USER $USER
 
 COPY --from=builder /arch/arch-agent /arch/arch-agent
 
 # Copy documentation in container
 COPY ./docs /arch/docs
-COPY ./scripts/entrypoint.sh /arch/.
 
 ENTRYPOINT ["/arch/entrypoint.sh"]
