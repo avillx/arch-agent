@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 )
@@ -28,7 +27,6 @@ func RunAgentLoop(
 	hooks []any,
 ) error {
 
-	slog.Info("agent loop running")
 	completionMistakes := 0
 	maxTurns := resolveMaxTurns(model.Settings())
 	for i := 0; i < maxTurns; i++ {
@@ -79,7 +77,6 @@ func RunAgentLoop(
 			evCh <- NewLoopExitEvent(err)
 			return err
 		}
-		slog.Debug("completion", "result", completion)
 		evCh <- NewCompleteEvent(completion)
 		agentMsg := agent.NewAgentMessage(completion.Content, completion.ToolCalls)
 		messages = append(messages, agentMsg)
@@ -121,8 +118,6 @@ func processCompletion(
 	hooks []any,
 ) (*agent.Completion, error) {
 
-	slog.Info("completion started")
-
 	completion, err := model.Complete(
 		ctx,
 		tools,
@@ -160,7 +155,6 @@ func processToolCalls(
 			result = handleToolCallErr(call.ID, err)
 		}
 		evCh <- NewToolCallResultEvent(call, result)
-		slog.Debug("tool called", "result message", result.Result)
 
 		resultMessages = append(resultMessages, agent.NewToolResultMessage(result))
 	}
@@ -269,11 +263,6 @@ func resolveMaxTurns(settings agent.ModelSettings) int {
 
 	maxTurns, ok := v.(int)
 	if !ok {
-		slog.Error(
-			"resolve max turns",
-			"error", "bad value type",
-			"used default value", defaultTurnsLimit,
-		)
 		return defaultTurnsLimit
 	}
 
