@@ -33,13 +33,15 @@ import (
 )
 
 type Config struct {
+	Port string
+
 	DataPath string
 	ShellEnv []string
 
-	LogLevel  slog.Level
-	AddSource bool
-	Indented  bool
-	JSON      bool
+	LogLevel    slog.Level
+	LogSource   bool
+	LogIndented bool
+	LogJSON     bool
 
 	MaxLogLines     int
 	SessRetention   time.Duration
@@ -54,10 +56,10 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	}
 
 	defaultHandler := logging.NewHandler(logging.LoggerConfig{
-		LogJSON:   cfg.JSON,
+		LogJSON:   cfg.LogJSON,
 		Level:     cfg.LogLevel,
-		AddSource: cfg.AddSource,
-		Indented:  cfg.Indented,
+		AddSource: cfg.LogSource,
+		Indented:  cfg.LogIndented,
 	})
 
 	// writes json in stdio and never write logs in log file for agents
