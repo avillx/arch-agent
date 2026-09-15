@@ -14,6 +14,53 @@ import (
 	"time"
 )
 
+func main() {
+	ctx := context.Background()
+	if err := run(ctx); err != nil {
+		slog.Error("system run", "error", err)
+	}
+	slog.Warn("system shutdown")
+}
+
+func run(ctx context.Context) error {
+	ctx, stop := signal.NotifyContext(
+		ctx,
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+
+	defer stop()
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		return fmt.Errorf("bad envirement variable: %w", err)
+	}
+
+	// Logging has complex logic and is part of the business logic due to the
+	// specifics of the project, so the logging config can't be set up in main.
+
+	// App composing
+	srv, err := wire.BuildServer(ctx, cfg)
+	if err != nil {
+		return err
+	}
+
+	httpServer := http.Server{
+		Addr:    fmt.Sprintf(":%s", cfg.Port),
+		Handler: srv,
+	}
+
+	slog.Warn("start system")
+
+	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		return err
+	}
+
+	<-ctx.Done()
+
+	return httpServer.Shutdown(context.Background())
+}
+
 func getEnv(key, def string) string {
 	if v, ok := os.LookupEnv(key); ok {
 		return v
@@ -79,51 +126,4 @@ func LoadConfig() (wire.Config, error) {
 		CleanUpInterval: time.Duration(cleanupIntervalInt) * time.Hour,
 		MaxLogLines:     int(maxLogLinesInt),
 	}, nil
-}
-
-func main() {
-	ctx := context.Background()
-	if err := run(ctx); err != nil {
-		slog.Error("system run", "error", err)
-	}
-	slog.Warn("system shutdown")
-}
-
-func run(ctx context.Context) error {
-	ctx, stop := signal.NotifyContext(
-		ctx,
-		os.Interrupt,
-		syscall.SIGTERM,
-	)
-
-	defer stop()
-
-	cfg, err := LoadConfig()
-	if err != nil {
-		return fmt.Errorf("bad envirement variable: %w", err)
-	}
-
-	// Logging has complex logic and is part of the business logic due to the
-	// specifics of the project, so the logging config can't be set up in main.
-
-	// App composing
-	srv, err := wire.BuildServer(ctx, cfg)
-	if err != nil {
-		return err
-	}
-
-	httpServer := http.Server{
-		Addr:    fmt.Sprintf(":%s", cfg.Port),
-		Handler: srv,
-	}
-
-	slog.Warn("start system")
-
-	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		return err
-	}
-
-	<-ctx.Done()
-
-	return httpServer.Shutdown(context.Background())
 }
