@@ -92,11 +92,11 @@ func Memorization(agentID agent.ID) string {
 var memorizationRequestRaw string
 var memorizationRequestTmpl = template.Must(template.New("memorization_request").Parse(memorizationRequestRaw))
 
-func MemorizationRequest(agentID agent.ID, additional string) string {
+func MemorizationRequest(agentID agent.ID, date time.Time, additional string) string {
 
 	vars := map[string]any{
 		"AgentID":           agentID,
-		"Date":              time.Now().AddDate(0, 0, -1).Format("2006.01.02"),
+		"Date":              date.Format("2006.01.02"),
 		"AdditionalRequest": additional,
 	}
 

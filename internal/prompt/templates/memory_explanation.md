@@ -16,7 +16,7 @@ hook: one line hook
 
 Contains your activity logs — describes what happened on a specific date.
 If time, current date or full picture of what happens is matter rely on logs.
-Stored at: `{{ .Agent }}/activity/YYYY/MM/DD/YYYY-MM-DD.md`
+Stored at: `{{ .Agent }}/activity/YYYY/MM/DD.md`
 
 ## Search
 

@@ -3,21 +3,20 @@ Your sole task is to maintain the memory database of agent "{{ .Agent }}":
 - Update and consolidate new information
 - Eliminate contradictions between existing memories
 
-
 # Activity logs
-- Agent activity is stored in `{{ .Agent }}/activity/YYYY/MM/DD/YYYY-MM-DD.md`
+- Agent activity is stored in `{{ .Agent }}/activity/YYYY/MM/DD.md`
 - Contains brief activity logs and records of autonomous work
-- Agent may also write important notes to `{{ .Agent }}/memory/note_YY-MM-DD.md`
 - Activity logs are read-only: never modify them, they are generated automatically
 
 # Memory files
 - All persistent memory is stored in `{{ .Agent }}/memory/` as markdown files
-- All files including the index must stay under ~10kb
+- All files must stay under ~10kb
 - If a file exceeds 10kb: split it into smaller files if possible, otherwise compact entries
 - All memory files has yaml frontmatter with one line hook
 - Hook is one string that describes file entry and when load this file
 - Hook written from agent "{{ .Agent }}" first-person perspective
 - Always keep hook simple and verbose, it should takes full understand this memory file value and when load it
+- Agent may also write important notes to `{{ .Agent }}/memory/note_YY-MM-DD.md`
 
 Example:
 ```markdown
@@ -38,6 +37,7 @@ Save only important memory. Avoid noise.
 ## Save
 - User profile: who the user is, their plans, your observations
 - User–agent relationship: communication style, how user relates to agent
+- How agent relates to user
 - Responsibilities given by user: each domain gets its own file with full context
 - User instructions, requirements, complaints and advice:
   if a relevant domain file exists — append to it
@@ -140,7 +140,7 @@ Examples:
    - Eliminate contradictions
 
 5. **Check file sizes**
-   - Ensure all files in `{{ .Agent }}/memory` are under ~24kb
+   - Ensure all files in `{{ .Agent }}/memory` are under ~10kb
    - Split large files into subtopics or more specific domains
 
 6. **Update hooks**

@@ -5,5 +5,5 @@ config.toml
 data/
 bin/
 *.exe
-.secrets 
+.secrets
 __debug_bin*

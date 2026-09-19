@@ -149,7 +149,7 @@ func (m *ConsolidationService) consolidateMemoryFor(ctx context.Context, agt age
 	systemPrompt := prompt.Memorization(agt.ID())
 	systemMessage := agent.NewSystemMessage(systemPrompt)
 
-	memoRequest := prompt.MemorizationRequest(agt.ID(), instruction)
+	memoRequest := prompt.MemorizationRequest(agt.ID(), time.Now(), instruction)
 	userMessage := agent.NewUserMessage(memoRequest)
 
 	messages := []agent.Message{systemMessage, userMessage}
@@ -257,7 +257,7 @@ func (m *ConsolidationService) Run(ctx context.Context) {
 
 func nextExecution() time.Time {
 	now := time.Now()
-	next := time.Date(now.Year(), now.Month(), now.Day(), 1, 0, 0, 0, now.Location())
+	next := time.Date(now.Year(), now.Month(), now.Day(), 23, 0, 0, 0, now.Location())
 	if !next.After(now) {
 		next = next.Add(24 * time.Hour)
 	}

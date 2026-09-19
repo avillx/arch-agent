@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 
 	doublestar "github.com/bmatcuk/doublestar/v4"
@@ -46,7 +45,7 @@ func NewFileAccessHook(rules ...Rule) (*FileAccessHook, error) {
 
 	// validate patterns
 	for _, r := range rules {
-		if !doublestar.ValidatePattern(r.Pattern) {
+		if !doublestar.ValidatePathPattern(r.Pattern) {
 			return nil, fmt.Errorf("invalid pattern '%s'", r.Pattern)
 		}
 	}
@@ -68,7 +67,7 @@ func (h *FileAccessHook) Apply(ctx context.Context, tc *agent.ToolCall) (*agent.
 	}
 
 	for _, p := range paths {
-		if err := h.verifyPath(tc.ToolName, path.Clean(p)); err != nil {
+		if err := h.verifyPath(tc.ToolName, filepath.Clean(p)); err != nil {
 			return nil, err
 		}
 	}
@@ -91,7 +90,7 @@ func (h *FileAccessHook) verifyPath(toolName agent.ToolName, p string) error {
 	access := No
 	for _, r := range h.rules {
 		// first match first wins
-		if match, _ := doublestar.PathMatch(r.Pattern, p); match {
+		if match := doublestar.PathMatchUnvalidated(r.Pattern, p); match {
 			access = r.Access
 			break
 		}
