@@ -13,7 +13,6 @@ import (
 const (
 	defaultTurnsLimit      = 100
 	defaultToolCallTimeout = 30 * time.Second
-	maxCompactApptempts    = 3
 	maxCompletionMistakes  = 3
 )
 
