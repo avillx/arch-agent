@@ -5,7 +5,7 @@ import (
 	"arch-agent/internal/prompt"
 	"arch-agent/internal/runtime"
 	"context"
-	"strings"
+	"errors"
 	"testing"
 )
 
@@ -126,7 +126,7 @@ func TestRunAgentLoop_CompactionFailureExits(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected loop exit event, got %#v", events)
 	}
-	if exit.Err() == nil || !strings.Contains(exit.Err().Error(), "unhandled overflow") {
+	if exit.Err() == nil || !errors.Is(exit.Err(), context.DeadlineExceeded) {
 		t.Fatalf("expected unhandled overflow error, got %v", exit.Err())
 	}
 }

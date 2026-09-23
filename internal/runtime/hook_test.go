@@ -5,7 +5,6 @@ import (
 	"arch-agent/internal/runtime"
 	"context"
 	"errors"
-	"strings"
 	"testing"
 )
 
@@ -58,6 +57,7 @@ func TestApplyHooks_SkipsUnrelatedHooks(t *testing.T) {
 }
 
 func TestApplyHooks_PropagatesErrorWithCurrentValue(t *testing.T) {
+	errHookFailed := errors.New("hook failed")
 	completion := &agent.Completion{Content: "start"}
 
 	first := &mockCompletionHook{
@@ -69,7 +69,7 @@ func TestApplyHooks_PropagatesErrorWithCurrentValue(t *testing.T) {
 	failing := &mockCompletionHook{
 		fn: func(ctx context.Context, c *agent.Completion) (*agent.Completion, error) {
 			c.Content = "second"
-			return c, errors.New("hook failed")
+			return c, errHookFailed
 		},
 	}
 
@@ -78,7 +78,7 @@ func TestApplyHooks_PropagatesErrorWithCurrentValue(t *testing.T) {
 		[]any{first, failing},
 		completion,
 	)
-	if err == nil || err.Error() != "hook failed" {
+	if !errors.Is(err, errHookFailed) {
 		t.Fatalf("expected hook error, got %v", err)
 	}
 	if result.Content != "second" {
@@ -181,6 +181,8 @@ func TestRunAgentLoop_AppliesToolHooks(t *testing.T) {
 }
 
 func TestRunAgentLoop_CompletionHookErrorAborts(t *testing.T) {
+	errHookRejectedCompletion := errors.New("hook rejected completion")
+
 	model := &mockModel{
 		settings: agent.ModelSettings{},
 		ctxLimit: 100_000,
@@ -191,7 +193,7 @@ func TestRunAgentLoop_CompletionHookErrorAborts(t *testing.T) {
 
 	hook := &mockCompletionHook{
 		fn: func(ctx context.Context, c *agent.Completion) (*agent.Completion, error) {
-			return c, errors.New("hook rejected completion")
+			return c, errHookRejectedCompletion
 		},
 	}
 
@@ -208,12 +210,14 @@ func TestRunAgentLoop_CompletionHookErrorAborts(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected loop exit event, got %#v", events)
 	}
-	if exit.Err() == nil || !strings.Contains(exit.Err().Error(), "hook rejected completion") {
+	if exit.Err() == nil || !errors.Is(exit.Err(), errHookRejectedCompletion) {
 		t.Fatalf("expected hook error to abort loop, got %v", exit.Err())
 	}
 }
 
 func TestRunAgentLoop_ToolCallHookErrorIsReported(t *testing.T) {
+	errHookRejectedToolCall := errors.New("hook rejected tool call")
+
 	model := &mockModel{
 		settings: agent.ModelSettings{},
 		ctxLimit: 100_000,
@@ -230,7 +234,7 @@ func TestRunAgentLoop_ToolCallHookErrorIsReported(t *testing.T) {
 
 	hook := &mockToolCallHook{
 		fn: func(ctx context.Context, c *agent.ToolCall) (*agent.ToolCall, error) {
-			return nil, errors.New("hook rejected tool call")
+			return nil, errHookRejectedToolCall
 		},
 	}
 
@@ -247,7 +251,7 @@ func TestRunAgentLoop_ToolCallHookErrorIsReported(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool call error event, got %#v", events)
 	}
-	if !strings.Contains(toolErr.Err().Error(), "hook rejected tool call") {
+	if !errors.Is(toolErr.Err(), errHookRejectedToolCall) {
 		t.Fatalf("expected hook error in tool call error, got %v", toolErr.Err())
 	}
 

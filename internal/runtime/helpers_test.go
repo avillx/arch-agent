@@ -15,12 +15,12 @@ type mockCompletion struct {
 }
 
 type mockModel struct {
-	settings   agent.ModelSettings
-	ctxLimit   int64
-	responses  []mockCompletion
-	mu         sync.Mutex
-	idx        int
-	messages   [][]agent.Message
+	settings  agent.ModelSettings
+	ctxLimit  int64
+	responses []mockCompletion
+	mu        sync.Mutex
+	idx       int
+	messages  [][]agent.Message
 }
 
 func (m *mockModel) Settings() agent.ModelSettings {

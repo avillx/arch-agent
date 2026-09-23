@@ -16,7 +16,11 @@ const (
 	maxCompletionMistakes  = 3
 )
 
-var ErrContextOverflow = errors.New("context is overflow")
+var (
+	ErrContextOverflow  = errors.New("context is overflow")
+	ErrMaxTurnsExceeded = errors.New("max turns limit exceed")
+	ErrTooManyMistakes  = errors.New("agent makes too much mistakes")
+)
 
 // blocking
 func RunAgentLoop(
@@ -59,7 +63,7 @@ func RunAgentLoop(
 				completionMistakes++
 
 				if completionMistakes > maxCompletionMistakes {
-					evCh <- NewLoopExitEvent(fmt.Errorf("agent makes too much mistakes: %w", err))
+					evCh <- NewLoopExitEvent(ErrTooManyMistakes)
 					return
 				}
 
@@ -102,7 +106,7 @@ func RunAgentLoop(
 		}
 	}
 
-	evCh <- NewLoopExitEvent(fmt.Errorf("max turns limit exceed"))
+	evCh <- NewLoopExitEvent(ErrMaxTurnsExceeded)
 }
 
 func processCompletion(

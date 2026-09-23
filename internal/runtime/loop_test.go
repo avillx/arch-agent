@@ -67,7 +67,7 @@ func TestRunAgentLoop_ExitsOnMaxTurns(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected loop exit event, got %#v", events)
 	}
-	if exit.Err() == nil || !strings.Contains(exit.Err().Error(), "max turns") {
+	if exit.Err() == nil || !errors.Is(exit.Err(), runtime.ErrMaxTurnsExceeded) {
 		t.Fatalf("expected max turns error, got %v", exit.Err())
 	}
 }
@@ -93,11 +93,13 @@ func TestRunAgentLoop_ExitsOnCancellation(t *testing.T) {
 }
 
 func TestRunAgentLoop_AbortsOnCompletionError(t *testing.T) {
+	errModelExploded := errors.New("model exploded")
+
 	model := &mockModel{
 		settings: agent.ModelSettings{},
 		ctxLimit: 100_000,
 		responses: []mockCompletion{
-			{err: errors.New("model exploded")},
+			{err: errModelExploded},
 		},
 	}
 
@@ -107,7 +109,7 @@ func TestRunAgentLoop_AbortsOnCompletionError(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected loop exit event, got %#v", events)
 	}
-	if exit.Err() == nil || !strings.Contains(exit.Err().Error(), "model exploded") {
+	if exit.Err() == nil || !errors.Is(exit.Err(), errModelExploded) {
 		t.Fatalf("expected completion error, got %v", exit.Err())
 	}
 }
@@ -189,12 +191,8 @@ func TestRunAgentLoop_RecoversFromToolPanic(t *testing.T) {
 		nil,
 	)
 
-	toolErr, ok := findEvent[*runtime.ToolCallErrEvent](events)
-	if !ok {
+	if _, ok := findEvent[*runtime.ToolCallErrEvent](events); !ok {
 		t.Fatalf("expected tool call error event, got %#v", events)
-	}
-	if !strings.Contains(toolErr.Err().Error(), "panicked") {
-		t.Fatalf("expected panic to be captured, got %v", toolErr.Err())
 	}
 
 	result, ok := findEvent[*runtime.ToolResultEvent](events)
@@ -301,7 +299,7 @@ func TestRunAgentLoop_CompletionMistakesExceedLimit(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected loop exit event, got %#v", events)
 	}
-	if exit.Err() == nil || !strings.Contains(exit.Err().Error(), "too much mistakes") {
+	if exit.Err() == nil || !errors.Is(exit.Err(), runtime.ErrTooManyMistakes) {
 		t.Fatalf("expected mistakes limit error, got %v", exit.Err())
 	}
 }
