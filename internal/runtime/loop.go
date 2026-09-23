@@ -27,7 +27,7 @@ func RunAgentLoop(
 	tools []agent.Tool,
 	evCh chan Event,
 	hooks []any,
-) error {
+) {
 
 	completionMistakes := 0
 
@@ -35,7 +35,7 @@ func RunAgentLoop(
 		select {
 		case <-ctx.Done():
 			evCh <- NewLoopExitEvent(fmt.Errorf("context was canelled"))
-			return ctx.Err()
+			return
 		default:
 		}
 
@@ -49,7 +49,7 @@ func RunAgentLoop(
 				if err != nil {
 					err := fmt.Errorf("context overflow unhandled: %w", err)
 					evCh <- NewLoopExitEvent(err)
-					return err
+					return
 				}
 				continue
 			}
@@ -63,7 +63,7 @@ func RunAgentLoop(
 				if completionMistakes > maxCompletionMistakes {
 					err := fmt.Errorf("agent can't finish loop: %w", err)
 					evCh <- NewLoopExitEvent(err)
-					return err
+					return
 				}
 
 				agentMsg := agent.NewAgentMessage(completion.Content, nil)
@@ -77,7 +77,7 @@ func RunAgentLoop(
 
 			err := fmt.Errorf("completion processing: %w", err)
 			evCh <- NewLoopExitEvent(err)
-			return err
+			return
 		}
 		evCh <- NewCompleteEvent(completion)
 		agentMsg := agent.NewAgentMessage(completion.Content, completion.ToolCalls)
@@ -93,7 +93,7 @@ func RunAgentLoop(
 			if err != nil {
 				err := fmt.Errorf("thereshold compaction: %w", err)
 				evCh <- NewLoopExitEvent(err)
-				return err
+				return
 			}
 		}
 
@@ -103,13 +103,12 @@ func RunAgentLoop(
 
 		if completion.Done {
 			evCh <- NewLoopExitEvent(nil)
-			return nil
+			return
 		}
 	}
 
 	err := fmt.Errorf("max turns limit exceed")
 	evCh <- NewLoopExitEvent(err)
-	return err
 }
 
 func processCompletion(

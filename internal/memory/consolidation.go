@@ -159,7 +159,7 @@ func (m *ConsolidationService) consolidateMemoryFor(ctx context.Context, agt age
 		tools = append(tools, ts.Tools()...)
 	}
 
-	return runtime.RunAgentLoop(
+	runtime.RunAgentLoop(
 		ctx,
 		model,
 		messages,
@@ -167,6 +167,8 @@ func (m *ConsolidationService) consolidateMemoryFor(ctx context.Context, agt age
 		evCh,
 		m.resolveHooks(agt.ID()),
 	)
+
+	return nil
 }
 
 // without mutex
