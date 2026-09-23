@@ -17,6 +17,8 @@ const (
 	maxCompletionMistakes  = 3
 )
 
+var ErrContextOverflow = errors.New("context is overflow")
+
 // blocking
 func RunAgentLoop(
 	ctx context.Context,
