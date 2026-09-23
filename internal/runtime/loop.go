@@ -30,8 +30,8 @@ func RunAgentLoop(
 ) error {
 
 	completionMistakes := 0
-	maxTurns := resolveMaxTurns(model.Settings())
-	for i := 0; i < maxTurns; i++ {
+
+	for range resolveMaxTurns(model.Settings()) {
 		select {
 		case <-ctx.Done():
 			evCh <- NewLoopExitEvent(fmt.Errorf("context was canelled"))
