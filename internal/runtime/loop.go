@@ -47,8 +47,7 @@ func RunAgentLoop(
 			if errors.Is(err, ErrContextOverflow) {
 				messages, err = doCompact(ctx, model, messages, evCh)
 				if err != nil {
-					err := fmt.Errorf("context overflow unhandled: %w", err)
-					evCh <- NewLoopExitEvent(err)
+					evCh <- NewLoopExitEvent(fmt.Errorf("unhandled overflow: %w", err))
 					return
 				}
 				continue
@@ -61,8 +60,7 @@ func RunAgentLoop(
 				completionMistakes++
 
 				if completionMistakes > maxCompletionMistakes {
-					err := fmt.Errorf("agent can't finish loop: %w", err)
-					evCh <- NewLoopExitEvent(err)
+					evCh <- NewLoopExitEvent(fmt.Errorf("agent makes too much mistakes: %w", err))
 					return
 				}
 
@@ -75,8 +73,7 @@ func RunAgentLoop(
 				continue
 			}
 
-			err := fmt.Errorf("completion processing: %w", err)
-			evCh <- NewLoopExitEvent(err)
+			evCh <- NewLoopExitEvent(fmt.Errorf("completion processing: %w", err))
 			return
 		}
 		evCh <- NewCompleteEvent(completion)
@@ -91,8 +88,7 @@ func RunAgentLoop(
 		) {
 			messages, err = doCompact(ctx, model, messages, evCh)
 			if err != nil {
-				err := fmt.Errorf("thereshold compaction: %w", err)
-				evCh <- NewLoopExitEvent(err)
+				evCh <- NewLoopExitEvent(fmt.Errorf("thereshold compaction: %w", err))
 				return
 			}
 		}
@@ -107,8 +103,7 @@ func RunAgentLoop(
 		}
 	}
 
-	err := fmt.Errorf("max turns limit exceed")
-	evCh <- NewLoopExitEvent(err)
+	evCh <- NewLoopExitEvent(fmt.Errorf("max turns limit exceed"))
 }
 
 func processCompletion(
