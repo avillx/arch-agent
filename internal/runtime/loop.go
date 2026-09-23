@@ -73,7 +73,7 @@ func RunAgentLoop(
 				continue
 			}
 
-			evCh <- NewLoopExitEvent(fmt.Errorf("completion processing: %w", err))
+			evCh <- NewLoopExitEvent(fmt.Errorf("completion: %w", err))
 			return
 		}
 		evCh <- NewCompleteEvent(completion)
@@ -120,7 +120,7 @@ func processCompletion(
 		messages,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("completion: %w", err)
+		return nil, err
 	}
 
 	if len(hooks) > 0 {
