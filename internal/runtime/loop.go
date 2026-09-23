@@ -34,7 +34,7 @@ func RunAgentLoop(
 	for range resolveMaxTurns(model.Settings()) {
 		select {
 		case <-ctx.Done():
-			evCh <- NewLoopExitEvent(fmt.Errorf("context was canelled"))
+			evCh <- NewLoopExitEvent(ctx.Err())
 			return
 		default:
 		}
