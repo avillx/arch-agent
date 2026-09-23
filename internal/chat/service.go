@@ -201,7 +201,7 @@ func (s *Service) runAgentLoopWithCallbacks(
 
 		// loop exit event
 		case *runtime.LoopExitEvent:
-			if err := ev.Err(); err != nil {
+			if err := ev.Err(); err != nil && !errors.Is(err, context.Canceled) {
 				logger.Error("loop exit with error",
 					"error", err,
 				)
