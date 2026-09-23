@@ -201,12 +201,17 @@ func (s *Service) runAgentLoopWithCallbacks(
 
 		// loop exit event
 		case *runtime.LoopExitEvent:
-			if err := ev.Err(); err != nil && !errors.Is(err, context.Canceled) {
-				logger.Error("loop exit with error",
-					"error", err,
-				)
-			} else {
+
+			switch err := ev.Err(); {
+			case err == nil:
 				logger.Info("loop exit")
+
+			case errors.Is(err, context.Canceled):
+				ev = runtime.NewLoopExitEvent(nil)
+				logger.Info("loop interrupted")
+
+			default:
+				logger.Error("loop exit with error", "error", err)
 			}
 
 			if err := s.sessionSvc.Save(agentID, sess); err != nil {
