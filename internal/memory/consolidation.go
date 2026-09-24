@@ -114,6 +114,7 @@ func (m *ConsolidationService) load() error {
 	}
 
 	m.model = model
+	m.modelName = cfg.Model
 	m.instruction = cfg.Instruction
 	m.enabled = cfg.Enabled
 
@@ -227,7 +228,7 @@ func (m *ConsolidationService) consolidateInBackground(ctx context.Context) erro
 
 func (m *ConsolidationService) Run(ctx context.Context) {
 	for {
-		ticker := time.Tick(time.Until(nextExecution()))
+		ticker := time.Tick(time.Until(NextConsolidation(time.Now())))
 		select {
 		case <-ticker:
 			m.logger.Info("automatic consolidation started")
@@ -257,8 +258,7 @@ func (m *ConsolidationService) Run(ctx context.Context) {
 	}
 }
 
-func nextExecution() time.Time {
-	now := time.Now()
+func NextConsolidation(now time.Time) time.Time {
 	next := time.Date(now.Year(), now.Month(), now.Day(), 23, 0, 0, 0, now.Location())
 	if !next.After(now) {
 		next = next.Add(24 * time.Hour)
