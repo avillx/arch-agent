@@ -2,7 +2,9 @@ package agent
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 )
@@ -204,4 +206,66 @@ func ExcludeToolCallsData(msgs []Message, toolNames []ToolName) []Message {
 		}
 		return false
 	})
+}
+
+var (
+	ErrDiffirentTypes      = errors.New("messages types is diffirent")
+	ErrCantMergeToolResult = errors.New("tool result messages cant be merged")
+)
+
+// merge two messages with the same type.
+// ErrDiffirentTypes - on a and b is not matched
+// ErrCantMergeToolResult - a and b is a tool message
+// is is unknown type of messages
+func MergeMatchedPair(a, b Message) (Message, error) {
+
+	if reflect.TypeOf(a) != reflect.TypeOf(b) {
+		return nil, ErrDiffirentTypes
+	}
+
+	content := slices.Concat(a.Content(), b.Content())
+
+	switch typedA := a.(type) {
+	case *UserMessage:
+		return NewUserMessage(content), nil
+
+	case *AgentMessage:
+		callsA := typedA.ToolCalls()
+		// this way is guaranteed safe cast
+		callsB := b.(*AgentMessage).ToolCalls()
+		toolCalls := slices.Concat(callsA, callsB)
+
+		return NewAgentMessage(content, toolCalls), nil
+	case *SystemMessage:
+		return NewSystemMessage(content), nil
+	case *ToolResultMessage:
+		return nil, ErrCantMergeToolResult
+	}
+
+	return nil, fmt.Errorf("merge messages: unknown type of message %T", a)
+}
+
+func CollapseMatched(messages []Message) []Message {
+	if len(messages) == 0 {
+		return messages
+	}
+
+	mergedMessages := []Message{messages[0]}
+
+	for _, next := range messages[1:] {
+
+		last := mergedMessages[len(mergedMessages)-1]
+
+		mergedPair, err := MergeMatchedPair(last, next)
+		if err != nil {
+			// expected message is buisness logic execptions when messages cant
+			// be merged so we just go ahead without any merge
+			mergedMessages = append(mergedMessages, next)
+			continue
+		}
+
+		mergedMessages[len(mergedMessages)-1] = mergedPair
+	}
+
+	return mergedMessages
 }

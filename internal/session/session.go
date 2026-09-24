@@ -3,8 +3,8 @@ package session
 import (
 	"arch-agent/internal/agent"
 	"fmt"
-	"reflect"
 	"slices"
+	"sync"
 	"time"
 )
 
@@ -91,20 +91,52 @@ type sessionHeader struct {
 	outputTokens int64
 	createdAt    time.Time
 	updatedAt    time.Time
+	mu           sync.RWMutex
 
 	extras map[string]any
 }
 
-func (s *sessionHeader) ID() ID              { return s.id }
-func (s *sessionHeader) InputTokens() int64  { return s.inputTokens }
-func (s *sessionHeader) OutputTokens() int64 { return s.outputTokens }
+func (s *sessionHeader) ID() ID {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.id
+}
+
+func (s *sessionHeader) InputTokens() int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.inputTokens
+}
+
+func (s *sessionHeader) OutputTokens() int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.outputTokens
+}
+
 func (s *sessionHeader) CreatedAt() time.Time {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.createdAt
 }
+
 func (s *sessionHeader) UpdatedAt() time.Time {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.updatedAt
 }
-func (s *sessionHeader) Extras() map[string]any { return s.extras }
+
+func (s *sessionHeader) Extras() map[string]any {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.extras
+}
 
 func NewHeader(
 	id ID,
@@ -150,6 +182,9 @@ func NewRestoredSession(
 }
 
 func (s *session) GetLastAgentMessage() *agent.AgentMessage {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	for _, message := range slices.Backward(s.messages) {
 		if typedMessage, ok := message.(*agent.AgentMessage); ok {
 			return typedMessage
@@ -158,6 +193,9 @@ func (s *session) GetLastAgentMessage() *agent.AgentMessage {
 	return nil
 }
 func (s *session) GetLastUserMessage() *agent.UserMessage {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	for _, message := range slices.Backward(s.messages) {
 		if typedMessage, ok := message.(*agent.UserMessage); ok {
 			return typedMessage
@@ -167,57 +205,50 @@ func (s *session) GetLastUserMessage() *agent.UserMessage {
 }
 
 func (s *session) Messages() []agent.Message {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.messages
 }
 func (s *session) AddMessages(newMessages ...agent.Message) {
-
 	if len(newMessages) == 0 {
 		return
 	}
 
-	if len(s.messages) > 0 {
+	collapsed := agent.CollapseMatched(newMessages)
 
-		firstNewMessage := newMessages[0]
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-		messagesLastIdx := len(s.messages) - 1
-		lastMessage := s.messages[messagesLastIdx]
-
-		// Unite messages for keep order
-		if reflect.TypeOf(firstNewMessage) == reflect.TypeOf(lastMessage) {
-			switch typed := firstNewMessage.(type) {
-			case *agent.UserMessage:
-				unitedContent := slices.Concat(lastMessage.Content(), firstNewMessage.Content())
-				s.messages[messagesLastIdx] = agent.NewUserMessage(unitedContent)
-				newMessages = newMessages[1:]
-
-			case *agent.AgentMessage:
-
-				content := slices.Concat(firstNewMessage.Content(), lastMessage.Content())
-				firstMsgCalls := typed.ToolCalls()
-
-				// this way is guaranteed safe cast
-				lastMsgCalls := lastMessage.(*agent.AgentMessage).ToolCalls()
-
-				s.messages[messagesLastIdx] = agent.NewAgentMessage(content, slices.Concat(firstMsgCalls, lastMsgCalls))
-
-				newMessages = newMessages[1:]
-			}
-		}
+	if merged, err := agent.MergeMatchedPair(s.messages[len(s.messages)-1], collapsed[0]); err == nil {
+		s.messages[len(s.messages)-1] = merged
+		collapsed = collapsed[1:]
 	}
 
-	s.messages = append(s.messages, newMessages...)
+	s.messages = append(s.messages, collapsed...)
 }
 
 func (s *session) ApplyCompletion(completion *agent.Completion) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.inputTokens = completion.InputTokens
 	s.outputTokens = completion.CompletionTokens
 	s.messages = append(s.messages, agent.NewAgentMessage(completion.Content, completion.ToolCalls))
 }
 
 func (s *session) OverwriteMessages(inputTokens int64, new []agent.Message) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.inputTokens = inputTokens
 	s.outputTokens = 0
 	s.messages = new
 }
 
-func (s *session) SetExtras(e map[string]any) { s.extras = e }
+func (s *session) SetExtras(e map[string]any) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.extras = e
+}
