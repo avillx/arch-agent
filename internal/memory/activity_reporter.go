@@ -212,6 +212,7 @@ func (r *ActivityService) extractActivity(ctx context.Context, buf *messageBuffe
 		agent.NewUserMessage(buf.transcript()),
 	}
 
+	// TODO: replace model.Complete on a RunAgenLoop to eliminate buffer overflow case
 	completion, err := model.Complete(ctx, nil, msgs)
 	if err != nil {
 		return "", err
