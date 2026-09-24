@@ -19,9 +19,10 @@ type ConfigRepo interface {
 }
 
 type Service struct {
-	toolSvc    *tools.Service
-	configRepo ConfigRepo
-	logger     *slog.Logger
+	toolSvc       *tools.Service
+	configRepo    ConfigRepo
+	logger        *slog.Logger
+	serverFactory func(context.Context, MCPServerID, ServerGatewayConfig) (MCPServer, error)
 
 	servers map[MCPServerID]MCPServer
 	mu      sync.RWMutex
@@ -34,10 +35,11 @@ func NewService(
 	logger *slog.Logger,
 ) (*Service, error) {
 	svc := &Service{
-		toolSvc:    toolSvc,
-		configRepo: repo,
-		logger:     logger.WithGroup("mcp"),
-		servers:    make(map[MCPServerID]MCPServer),
+		toolSvc:       toolSvc,
+		configRepo:    repo,
+		logger:        logger.WithGroup("mcp"),
+		serverFactory: NewMCPServer,
+		servers:       make(map[MCPServerID]MCPServer),
 	}
 
 	if err := svc.load(ctx); err != nil {
@@ -129,7 +131,7 @@ func (s *Service) connectServers(ctx context.Context, cfgs map[MCPServerID]Serve
 
 func (s *Service) connectServer(ctx context.Context, id MCPServerID, cfg ServerGatewayConfig) error {
 
-	srv, err := NewMCPServer(ctx, id, cfg)
+	srv, err := s.serverFactory(ctx, id, cfg)
 	if err != nil {
 		return fmt.Errorf("mcp: server initialization: %w", err)
 	}
