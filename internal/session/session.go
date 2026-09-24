@@ -220,9 +220,11 @@ func (s *session) AddMessages(newMessages ...agent.Message) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if merged, err := agent.MergeMatchedPair(s.messages[len(s.messages)-1], collapsed[0]); err == nil {
-		s.messages[len(s.messages)-1] = merged
-		collapsed = collapsed[1:]
+	if len(s.messages) > 0 {
+		if merged, err := agent.MergeMatchedPair(s.messages[len(s.messages)-1], collapsed[0]); err == nil {
+			s.messages[len(s.messages)-1] = merged
+			collapsed = collapsed[1:]
+		}
 	}
 
 	s.messages = append(s.messages, collapsed...)
