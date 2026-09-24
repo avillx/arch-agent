@@ -5,6 +5,8 @@ import (
 	"log/slog"
 )
 
+var _ SessionsRepo = (*Service)(nil)
+
 type SessionsRepo interface {
 	Session(agentID agent.ID, SessionID ID) (Session, error)
 	Save(agentID agent.ID, Session Session) error
@@ -58,7 +60,7 @@ func (s *Service) Create(agentID agent.ID, instruction string) (ID, error) {
 	return newSession.ID(), nil
 }
 
-func (s *Service) Get(agentID agent.ID, id ID) (Session, error) {
+func (s *Service) Session(agentID agent.ID, id ID) (Session, error) {
 	return s.repo.Session(agentID, id)
 }
 
@@ -70,6 +72,6 @@ func (s *Service) Delete(agentID agent.ID, sessionID ID) error {
 	return s.repo.Delete(agentID, sessionID)
 }
 
-func (s *Service) Sessions(agentID agent.ID) ([]SessionHeader, error) {
+func (s *Service) Headers(agentID agent.ID) ([]SessionHeader, error) {
 	return s.repo.Headers(agentID)
 }

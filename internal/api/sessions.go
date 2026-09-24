@@ -54,7 +54,7 @@ func (h *sessionHandler) Get(w http.ResponseWriter, r *http.Request) Response {
 	agentID := agent.ID(r.PathValue("agent"))
 	sessID := session.ID(r.PathValue("session"))
 
-	sess, err := h.sessSvc.Get(agentID, sessID)
+	sess, err := h.sessSvc.Session(agentID, sessID)
 	if err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
 			return NewBadRequest("session is not exist")
@@ -75,7 +75,7 @@ func (h *sessionHandler) Sessions(w http.ResponseWriter, r *http.Request) Respon
 
 	dtos := []SessionHeaderDTO{}
 
-	sessions, err := h.sessSvc.Sessions(agentID)
+	sessions, err := h.sessSvc.Headers(agentID)
 	if err != nil {
 
 		// this route reaches only on agent is not exist

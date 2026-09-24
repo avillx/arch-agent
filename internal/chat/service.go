@@ -2,7 +2,6 @@ package chat
 
 import (
 	"arch-agent/internal/agent"
-	"arch-agent/internal/memory"
 	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"arch-agent/internal/types"
@@ -11,6 +10,10 @@ import (
 	"fmt"
 	"log/slog"
 )
+
+type ActivityLogger interface {
+	Commit(agent.ID, session.ID, []agent.Message)
+}
 
 type Request struct {
 	AgentID             agent.ID
@@ -58,36 +61,45 @@ type ChatExecutor interface {
 	Chat(ctx context.Context, r Request) error
 }
 
+type SystemMessageBuilder interface {
+	BuildSystemMessage(
+		ctx context.Context,
+		agt agent.Agent,
+		toolServers []agent.ToolServer,
+		sess session.Session,
+	) (*agent.SystemMessage, error)
+}
+
 type Service struct {
-	agentRepo        agent.Repo
-	sessionSvc       *session.Service
-	modelRepo        agent.ModelRegistry
-	toolRegistry     agent.ToolRegistry
-	contextAssembler *ContextAssembler
-	activitySvc      *memory.ActivityService
-	hooks            []any
-	logger           *slog.Logger
+	agentRepo            agent.Repo
+	sessionRepo          session.SessionsRepo
+	modelRepo            agent.ModelRegistry
+	toolRegistry         agent.ToolRegistry
+	systemMessageBuilder SystemMessageBuilder
+	activityLogger       ActivityLogger
+	hooks                []any
+	logger               *slog.Logger
 }
 
 func NewService(
 	agentRepo agent.Repo,
-	sessionSvc *session.Service,
+	sessionRepo session.SessionsRepo,
 	modelRepo agent.ModelRegistry,
 	toolRegistry agent.ToolRegistry,
-	contextAssembler *ContextAssembler,
-	activitySvc *memory.ActivityService,
+	systemMessageBuilder SystemMessageBuilder,
+	activityLogger ActivityLogger,
 	hooks []any,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
-		agentRepo:        agentRepo,
-		sessionSvc:       sessionSvc,
-		modelRepo:        modelRepo,
-		toolRegistry:     toolRegistry,
-		activitySvc:      activitySvc,
-		contextAssembler: contextAssembler,
-		hooks:            hooks,
-		logger:           logger.WithGroup("chat"),
+		agentRepo:            agentRepo,
+		sessionRepo:          sessionRepo,
+		modelRepo:            modelRepo,
+		toolRegistry:         toolRegistry,
+		activityLogger:       activityLogger,
+		systemMessageBuilder: systemMessageBuilder,
+		hooks:                hooks,
+		logger:               logger.WithGroup("chat"),
 	}
 }
 
@@ -120,7 +132,7 @@ func (s *Service) Chat(
 	}
 
 	// session
-	sess, err := s.sessionSvc.Get(agt.ID(), r.SessionID)
+	sess, err := s.sessionRepo.Session(agt.ID(), r.SessionID)
 	if err != nil {
 		return err
 	}
@@ -128,7 +140,7 @@ func (s *Service) Chat(
 	sess.AddMessages(r.UserMessage)
 
 	// build context
-	systemMessage, err := s.contextAssembler.BuildSystemMessage(
+	systemMessage, err := s.systemMessageBuilder.BuildSystemMessage(
 		ctx,
 		agt,
 		toolServers,
@@ -143,7 +155,7 @@ func (s *Service) Chat(
 	agentContext = append(agentContext, sess.Messages()...)
 
 	if r.Logging {
-		s.activitySvc.Commit(agt.ID(), sess.ID(), []agent.Message{r.UserMessage})
+		s.activityLogger.Commit(agt.ID(), sess.ID(), []agent.Message{r.UserMessage})
 	}
 
 	// inject id's
@@ -214,7 +226,7 @@ func (s *Service) runAgentLoopWithCallbacks(
 				logger.Error("loop exit with error", "error", err)
 			}
 
-			if err := s.sessionSvc.Save(agentID, sess); err != nil {
+			if err := s.sessionRepo.Save(agentID, sess); err != nil {
 				logger.Error("save session", "error", err)
 			}
 
@@ -240,7 +252,7 @@ func (s *Service) runAgentLoopWithCallbacks(
 				msg := agent.NewAgentMessage(completion.Content, completion.ToolCalls)
 				msgs := []agent.Message{msg}
 
-				s.activitySvc.Commit(agentID, sess.ID(), msgs)
+				s.activityLogger.Commit(agentID, sess.ID(), msgs)
 			}
 
 		// completion mistake

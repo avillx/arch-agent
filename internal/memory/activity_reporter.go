@@ -9,10 +9,13 @@ import (
 	"time"
 
 	"arch-agent/internal/agent"
+	"arch-agent/internal/chat"
 	"arch-agent/internal/prompt"
 	"arch-agent/internal/session"
 	"arch-agent/internal/types"
 )
+
+var _ chat.ActivityLogger = (*ActivityService)(nil)
 
 type sessionKey struct {
 	AgentID   agent.ID
