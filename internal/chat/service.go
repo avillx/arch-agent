@@ -209,6 +209,8 @@ func (s *Service) runAgentLoopWithCallbacks(
 	}()
 
 	for rawEv := range evCh {
+		outEv := rawEv
+
 		switch ev := rawEv.(type) {
 
 		// loop exit event
@@ -219,7 +221,7 @@ func (s *Service) runAgentLoopWithCallbacks(
 				logger.Info("loop exit")
 
 			case errors.Is(err, context.Canceled):
-				ev = runtime.NewLoopExitEvent(nil)
+				outEv = runtime.NewLoopExitEvent(nil)
 				logger.Info("loop interrupted")
 
 			default:
@@ -285,7 +287,7 @@ func (s *Service) runAgentLoopWithCallbacks(
 		}
 
 		// forward to origin
-		sink <- rawEv
+		sink <- outEv
 	}
 }
 
