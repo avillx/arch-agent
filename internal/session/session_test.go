@@ -62,11 +62,11 @@ func TestAddMessages_MergesConsecutiveAgentMessages(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *agent.AgentMessage, got %T", messages[0])
 	}
-	wantContent := []string{"new", "old"}
+	wantContent := []string{"old", "new"}
 	if !reflect.DeepEqual(contentTexts(got.Content()), wantContent) {
 		t.Fatalf("unexpected content %v, want %v", contentTexts(got.Content()), wantContent)
 	}
-	wantCalls := []*agent.ToolCall{newCall, oldCall}
+	wantCalls := []*agent.ToolCall{oldCall, newCall}
 	if !reflect.DeepEqual(got.ToolCalls(), wantCalls) {
 		t.Fatalf("unexpected tool calls %v, want %v", got.ToolCalls(), wantCalls)
 	}
