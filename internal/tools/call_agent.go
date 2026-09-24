@@ -17,11 +17,12 @@ type CallAgentToolServer struct {
 	agentRepo agent.Repo
 }
 
-func NewCallAgentToolServer(s *subagent.Service, agentRepo agent.Repo) *CallAgentToolServer {
+func NewCallAgentToolServer(s *subagent.Service, logger *slog.Logger, agentRepo agent.Repo) *CallAgentToolServer {
 	return &CallAgentToolServer{
 		agentRepo: agentRepo,
 		BuildInToolServer: NewBuildInToolServer(
 			&CallAgentTool{
+				logger:      logger.WithGroup("subagent_tool"),
 				subagentSvc: s,
 			},
 		),
@@ -30,7 +31,7 @@ func NewCallAgentToolServer(s *subagent.Service, agentRepo agent.Repo) *CallAgen
 
 func (t *CallAgentToolServer) AgentInstruction(agt agent.Agent) string {
 	const instruction = `## Call Agents:
-You can call another agent as sub agent for delegateing task 
+You can call another agent as sub agent for delegateing task
 to other agent with diffirent capabilities.
 Also can call another yourself instance for keep context clean,
 do it when operation too complex (5+ toolcalls).
@@ -65,6 +66,7 @@ then agent need full request with clarificaton again.
 
 type CallAgentTool struct {
 	subagentSvc *subagent.Service
+	logger      *slog.Logger
 }
 
 func (t *CallAgentTool) Name() agent.ToolName {
@@ -113,17 +115,25 @@ func (t *CallAgentTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 
 	if err != nil {
 		if errors.Is(err, subagent.ErrCallStackOverflow) {
-			return Result(res), nil
+			msg := "You already called as sub agent, solove problem by youself"
+			return nil, types.NewAgentMistakeError(msg)
 		}
 
 		if errors.Is(err, types.ErrIsNotExist) {
 			return nil, types.NewAgentMistakeError(err.Error())
 		}
 
-		res = fmt.Sprintf("%s. agent %s has errors when processing your request", res, args.Name)
-	} else {
-		res = fmt.Sprintf("# Agent %s respones:\n%s", args.Name, res)
+		agent := MustAgentID(ctx)
+		sessID := MustSessionID(ctx)
+		t.logger.Error("agent has problems with sub agent",
+			"agent", agent,
+			"session", sessID,
+			"subagent", args.Name,
+			"error", err,
+		)
+		return nil, types.NewAgentMistakeError("problem to call agent %s")
 	}
 
-	return Result(res), err
+	msg := fmt.Sprintf("# Agent %s respones:\n%s", args.Name, res)
+	return Result(msg), nil
 }

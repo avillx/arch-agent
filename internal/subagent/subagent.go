@@ -82,10 +82,7 @@ func (s *Service) Call(
 
 	logger.Info("running")
 
-	// if sub agent loop exit with error
-	// agent alrady recieve message about issues
-	// cause alredy logged
-	s.chatExecutor.Chat(
+	if err := s.chatExecutor.Chat(
 		ctx,
 		chat.Request{
 			AgentID:     subAgentID,
@@ -94,7 +91,9 @@ func (s *Service) Call(
 			Logging:     false,
 			Sink:        evCh,
 		},
-	)
+	); err != nil {
+		return "", err
+	}
 
 	return lastAgentMessageContent, nil
 }

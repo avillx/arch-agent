@@ -225,7 +225,7 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 	toolSvc.Connect("todo", todo.NewTodoToolServer(todoStorage))
 	toolSvc.Connect("agent", tools.NewCallAgentToolServer(
 		subagent.NewService(chatSvc, sessSvc, logger),
-		agentRepo,
+		logger, agentRepo,
 	))
 
 	memoryHooksResolver, err := hooks.NewMemoryHooksResolver(memoryFiles)
