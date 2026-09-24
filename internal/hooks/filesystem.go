@@ -15,10 +15,10 @@ import (
 	doublestar "github.com/bmatcuk/doublestar/v4"
 )
 
-var readFileToolName = (&fstools.ReadTool{}).Name()   // read_file
-var editFileToolName = (&fstools.EditTool{}).Name()   // edit_file
-var moveFileToolName = (&fstools.MoveTool{}).Name()   // move_file
-var writeFileToolName = (&fstools.WriteTool{}).Name() // write_file
+var readToolName = (&fstools.ReadTool{}).Name()
+var editToolName = (&fstools.EditTool{}).Name()
+var moveToolName = (&fstools.MoveTool{}).Name()
+var writeToolName = (&fstools.WriteTool{}).Name()
 var errIsNotFileTool = errors.New("is not file tools")
 
 type Access int
@@ -111,9 +111,9 @@ func (h *FileAccessHook) verifyPath(toolName agent.ToolName, p string) error {
 
 func isAllow(toolName agent.ToolName, a Access) bool {
 	switch toolName {
-	case readFileToolName:
+	case readToolName:
 		return a > No
-	case editFileToolName, writeFileToolName, moveFileToolName:
+	case editToolName, writeToolName, moveToolName:
 		return a > Read
 	default:
 		return false
@@ -127,7 +127,7 @@ func containsSymlink(p string) (bool, error) {
 		if err == nil {
 			return resolved != cur, nil
 		}
-		if !os.IsNotExist(err) {
+		if !errors.Is(err, os.ErrNotExist) {
 			return false, err
 		}
 		parent := filepath.Dir(cur)
@@ -142,9 +142,9 @@ func resolvePaths(tc *agent.ToolCall) ([]string, error) {
 
 	switch tc.ToolName {
 	case
-		readFileToolName,
-		editFileToolName,
-		writeFileToolName:
+		readToolName,
+		editToolName,
+		writeToolName:
 
 		args, err := tools.UnwrapArgs[struct {
 			Path string `json:"path"`
@@ -155,7 +155,7 @@ func resolvePaths(tc *agent.ToolCall) ([]string, error) {
 
 		return []string{args.Path}, err
 
-	case moveFileToolName:
+	case moveToolName:
 
 		args, err := tools.UnwrapArgs[struct {
 			Src string `json:"src"`
