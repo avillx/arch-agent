@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -155,6 +156,21 @@ func (m *chatMockModel) Complete(ctx context.Context, tools []agent.Tool, msgs [
 	resp := m.responses[m.idx]
 	m.idx++
 	return resp.completion, resp.err
+}
+
+// dispatcherModel implements agent.Model for dispatcher tests, where two requests
+// run concurrently; it keeps no mutable state.
+type dispatcherModel struct {
+	completeFn func(context.Context, []agent.Tool, []agent.Message) (*agent.Completion, error)
+}
+
+func (m *dispatcherModel) Settings() agent.ModelSettings { return agent.ModelSettings{} }
+func (m *dispatcherModel) ContextLimit() int64           { return 100_000 }
+func (m *dispatcherModel) SupportedModalities() []agent.Modality {
+	return []agent.Modality{agent.TextModality}
+}
+func (m *dispatcherModel) Complete(ctx context.Context, tools []agent.Tool, msgs []agent.Message) (*agent.Completion, error) {
+	return m.completeFn(ctx, tools, msgs)
 }
 
 // mockTool implements agent.Tool.
@@ -765,5 +781,66 @@ func TestChat_CanceledLoopEventNotForwarded(t *testing.T) {
 
 	if !sessionsRepo.saved {
 		t.Fatal("expected session to be saved on cancellation")
+	}
+}
+
+func TestDispatcher_NewRequestCancelsPrevious(t *testing.T) {
+	var calls atomic.Int32
+
+	firstStarted := make(chan struct{})
+	firstCanceled := make(chan struct{})
+
+	model := &dispatcherModel{
+		completeFn: func(ctx context.Context, tools []agent.Tool, msgs []agent.Message) (*agent.Completion, error) {
+			if calls.Add(1) == 1 {
+				close(firstStarted)
+				<-ctx.Done()
+				close(firstCanceled)
+			}
+			return &agent.Completion{Done: true, Content: "final"}, nil
+		},
+	}
+
+	svc := newTestService(
+		t,
+		&mockAgentRepo{getFn: func(agent.ID) (agent.Agent, error) {
+			return newMockAgent("agent-1"), nil
+		}},
+		&mockSessionsRepo{sess: newTestSession("sess-1")},
+		&mockModelRegistry{model: model},
+		&mockToolRegistry{},
+		&mockSystemMessageBuilder{msg: agent.NewSystemMessage("system")},
+		&mockActivityLogger{},
+	)
+	d := chat.NewDispatcher(svc)
+
+	firstErr := make(chan error, 1)
+	go func() {
+		firstErr <- d.Chat(context.Background(), newChatRequest())
+	}()
+
+	select {
+	case <-firstStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("first request did not reach the model call")
+	}
+
+	if err := d.Chat(context.Background(), newChatRequest()); err != nil {
+		t.Fatalf("unexpected second chat error: %v", err)
+	}
+
+	select {
+	case <-firstCanceled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("previous request was not canceled")
+	}
+
+	select {
+	case err := <-firstErr:
+		if err != nil {
+			t.Fatalf("unexpected first chat error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("previous request did not return")
 	}
 }
