@@ -68,7 +68,8 @@ type todoStorage interface {
 
 const maxIncomplitedTodoAttempts = 3
 
-// todo harness
+// TODO: now agent runtime is control mistakes in compltions and drop loop agter
+// several bad attempts to stop without result. attemt counter is not actual anymore
 var _ runtime.CompletionHook = (*UndoneTodoHook)(nil)
 
 type UndoneTodoHook struct {
