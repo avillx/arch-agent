@@ -54,7 +54,13 @@ func (f *File) Close() error {
 	return f.File.Close()
 }
 
+type OpenFileStorage interface {
+	OpenFile(name string, flag int, perm FileMode) (*File, error)
+	Open(name string) (*File, error)
+}
+
 type FileStorage interface {
+	OpenFileStorage
 	Chmod(name string, mode FileMode) error
 	Chown(name string, uid int, gid int) error
 	Chtimes(name string, atime time.Time, mtime time.Time) error
@@ -67,8 +73,6 @@ type FileStorage interface {
 	Mkdir(name string, perm FileMode) error
 	MkdirAll(name string, perm FileMode) error
 	Name() string
-	Open(name string) (*File, error)
-	OpenFile(name string, flag int, perm FileMode) (*File, error)
 	// OpenRoot(name string) (*fileStorage, error)
 	ReadFile(name string) ([]byte, error)
 	Readlink(name string) (string, error)

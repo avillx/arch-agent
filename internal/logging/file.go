@@ -13,13 +13,13 @@ const AgentLogFile = "agent.log"
 var _ io.Writer = (*LogFile)(nil)
 
 type LogFile struct {
-	storage  files.FileStorage
+	storage  files.OpenFileStorage
 	fileName string
 
 	mu sync.Mutex
 }
 
-func NewLogFile(storage files.FileStorage) *LogFile {
+func NewLogFile(storage files.OpenFileStorage) *LogFile {
 	return &LogFile{
 		storage:  storage,
 		fileName: AgentLogFile,
