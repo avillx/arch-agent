@@ -105,6 +105,24 @@ func TestAddMessages_NoopWhenEmpty(t *testing.T) {
 	}
 }
 
+func TestAddMessages_ColdStartEmptySession(t *testing.T) {
+	s := session.NewSession("test-session")
+
+	s.AddMessages(agent.NewUserMessage("hello"))
+
+	messages := s.Messages()
+	if len(messages) != 1 {
+		t.Fatalf("expected 1 message, got %d", len(messages))
+	}
+	got, ok := messages[0].(*agent.UserMessage)
+	if !ok {
+		t.Fatalf("expected *agent.UserMessage, got %T", messages[0])
+	}
+	if want := []string{"hello"}; !reflect.DeepEqual(contentTexts(got.Content()), want) {
+		t.Fatalf("unexpected content %v, want %v", contentTexts(got.Content()), want)
+	}
+}
+
 func TestApplyCompletion_AppendsAgentMessage(t *testing.T) {
 	call := newToolCall("call-1")
 	s := newSession(t, agent.NewUserMessage("hello"))
