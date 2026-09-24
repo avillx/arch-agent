@@ -1,7 +1,6 @@
 package cleanup
 
 import (
-	"arch-agent/internal/logging"
 	"context"
 	"fmt"
 	"log/slog"
@@ -19,9 +18,13 @@ type CleanUpConfig struct {
 	CleanUpInterval time.Duration
 }
 
+type LogTrimmer interface {
+	Trim(maxLines int) error
+}
+
 type CleanUpService struct {
 	sessionsCleaner *SessionsCleaner
-	logFile         *logging.LogFile
+	logTrimmer      LogTrimmer
 	logger          *slog.Logger
 
 	cfg CleanUpConfig
@@ -30,7 +33,7 @@ type CleanUpService struct {
 func NewCleanUpService(
 	cfg CleanUpConfig,
 	sessionsCleaner *SessionsCleaner,
-	logFile *logging.LogFile,
+	logTrimmer LogTrimmer,
 	logger *slog.Logger,
 ) (*CleanUpService, error) {
 
@@ -45,7 +48,7 @@ func NewCleanUpService(
 	return &CleanUpService{
 		cfg:             cfg,
 		sessionsCleaner: sessionsCleaner,
-		logFile:         logFile,
+		logTrimmer:      logTrimmer,
 		logger:          logger.WithGroup("cleanup"),
 	}, nil
 }
@@ -76,7 +79,7 @@ func (s *CleanUpService) doCleanUp() {
 	}
 
 	s.logger.Info("cleaning log")
-	if err := s.logFile.Trim(s.cfg.MaxLogLines); err != nil {
+	if err := s.logTrimmer.Trim(s.cfg.MaxLogLines); err != nil {
 		s.logger.Error("agent log file", "error", err)
 	}
 }
