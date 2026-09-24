@@ -12,6 +12,10 @@ import (
 	"time"
 )
 
+type TaskExecutor interface {
+	Execute(ctx context.Context, t TaskConfig)
+}
+
 type taskRuntime struct {
 	cancel  context.CancelFunc
 	stopped chan struct{}
@@ -22,7 +26,7 @@ type Service struct {
 	mu          sync.Mutex
 	repo        TaskRepo
 	runtimes    map[string]*taskRuntime
-	executor    *executor
+	executor    TaskExecutor
 	cronFactory func(string) (Cron, error)
 	agentRepo   agent.Repo
 	logger      *slog.Logger
@@ -30,7 +34,7 @@ type Service struct {
 
 func NewService(
 	repo TaskRepo,
-	executor *executor,
+	executor TaskExecutor,
 	cronFactory func(string) (Cron, error),
 	agentRepo agent.Repo,
 	logger *slog.Logger,
@@ -139,7 +143,7 @@ func (s *Service) start(cfg TaskConfig) error {
 	s.runtimes[cfg.Name] = rt
 
 	go func() {
-		runLoop(ctx, cron, cfg, s.executor.execute)
+		runLoop(ctx, cron, cfg, s.executor.Execute)
 		close(stopped)
 
 		s.mu.Lock()

@@ -10,6 +10,8 @@ import (
 	"log/slog"
 )
 
+var _ TaskExecutor = (*executor)(nil)
+
 type executor struct {
 	sessionSvc   *session.Service
 	chatExecutor chat.ChatExecutor
@@ -28,7 +30,7 @@ func NewExecutor(
 	}
 }
 
-func (s *executor) execute(ctx context.Context, t TaskConfig) {
+func (s *executor) Execute(ctx context.Context, t TaskConfig) {
 
 	logger := s.logger.With("task", t.Name)
 
