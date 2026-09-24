@@ -17,12 +17,11 @@ type CallAgentToolServer struct {
 	agentRepo agent.Repo
 }
 
-func NewCallAgentToolServer(s *subagent.Service, logger *slog.Logger, agentRepo agent.Repo) *CallAgentToolServer {
+func NewCallAgentToolServer(s *subagent.Service, agentRepo agent.Repo) *CallAgentToolServer {
 	return &CallAgentToolServer{
 		agentRepo: agentRepo,
 		BuildInToolServer: NewBuildInToolServer(
 			&CallAgentTool{
-				logger:      logger.WithGroup("subagent_tool"),
 				subagentSvc: s,
 			},
 		),
@@ -66,7 +65,6 @@ then agent need full request with clarificaton again.
 
 type CallAgentTool struct {
 	subagentSvc *subagent.Service
-	logger      *slog.Logger
 }
 
 func (t *CallAgentTool) Name() agent.ToolName {
@@ -123,14 +121,6 @@ func (t *CallAgentTool) Call(ctx context.Context, rawArgs agent.ToolArguments) (
 			return nil, types.NewAgentMistakeError(err.Error())
 		}
 
-		agent := MustAgentID(ctx)
-		sessID := MustSessionID(ctx)
-		t.logger.Error("agent has problems with sub agent",
-			"agent", agent,
-			"session", sessID,
-			"subagent", args.Name,
-			"error", err,
-		)
 		return nil, types.NewAgentMistakeError("problem to call agent %s")
 	}
 

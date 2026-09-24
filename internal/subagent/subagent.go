@@ -54,44 +54,54 @@ func (s *Service) Call(
 
 	logger := s.logger.With("sub_agent", subAgentID, "session", sessID)
 
-	// sink
-	lastAgentMessageContent := ""
-
-	// event callbacks
-
 	evCh := make(chan runtime.Event, 16)
-	defer close(evCh)
-	go func() {
-		for e := range evCh {
-			switch ev := e.(type) {
-			case *runtime.LoopExitEvent:
-				if ev.Err() != nil {
-					message := fmt.Sprintf("sub agent %s, fall with error", subAgentID)
-					lastAgentMessageContent += message
+	chatErrCh := make(chan error, 1)
 
-					logger.Error(
-						"fall with error",
-						"error", err,
-					)
-				}
-			case *runtime.CompleteEvent:
-				lastAgentMessageContent = ev.Complete().Content
-			}
-		}
+	go func() {
+		err := s.chatExecutor.Chat(
+			ctx,
+			chat.Request{
+				AgentID:     subAgentID,
+				SessionID:   sessID,
+				UserMessage: agent.NewUserMessage(request),
+				Logging:     false,
+				Sink:        evCh,
+			},
+		)
+		close(evCh)
+		chatErrCh <- err
 	}()
 
 	logger.Info("running")
 
-	if err := s.chatExecutor.Chat(
-		ctx,
-		chat.Request{
-			AgentID:     subAgentID,
-			SessionID:   sessID,
-			UserMessage: agent.NewUserMessage(request),
-			Logging:     false,
-			Sink:        evCh,
-		},
-	); err != nil {
+	lastAgentMessageContent := ""
+
+	for ev := range evCh {
+		switch ev := ev.(type) {
+		case *runtime.LoopExitEvent:
+			if ev.Err() != nil {
+				message := fmt.Sprintf("sub agent %s, fall with error", subAgentID)
+				lastAgentMessageContent += message
+
+				logger.Error(
+					"fall with error",
+					"error", ev.Err(),
+				)
+			}
+		case *runtime.CompleteEvent:
+			lastAgentMessageContent = ev.Complete().Content
+		}
+	}
+
+	if err := <-chatErrCh; err != nil {
+		agentID, _ := chat.AgentIDFromContext(ctx)
+		sessID, _ := chat.SessionIDFromContext(ctx)
+		s.logger.Error("agent has problems with sub agent",
+			"agent", agentID,
+			"session", sessID,
+			"subagent", subAgentID,
+			"error", err,
+		)
 		return "", err
 	}
 
