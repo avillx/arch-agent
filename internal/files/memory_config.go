@@ -48,11 +48,6 @@ const memoryConfigDoc string = `# Memory config
 # Do not touch this comment!
 # After edit, ensure file consistency and comment integrity`
 
-type MemoryConfigDTO struct {
-	Consolidator *memory.ConsolidatorConfig `toml:"consolidation,omitempty"`
-	Activity     *memory.ActivityConfig     `toml:"activity,omitempty"`
-}
-
 type MemoryFile struct {
 	storage FileStorage
 
@@ -189,6 +184,11 @@ func (r *ConsolidatorRepo) Load() (memory.ConsolidatorConfig, error) {
 	}
 
 	return memory.ConsolidatorConfig{}, nil
+}
+
+type MemoryConfigDTO struct {
+	Consolidator *memory.ConsolidatorConfig `toml:"consolidation,omitempty"`
+	Activity     *memory.ActivityConfig     `toml:"activity,omitempty"`
 }
 
 // memoSent
