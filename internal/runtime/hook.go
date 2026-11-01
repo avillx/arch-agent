@@ -5,6 +5,8 @@ import (
 	"context"
 )
 
+// TODO:
+// Rename to PostCompletion / PreToolCall / PostToolCall
 type CompletionHook Hook[*agent.Completion]
 type ToolCallHook Hook[*agent.ToolCall]
 type ToolResultHook Hook[*AfterToolCall]
