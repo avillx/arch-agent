@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	rt "runtime"
 	"strings"
 	"time"
@@ -82,7 +81,7 @@ func (t *ShellTool) Schema() any {
 			Name:        "cwd",
 			Required:    false,
 			Type:        agent.TypeString,
-			Description: "Working directory (default \".\")",
+			Description: fmt.Sprintf("Working directory (default %s)", t.defaultCWD),
 		},
 		{
 			Name:        "timeout",
@@ -116,8 +115,11 @@ func (t *ShellTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]ag
 	envs = append(envs, metadataToEnv(ctx)...)
 
 	cmd := exec.Command(shell, append(shellAttributes, args.Command)...)
+	cmd.Dir = t.defaultCWD
+	if args.Cwd != "" {
+		cmd.Dir = args.Cwd
+	}
 	cmd.Env = envs
-	cmd.Dir = filepath.Join(t.defaultCWD, args.Cwd)
 	cmd.SysProcAttr = platformSpecificSysProcAttr()
 	cmd.WaitDelay = waitDelayAfterShellExit
 
