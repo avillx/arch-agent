@@ -10,9 +10,9 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-const shell = "powershell.exe"
+const defaultShell = "powershell.exe"
 
-var shellAttributes = []string{"-NoProfile", "-NonInteractive", "-Command"}
+var defaultShellAttributes = []string{"-NoProfile", "-NonInteractive", "-Command"}
 
 type processGroup struct {
 	jobHandle     windows.Handle

@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -79,6 +80,8 @@ func LoadConfig() (wire.Config, error) {
 	cleanupInterval := getEnv("CLEAN_UP_INTERVAL", "12")
 	sessRetention := getEnv("SESSION_RETENTION", "240")
 	maxLogLines := getEnv("MAX_LOG_LINES", "1000")
+	agentShell := getEnv("AGENT_SHELL", "")
+	agentShellAttribues := getEnv("AGENT_SHELL_ATTRIBUTES", "")
 
 	cleanupIntervalInt, err := strconv.ParseInt(cleanupInterval, 10, 64)
 	if err != nil {
@@ -116,14 +119,16 @@ func LoadConfig() (wire.Config, error) {
 	}
 
 	return wire.Config{
-		DataPath:        dataPath,
-		Port:            port,
-		LogIndented:     logIndentedBool,
-		LogSource:       logSourceBool,
-		LogLevel:        logLevelTyped,
-		LogJSON:         logJSONBool,
-		SessRetention:   time.Duration(sessRetentionInt) * time.Hour,
-		CleanUpInterval: time.Duration(cleanupIntervalInt) * time.Hour,
-		MaxLogLines:     int(maxLogLinesInt),
+		DataPath:            dataPath,
+		Port:                port,
+		LogIndented:         logIndentedBool,
+		LogSource:           logSourceBool,
+		LogLevel:            logLevelTyped,
+		LogJSON:             logJSONBool,
+		SessRetention:       time.Duration(sessRetentionInt) * time.Hour,
+		CleanUpInterval:     time.Duration(cleanupIntervalInt) * time.Hour,
+		MaxLogLines:         int(maxLogLinesInt),
+		AgentShell:          agentShell,
+		AgentShellAttribues: strings.Split(agentShellAttribues, " "),
 	}, nil
 }

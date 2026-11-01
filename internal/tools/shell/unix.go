@@ -7,9 +7,9 @@ import (
 	"syscall"
 )
 
-const shell = "/bin/sh"
+const defaultShell = "/bin/sh"
 
-var shellAttributes = []string{"-c"}
+var defaultShellAttributes = []string{"-c"}
 
 type processGroup struct {
 	// Unix doesn't need to store handles, process group is managed by kernel

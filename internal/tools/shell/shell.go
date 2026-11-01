@@ -23,24 +23,48 @@ type SecretsSource interface {
 
 type ShellToolServer struct {
 	*tools.BuildInToolServer
+	instruction string
 }
 
-func NewShellToolServer(defaultCWD string, secretsSource SecretsSource) *ShellToolServer {
+// customShell is not required. leave it "" if you not need in it
+// customShellAttributes dosent apply if customShell is ""
+func NewShellToolServer(
+	cwd string,
+	secretsSource SecretsSource,
+	shell string,
+	shellAttributes []string,
+) *ShellToolServer {
+
+	if shell == "" {
+		shell = defaultShell
+	}
+
+	if shell == defaultShell && len(shellAttributes) <= 0 {
+		shellAttributes = defaultShellAttributes
+	}
+
 	return &ShellToolServer{
+		instruction: renderInstruction(rt.GOOS, shell),
 		BuildInToolServer: tools.NewBuildInToolServer(
 			&ShellTool{
-				secretsSource: secretsSource,
-				defaultCWD:    defaultCWD,
+				secretsSource:   secretsSource,
+				cwd:             cwd,
+				shell:           shell,
+				shellAttributes: shellAttributes,
 			},
 		),
 	}
 }
 
 func (t *ShellToolServer) Instruction() string {
+	return t.instruction
+}
+
+func renderInstruction(os, shell string) string {
 	return `## Shell Tool
 
-- Current OS is "` + rt.GOOS + `."
-- Your shell is "` + shell + `"
+- Current OS is "` + os + `."
+- Your shell is "` + shell + `, command should be available in this shell"
 - Each call runs in a fresh shell session — no state persists between calls
 - Default timeout: 30s. Set "timeout" for longer operations (builds, tests)
 - Use "cwd" parameter instead of cd within commands
@@ -52,8 +76,10 @@ func (t *ShellToolServer) Instruction() string {
 var _ agent.Tool = (*ShellTool)(nil)
 
 type ShellTool struct {
-	secretsSource SecretsSource
-	defaultCWD    string
+	secretsSource   SecretsSource
+	cwd             string
+	shell           string
+	shellAttributes []string
 }
 
 func (t *ShellTool) Name() agent.ToolName {
@@ -81,7 +107,7 @@ func (t *ShellTool) Schema() any {
 			Name:        "cwd",
 			Required:    false,
 			Type:        agent.TypeString,
-			Description: fmt.Sprintf("Working directory (default %s)", t.defaultCWD),
+			Description: fmt.Sprintf("Working directory (default %s)", t.cwd),
 		},
 		{
 			Name:        "timeout",
@@ -114,8 +140,8 @@ func (t *ShellTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]ag
 	envs = append(envs, secrets...)
 	envs = append(envs, metadataToEnv(ctx)...)
 
-	cmd := exec.Command(shell, append(shellAttributes, args.Command)...)
-	cmd.Dir = t.defaultCWD
+	cmd := exec.Command(t.shell, append(t.shellAttributes, args.Command)...)
+	cmd.Dir = t.cwd
 	if args.Cwd != "" {
 		cmd.Dir = args.Cwd
 	}

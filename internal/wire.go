@@ -46,6 +46,9 @@ type Config struct {
 	MaxLogLines     int
 	SessRetention   time.Duration
 	CleanUpInterval time.Duration
+
+	AgentShell          string
+	AgentShellAttribues []string
 }
 
 func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
@@ -220,12 +223,17 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		return nil, err
 	}
 	toolSvc.Connect("filesystem", fsToolSrv)
-	toolSvc.Connect("shell", shell.NewShellToolServer(cfg.DataPath, secretService))
 	toolSvc.Connect("web", fetch.NewFetchToolServer())
 	toolSvc.Connect("todo", todo.NewTodoToolServer(todoStorage))
 	toolSvc.Connect("agent", tools.NewCallAgentToolServer(
 		subagent.NewService(chatSvc, sessSvc, logger),
 		agentRepo,
+	))
+	toolSvc.Connect("shell", shell.NewShellToolServer(
+		cfg.DataPath,
+		secretService,
+		cfg.AgentShell,
+		cfg.AgentShellAttribues,
 	))
 
 	memoryHooksResolver, err := hooks.NewMemoryHooksResolver(memoryFiles)
