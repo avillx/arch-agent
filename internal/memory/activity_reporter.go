@@ -241,7 +241,7 @@ func (s *ActivityService) applyConfig(cfg ActivityConfig) error {
 		return nil
 	}
 
-	model, err := s.modelRepo.Get(s.modelName)
+	model, err := s.modelRepo.Get(cfg.ModelName)
 	if err != nil {
 		return err
 	}
