@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-const AgentLogFile = "agent.log"
+const AgentLogFile = "sys.log"
 
 var _ io.Writer = (*LogFile)(nil)
 

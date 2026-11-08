@@ -22,7 +22,7 @@ Two destinations:
   plain text (`LOG_JSON=false`); the level is controlled by `LOG_LEVEL`
   (default `error`).
 - **Agent log** — a plain text log file inside the data directory
-  (`agent.log`). It is meant to be readable by the agent itself, so it is the
+  (`sys.log`). It is meant to be readable by the agent itself, so it is the
   only log the agent may read. During cleanup it is trimmed to the last
   `MAX_LOG_LINES` lines (default 1000).
 

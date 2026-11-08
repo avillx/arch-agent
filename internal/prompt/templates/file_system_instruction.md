@@ -28,7 +28,7 @@ Configs:
   some regular or continius activity. may be means jobs decribed here
 
 System:
-- [SystemLogFile](agent.log) `INFO` leel logs for all your agent system. 
+- [SystemLogFile](sys.log) `INFO` leel logs for all your agent system. 
   ( MCP, sessions, memory consolidations, agent runs, runtime errors, 
   agent awakes by schedule tasks etc...).
   Do not read it raw, prefer to use tail / grep.
