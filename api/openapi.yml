@@ -186,6 +186,16 @@ paths:
         "400":
           $ref: "#/components/responses/MessageError"
 
+  # ── Health ─────────────────────────────────────────────────────────────
+  /health:
+    get:
+      tags: [Health]
+      summary: Return 200 when server run
+      operationId: healthProbe
+      responses:
+        "200":
+          description: healthy
+
   # ── Tasks ─────────────────────────────────────────────────────────────
   /task:
     get:

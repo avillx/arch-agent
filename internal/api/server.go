@@ -94,6 +94,9 @@ func (s *HTTPServer) registerRoutes() {
 	s.HandleFunc("GET /memory/config", memoryHandler.GetConfig)
 	s.HandleFunc("POST /memory/config", memoryHandler.SetConfig)
 
+	healthHandler := &healthHandler{}
+	s.HandleFunc("GET /health", healthHandler.Health)
+
 	provToolHandler := NewProvidedToolsRouter(s.idGen)
 	s.HandleFunc("POST /toolresult/{id}", provToolHandler.ResolveCall)
 
@@ -119,8 +122,6 @@ func (s *HTTPServer) registerRoutes() {
 	s.HandleFunc("POST /providers", providerHandler.AddProvider)
 	s.HandleFunc("PATCH /providers/{name}", providerHandler.UpdateProvider)
 	s.HandleFunc("DELETE /providers/{name}", providerHandler.DeleteProvider)
-
-	// models
 	s.HandleFunc("POST /providers/{name}/models/{model}", providerHandler.SetModel)
 	s.HandleFunc("DELETE /providers/{name}/models/{model}", providerHandler.DeleteModel)
 
