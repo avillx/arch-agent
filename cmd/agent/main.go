@@ -41,7 +41,7 @@ func run(ctx context.Context) error {
 	logJSON := getEnv("AGENT_LOG_JSON", false, strconv.ParseBool)
 
 	// ENV server config
-	port := getEnv("AGENT_PORT", 8080, strconv.Atoi)
+	port := strconv.Itoa(getEnv("AGENT_PORT", 8080, strconv.Atoi))
 	datapath := getEnv("AGENT_DATAPATH", "./agent-data", parseString)
 	cleanupInterval := getEnv("AGENT_CLEAN_UP_INTERVAL", 12*time.Hour, time.ParseDuration)
 	sessRetention := getEnv("AGENT_SESSION_RETENTION", 240*time.Hour, time.ParseDuration)
