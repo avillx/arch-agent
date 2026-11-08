@@ -22,7 +22,6 @@ func main() {
 	if err := run(ctx); err != nil {
 		slog.Error("system run", "error", err)
 	}
-	slog.Warn("system shutdown")
 }
 
 func run(ctx context.Context) error {
@@ -60,6 +59,7 @@ func run(ctx context.Context) error {
 			slog.Error("server", "error", err)
 		}
 		stop()
+		slog.Warn("system shutdown")
 	}()
 
 	<-ctx.Done()
