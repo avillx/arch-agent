@@ -15,6 +15,8 @@ import (
 	"time"
 )
 
+const ShutdownTimeoutDuration = 10 * time.Second
+
 func main() {
 	ctx := context.Background()
 	if err := run(ctx); err != nil {
@@ -34,7 +36,7 @@ func run(ctx context.Context) error {
 
 	cfg, err := LoadConfig()
 	if err != nil {
-		return fmt.Errorf("bad envirement variable: %w", err)
+		return fmt.Errorf("bad environment variable: %w", err)
 	}
 
 	// Logging has complex logic and is part of the business logic due to the
@@ -53,13 +55,19 @@ func run(ctx context.Context) error {
 
 	slog.Warn("start system")
 
-	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		return err
-	}
+	go func() {
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("server", "error", err)
+		}
+		stop()
+	}()
 
 	<-ctx.Done()
 
-	return httpServer.Shutdown(context.Background())
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), ShutdownTimeoutDuration)
+	defer cancel()
+
+	return httpServer.Shutdown(shutdownCtx)
 }
 
 func getEnv(key, def string) string {
