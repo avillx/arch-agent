@@ -19,7 +19,6 @@ import (
 	"arch-agent/internal/subagent"
 	"arch-agent/internal/task"
 	"arch-agent/internal/tools"
-	"arch-agent/internal/tools/fetch"
 	fstools "arch-agent/internal/tools/fs"
 	"arch-agent/internal/tools/shell"
 	"arch-agent/internal/tools/todo"
@@ -224,7 +223,6 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		return nil, err
 	}
 	toolSvc.Connect("filesystem", fsToolSrv)
-	toolSvc.Connect("web", fetch.NewFetchToolServer())
 	toolSvc.Connect("todo", todo.NewTodoToolServer(todoStorage))
 	toolSvc.Connect("agent", tools.NewCallAgentToolServer(
 		subagent.NewService(chatSvc, sessSvc, logger),
