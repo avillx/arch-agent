@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path"
+	"path/filepath"
 	"time"
 )
 
@@ -106,7 +107,7 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		return nil, err
 	}
 
-	providerSvc, err := model.NewProviderService(modelsSvc, providerFiles)
+	providerSvc, err := model.NewProviderService(modelsSvc, providerFiles, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -261,9 +262,13 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 
 	chatDispatcher := chat.NewDispatcher(chatSvc)
 
-	// all sentinels
-	sent := sentinel.New(cfg.DataPath, logger,
+	// sentinels
+	tmpSent := sentinel.New(cfg.DataPath, logger,
 		sentinel.WithWatch(files.TMPDir, files.NewTMPDetector(tmpFiles)),
+	)
+
+	cfgsDirPath := filepath.Join(cfg.DataPath, files.ConfigDir)
+	cfgSent := sentinel.New(cfgsDirPath, logger,
 		sentinel.WithWatch(files.MCPConfigFile, files.NewMCPReloader(mcpSvc)),
 		sentinel.WithWatch(files.MemoryConfigFile, files.NewMemoReloader(memoryConsolidator, activityService)),
 		sentinel.WithWatch(files.ModelsConfigFile, files.NewModelsReloader(providerSvc)),
@@ -271,16 +276,17 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		sentinel.WithWatch(files.TaskConfigFile, files.NewTasksReloader(taskSvc)),
 	)
 
-	go func() {
-		if err := sent.Run(ctx); err != nil {
-			if errors.Is(err, sentinel.ErrClosedWatcher) ||
-				errors.Is(err, context.Canceled) {
-				return
+	for _, sent := range []*sentinel.Sentinel{tmpSent, cfgSent} {
+		go func() {
+			if err := sent.Run(ctx); err != nil {
+				if errors.Is(err, sentinel.ErrClosedWatcher) ||
+					errors.Is(err, context.Canceled) {
+					return
+				}
+				agentUnreachibleLogger.Error("file_sentinel", "error", err)
 			}
-
-			agentUnreachibleLogger.Error("file_sentinel", "error", err)
-		}
-	}()
+		}()
+	}
 
 	return api.NewHTTPServer(
 		agentUnreachibleLogger,

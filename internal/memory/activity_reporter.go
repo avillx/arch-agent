@@ -225,11 +225,19 @@ func (r *ActivityService) extractActivity(ctx context.Context, buf *messageBuffe
 }
 
 func (s *ActivityService) Reload() error {
+
 	cfg, err := s.cfgRepo.Load()
 	if err != nil {
 		return err
 	}
-	return s.applyConfig(cfg)
+
+	if err := s.applyConfig(cfg); err != nil {
+		return err
+	}
+
+	s.logger.Info("reloaded")
+
+	return nil
 }
 
 func (s *ActivityService) applyConfig(cfg ActivityConfig) error {

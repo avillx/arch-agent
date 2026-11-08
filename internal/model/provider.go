@@ -21,10 +21,11 @@ type ProviderService struct {
 	mu sync.RWMutex
 }
 
-func NewProviderService(modelSvc *ModelService, repo ProviderConfigRepo) (*ProviderService, error) {
+func NewProviderService(modelSvc *ModelService, repo ProviderConfigRepo, logger *slog.Logger) (*ProviderService, error) {
 	svc := &ProviderService{
 		modelSvc: modelSvc,
 		repo:     repo,
+		logger:   logger.WithGroup("model_providers"),
 	}
 
 	if err := svc.Reload(); err != nil {
@@ -42,13 +43,15 @@ func (s *ProviderService) Reload() error {
 
 	for _, p := range providers {
 		for _, e := range s.loadModels(p) {
-			s.logger.Error("model not loaded",
+			s.logger.Error("failed to load model",
 				"provider", e.Provider,
 				"model", e.ModelName,
 				"error", e.Unwrap(),
 			)
 		}
 	}
+
+	s.logger.Info("reloaded")
 
 	return nil
 }

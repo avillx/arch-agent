@@ -5,12 +5,16 @@ import (
 	"arch-agent/internal/sentinel"
 	"bytes"
 	"context"
+	"path/filepath"
 
 	"github.com/fsnotify/fsnotify"
 	toml "github.com/pelletier/go-toml/v2"
 )
 
 const SecretsConfigFile = "secrets.toml"
+
+var SecretsConfigFilePath = filepath.Join(ConfigDir, SecretsConfigFile)
+
 const secretsFileDoc = `# Secrets storage
 
 # Key names should prefer upper snake case (e.g. SOME_VARIABLE)
@@ -32,7 +36,7 @@ type SecretsFiles struct {
 
 func NewSecretsFiles(storage FileStorage) (*SecretsFiles, error) {
 
-	if err := ensureFilePlaceholder(storage, SecretsConfigFile, []byte(secretsFileDoc)); err != nil {
+	if err := ensureFilePlaceholder(storage, SecretsConfigFilePath, []byte(secretsFileDoc)); err != nil {
 		return nil, err
 	}
 
@@ -42,7 +46,7 @@ func NewSecretsFiles(storage FileStorage) (*SecretsFiles, error) {
 }
 
 func (sf *SecretsFiles) Load() (map[string]string, error) {
-	data, err := sf.storage.ReadFile(SecretsConfigFile)
+	data, err := sf.storage.ReadFile(SecretsConfigFilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +69,7 @@ func (sf *SecretsFiles) Save(secrets map[string]string) error {
 		[]byte("\n\n"),
 	)
 
-	return sf.storage.WriteFile(SecretsConfigFile, dataWithDoc, ModeFilePerm)
+	return sf.storage.WriteFile(SecretsConfigFilePath, dataWithDoc, ModeFilePerm)
 }
 
 // secretsSent

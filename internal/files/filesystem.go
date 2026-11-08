@@ -17,6 +17,8 @@ type FileMode = fs.FileMode
 type FileInfo = os.FileInfo
 
 const (
+	ConfigDir = "conf"
+
 	ModeFilePerm = 0644
 	ModeDirPerm  = 0755
 

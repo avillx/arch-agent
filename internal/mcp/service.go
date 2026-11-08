@@ -57,7 +57,7 @@ func (s *Service) List() []MCPServer {
 }
 
 func (s *Service) Reload(ctx context.Context) error {
-	s.logger.Info("reload started")
+
 	cfgs, err := s.configRepo.Load()
 	if err != nil {
 		return err
@@ -97,7 +97,7 @@ func (s *Service) Reload(ctx context.Context) error {
 	}()
 
 	s.connectServers(ctx, loadCandidates)
-	s.logger.Info("reload finished")
+	s.logger.Info("reloaded")
 
 	return nil
 }

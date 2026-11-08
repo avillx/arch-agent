@@ -88,12 +88,16 @@ func NewConsolidationService(
 
 func (m *ConsolidationService) Reload() error {
 
-	m.logger.Info("reload memory consolidator")
-
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return m.load()
+	if err := m.load(); err != nil {
+		return err
+	}
+
+	m.logger.Info("reloaded")
+
+	return nil
 }
 
 func (m *ConsolidationService) load() error {

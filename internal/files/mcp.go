@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"path/filepath"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
@@ -14,6 +15,9 @@ import (
 )
 
 const MCPConfigFile = "mcp.toml"
+
+var MCPConfigFilePath = filepath.Join(ConfigDir, MCPConfigFile)
+
 const mcpConfigDoc = `# MCP servers connections config
 # All MCP servers described here will be connected
 
@@ -53,7 +57,7 @@ type MCPFiles struct {
 
 func NewMCPFiles(storage FileStorage) (*MCPFiles, error) {
 
-	if err := ensureFilePlaceholder(storage, MCPConfigFile, []byte(mcpConfigDoc)); err != nil {
+	if err := ensureFilePlaceholder(storage, MCPConfigFilePath, []byte(mcpConfigDoc)); err != nil {
 		return nil, err
 	}
 
@@ -74,10 +78,10 @@ func (f *MCPFiles) Save(id mcp.MCPServerID, cfg mcp.ServerGatewayConfig) error {
 
 	data, err := MarshalMCPConfig(dtoMap)
 	if err != nil {
-		return fmt.Errorf("marshal %s: %w", MCPConfigFile, err)
+		return fmt.Errorf("marshal %s: %w", MCPConfigFilePath, err)
 	}
 
-	return f.storage.WriteFile(MCPConfigFile, data, ModeFilePerm)
+	return f.storage.WriteFile(MCPConfigFilePath, data, ModeFilePerm)
 }
 
 func (f *MCPFiles) Load() (map[mcp.MCPServerID]mcp.ServerGatewayConfig, error) {
@@ -94,7 +98,7 @@ func (f *MCPFiles) Load() (map[mcp.MCPServerID]mcp.ServerGatewayConfig, error) {
 }
 
 func (f *MCPFiles) LoadDTO() (map[mcp.MCPServerID]mcp.ServerGatewayConfig, error) {
-	data, err := f.storage.ReadFile(MCPConfigFile)
+	data, err := f.storage.ReadFile(MCPConfigFilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -115,10 +119,10 @@ func (f *MCPFiles) Delete(mcpServerID mcp.MCPServerID) error {
 
 	data, err := MarshalMCPConfig(dtoMap)
 	if err != nil {
-		return fmt.Errorf("marshal %s: %w", MCPConfigFile, err)
+		return fmt.Errorf("marshal %s: %w", MCPConfigFilePath, err)
 	}
 
-	return f.storage.WriteFile(MCPConfigFile, data, ModeFilePerm)
+	return f.storage.WriteFile(MCPConfigFilePath, data, ModeFilePerm)
 }
 
 type MCPServerConfigDTO struct {

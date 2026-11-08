@@ -6,6 +6,7 @@ import (
 	"arch-agent/internal/types"
 	"context"
 	"errors"
+	"log/slog"
 	"sync"
 	"testing"
 )
@@ -120,7 +121,7 @@ func providerConfig(name model.ProviderID, models map[string]model.ModelConfig) 
 func newProviderService(t *testing.T, modelSvc *model.ModelService, repo *mockRepo) *model.ProviderService {
 	t.Helper()
 
-	svc, err := model.NewProviderService(modelSvc, repo)
+	svc, err := model.NewProviderService(modelSvc, repo, slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatalf("NewProviderService() error = %v", err)
 	}

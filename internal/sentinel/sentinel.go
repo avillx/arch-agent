@@ -59,7 +59,7 @@ type Sentinel struct {
 
 func New(cwd string, logger *slog.Logger, opts ...Option) *Sentinel {
 	s := &Sentinel{
-		cwd:     cwd,
+		cwd:     filepath.Clean(cwd),
 		actions: map[string]*debouncedAction{},
 		logger:  logger.WithGroup("file_sentinel"),
 	}

@@ -6,6 +6,7 @@ import (
 	"arch-agent/internal/types"
 	"bytes"
 	"context"
+	"path/filepath"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
@@ -13,6 +14,9 @@ import (
 )
 
 const ModelsConfigFile = "models.toml"
+
+var ModelsConfigFilePath = filepath.Join(ConfigDir, ModelsConfigFile)
+
 const modelsConfigDoc = `# Models config file
 # LLM models available for agents
 
@@ -71,7 +75,7 @@ type ProviderFiles struct {
 
 func NewProviderFiles(storage FileStorage) (*ProviderFiles, error) {
 
-	if err := ensureFilePlaceholder(storage, ModelsConfigFile, []byte(modelsConfigDoc)); err != nil {
+	if err := ensureFilePlaceholder(storage, ModelsConfigFilePath, []byte(modelsConfigDoc)); err != nil {
 		return nil, err
 	}
 
@@ -165,7 +169,7 @@ func (f *ProviderFiles) Delete(id model.ProviderID) error {
 func (f *ProviderFiles) loadConfig() (modelsConfigDTO, error) {
 	var dto modelsConfigDTO
 
-	data, err := f.storage.ReadFile(ModelsConfigFile)
+	data, err := f.storage.ReadFile(ModelsConfigFilePath)
 	if err != nil {
 		// TODO: create place holder if not exist
 		return dto, err
@@ -190,7 +194,7 @@ func (f *ProviderFiles) saveConfig(dto modelsConfigDTO) error {
 		[]byte("\n\n"),
 	)
 
-	return f.storage.WriteFile(ModelsConfigFile, dataWithDoc, ModeFilePerm)
+	return f.storage.WriteFile(ModelsConfigFilePath, dataWithDoc, ModeFilePerm)
 }
 
 // modelsSent

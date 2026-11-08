@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
@@ -16,6 +17,9 @@ import (
 )
 
 const TaskConfigFile = "tasks.toml"
+
+var TaskConfigFilePath = filepath.Join(ConfigDir, TaskConfigFile)
+
 const taskConfigDoc = `# Cron tasks config
 
 # Tasks are planned requests sent to agent recipients on a cron schedule.
@@ -61,7 +65,7 @@ type TaskFiles struct {
 
 func NewTaskFiles(storage FileStorage) (*TaskFiles, error) {
 
-	if err := ensureFilePlaceholder(storage, TaskConfigFile, []byte(taskConfigDoc)); err != nil {
+	if err := ensureFilePlaceholder(storage, TaskConfigFilePath, []byte(taskConfigDoc)); err != nil {
 		return nil, err
 	}
 
@@ -129,7 +133,7 @@ func (tf *TaskFiles) Delete(id string) error {
 }
 
 func loadTasks(storage FileStorage) (map[string]task.TaskConfig, error) {
-	data, err := storage.ReadFile(TaskConfigFile)
+	data, err := storage.ReadFile(TaskConfigFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return map[string]task.TaskConfig{}, nil
@@ -148,7 +152,7 @@ func flushTasks(storage FileStorage, tasks map[string]task.TaskConfig) error {
 	if err != nil {
 		return err
 	}
-	return storage.WriteFile(TaskConfigFile, data, ModePerm)
+	return storage.WriteFile(TaskConfigFilePath, data, ModePerm)
 }
 
 type TaskDTO struct {

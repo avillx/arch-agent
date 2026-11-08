@@ -5,6 +5,7 @@ import (
 	"arch-agent/internal/sentinel"
 	"bytes"
 	"context"
+	"path/filepath"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
@@ -12,6 +13,9 @@ import (
 )
 
 const MemoryConfigFile = "memory.toml"
+
+var MemoryConfigFilePath = filepath.Join(ConfigDir, MemoryConfigFile)
+
 const memoryConfigDoc string = `# Memory config
 
 # Agent for **consolidation** memory is invoked once every 24h;
@@ -56,7 +60,7 @@ type MemoryFile struct {
 
 func NewMemoryConfigFile(storage FileStorage) (*MemoryFile, error) {
 
-	if err := ensureFilePlaceholder(storage, MemoryConfigFile, []byte(memoryConfigDoc)); err != nil {
+	if err := ensureFilePlaceholder(storage, MemoryConfigFilePath, []byte(memoryConfigDoc)); err != nil {
 		return nil, err
 	}
 
@@ -69,7 +73,7 @@ func (r *MemoryFile) Save(new MemoryConfigDTO) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	data, err := r.storage.ReadFile(MemoryConfigFile)
+	data, err := r.storage.ReadFile(MemoryConfigFilePath)
 	if err != nil {
 		return err
 	}
@@ -98,14 +102,14 @@ func (r *MemoryFile) Save(new MemoryConfigDTO) error {
 		[]byte("\n\n"),
 	)
 
-	return r.storage.WriteFile(MemoryConfigFile, data, ModeFilePerm)
+	return r.storage.WriteFile(MemoryConfigFilePath, data, ModeFilePerm)
 }
 
 func (r *MemoryFile) Load() (MemoryConfigDTO, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	data, err := r.storage.ReadFile(MemoryConfigFile)
+	data, err := r.storage.ReadFile(MemoryConfigFilePath)
 	if err != nil {
 		return MemoryConfigDTO{}, err
 	}

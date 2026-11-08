@@ -61,7 +61,6 @@ func NewService(
 
 // implement sentinel action
 func (s *Service) Reload(_ context.Context) error {
-	s.logger.Info("reload started")
 
 	tasks, err := s.repo.All()
 	if err != nil {
@@ -99,7 +98,7 @@ func (s *Service) Reload(_ context.Context) error {
 
 	s.runTasks(loadCandidates)
 
-	s.logger.Info("reload finished")
+	s.logger.Info("reloaded")
 
 	return nil
 }
