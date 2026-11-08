@@ -215,8 +215,10 @@ func (s *Service) runAgentLoopWithCallbacks(
 	for rawEv := range evCh {
 		outEv := rawEv
 
-		// forward to origin
-		sink <- outEv
+		// flush to sink
+		go func() {
+			sink <- outEv
+		}()
 
 		switch ev := rawEv.(type) {
 
