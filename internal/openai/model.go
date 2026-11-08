@@ -10,34 +10,34 @@ import (
 	"github.com/openai/openai-go/v3/shared"
 )
 
-var _ agent.Model = (*OpenAIReasoner)(nil)
+var _ agent.Model = (*OpenAIModel)(nil)
 
 const defaultContextLimit = 100_000
 
-type OpenAIReasoner struct {
+type OpenAIModel struct {
 	client     *openai.Client
 	modelName  string
 	settings   OpenAIModelSettings
 	settingsMu sync.RWMutex
 }
 
-func NewOpenAIReasoner(client *openai.Client, modelName string, settings OpenAIModelSettings) *OpenAIReasoner {
+func NewOpenAIModel(client *openai.Client, modelName string, settings OpenAIModelSettings) *OpenAIModel {
 
-	return &OpenAIReasoner{
+	return &OpenAIModel{
 		client:    client,
 		modelName: modelName,
 		settings:  settings,
 	}
 }
 
-func (r *OpenAIReasoner) ContextLimit() int64 {
+func (r *OpenAIModel) ContextLimit() int64 {
 	if r.settings.ContextLimit != nil {
 		return *r.settings.ContextLimit
 	}
 	return defaultContextLimit
 }
 
-func (r *OpenAIReasoner) Settings() agent.ModelSettings {
+func (r *OpenAIModel) Settings() agent.ModelSettings {
 	r.settingsMu.RLock()
 	defer r.settingsMu.RUnlock()
 
@@ -55,7 +55,7 @@ func (r *OpenAIReasoner) Settings() agent.ModelSettings {
 	}
 }
 
-func (r *OpenAIReasoner) SupportedModalities() []agent.Modality {
+func (r *OpenAIModel) SupportedModalities() []agent.Modality {
 	modalities := r.settings.Modalities
 	if modalities == nil {
 		return []agent.Modality{agent.TextModality}
@@ -68,7 +68,7 @@ func (r *OpenAIReasoner) SupportedModalities() []agent.Modality {
 	return modalities
 }
 
-func (r *OpenAIReasoner) Complete(
+func (r *OpenAIModel) Complete(
 	ctx context.Context,
 	tools []agent.Tool,
 	internalMsgs []agent.Message,
@@ -87,7 +87,7 @@ func (r *OpenAIReasoner) Complete(
 	return OpenAICompletionToReasonResult(res)
 }
 
-func (r *OpenAIReasoner) buildCompletionParams(
+func (r *OpenAIModel) buildCompletionParams(
 	messages []openai.ChatCompletionMessageParamUnion,
 	agentTools []openai.ChatCompletionToolUnionParam,
 ) openai.ChatCompletionNewParams {

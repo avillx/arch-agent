@@ -47,7 +47,7 @@ func (f *OpenAIModelFactory) CreateModel(
 		return nil, fmt.Errorf("get client for provider %s: %w", baseURL, err)
 	}
 
-	return NewOpenAIReasoner(client, *settings.Model, settings), nil
+	return NewOpenAIModel(client, *settings.Model, settings), nil
 }
 
 type clientKey struct {
