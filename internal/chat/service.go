@@ -2,6 +2,7 @@ package chat
 
 import (
 	"arch-agent/internal/agent"
+	"arch-agent/internal/prompt"
 	"arch-agent/internal/runtime"
 	"arch-agent/internal/session"
 	"arch-agent/internal/types"
@@ -222,6 +223,7 @@ func (s *Service) runAgentLoopWithCallbacks(
 
 			case errors.Is(err, context.Canceled):
 				outEv = runtime.NewLoopExitEvent(nil)
+				sess.AddMessages(agent.NewUserMessage(prompt.InterruptionExplanation()))
 				logger.Info("loop interrupted")
 
 			default:

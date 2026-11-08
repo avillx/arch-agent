@@ -61,6 +61,11 @@ var autonomousRequestRaw string
 
 func GetAutonomusGuidance() string { return autonomousRequestRaw }
 
+//go:embed templates/interruption_explanation.md
+var interruptionExplanationRaw string
+
+func InterruptionExplanation() string { return interruptionExplanationRaw }
+
 //go:embed templates/consolidation_fs_instruction.md
 var consolidationFSinstructionRaw string
 var consolidationFSinstructionTempl = template.Must(template.New("consolidate_fs_inst").Parse(consolidationFSinstructionRaw))
