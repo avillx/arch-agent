@@ -2,7 +2,7 @@ openapi: "3.0.3"
 info:
   title: Arch Agent API
   description: REST API for managing autonomous agents, sessions, tasks, tools, MCP servers, memory, activity, providers, and streaming chat completions.
-  version: "1.0.0"
+  version: "1.1.0"
 
 servers:
   - url: http://localhost:8080/
@@ -266,23 +266,6 @@ paths:
                 $ref: "#/components/schemas/ValidationError"
         "404":
           $ref: "#/components/responses/MessageError"
-
-  # ── Tools ─────────────────────────────────────────────────────────────
-  /tools:
-    get:
-      tags: [Tools]
-      summary: List all registered tool servers and their tools
-      description: |
-        Returns all tool servers known to the system, keyed by server name.
-        Each server maps tool names to their descriptions.
-      operationId: listTools
-      responses:
-        "200":
-          description: Tool servers with their tools.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ToolServers"
 
   # ── MCP ───────────────────────────────────────────────────────────────
   /mcp:
@@ -943,12 +926,6 @@ components:
       description: A mapping of tool name to its description.
       additionalProperties:
         type: string
-
-    ToolServers:
-      type: object
-      description: A mapping of tool server name to its tools.
-      additionalProperties:
-        $ref: "#/components/schemas/ToolRepr"
 
     # ── Session ─────────────────────────────────────────────────────────
     SessionHeader:

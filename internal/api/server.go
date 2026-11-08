@@ -8,7 +8,6 @@ import (
 	"arch-agent/internal/model"
 	"arch-agent/internal/session"
 	"arch-agent/internal/task"
-	"arch-agent/internal/tools"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -21,7 +20,6 @@ type HTTPServer struct {
 	taskSvc          *task.Service
 	chatSvc          *chat.Dispatcher
 	sessSvc          *session.Service
-	toolsSvc         *tools.Service
 	mcpSvc           *mcp.Service
 	memoryRepo       agent.MemoryRepo
 	memoryIndexer    agent.MemoryIndexer
@@ -38,7 +36,6 @@ func NewHTTPServer(
 	taskSvc *task.Service,
 	chatSvc *chat.Dispatcher,
 	sessSvc *session.Service,
-	toolsSvc *tools.Service,
 	mcpSvc *mcp.Service,
 	memoryRepo agent.MemoryRepo,
 	memoryIndexer agent.MemoryIndexer,
@@ -56,7 +53,6 @@ func NewHTTPServer(
 		taskSvc:          taskSvc,
 		chatSvc:          chatSvc,
 		sessSvc:          sessSvc,
-		toolsSvc:         toolsSvc,
 		mcpSvc:           mcpSvc,
 		memoryRepo:       memoryRepo,
 		memoryIndexer:    memoryIndexer,
@@ -85,9 +81,6 @@ func (s *HTTPServer) registerRoutes() {
 	s.HandleFunc("GET /session/{agent}/{session}", sessHandler.Get)
 	s.HandleFunc("POST /session/{agent}", sessHandler.Create)
 	s.HandleFunc("DELETE /session/{agent}/{session}", sessHandler.Delete)
-
-	toolsHandler := &toolsHandler{toolSvc: s.toolsSvc}
-	s.HandleFunc("GET /tools", toolsHandler.List)
 
 	mcpHandler := &mcpHandler{mcpSvc: s.mcpSvc}
 	s.HandleFunc("GET /mcp", mcpHandler.List)

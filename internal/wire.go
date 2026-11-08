@@ -291,7 +291,6 @@ func BuildServer(ctx context.Context, cfg Config) (*api.HTTPServer, error) {
 		taskSvc,
 		chatDispatcher,
 		sessSvc,
-		toolSvc,
 		mcpSvc,
 		memoryFiles,
 		memoryFiles,

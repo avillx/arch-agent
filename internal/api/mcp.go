@@ -1,11 +1,14 @@
 package api
 
 import (
+	"arch-agent/internal/agent"
 	"arch-agent/internal/mcp"
 	"arch-agent/internal/types"
 	"errors"
 	"net/http"
 )
+
+type ToolReprDTO map[agent.ToolName]string
 
 // handler
 type mcpHandler struct {
