@@ -67,6 +67,9 @@ func run(ctx context.Context) error {
 		return err
 	}
 
+	// Orchestrated run all services that should working in runtime
+	srv.Run(ctx)
+
 	httpServer := http.Server{
 		Addr:    fmt.Sprintf(":%s", port),
 		Handler: api.NewHTTPHandler(logger, srv),
