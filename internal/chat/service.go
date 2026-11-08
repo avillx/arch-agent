@@ -209,8 +209,14 @@ func (s *Service) runAgentLoopWithCallbacks(
 		)
 	}()
 
+	// This cycle flush event to output sink and then start service processing
+	// of course i think to make producer / consumer with buffered channels
+	// but in that case, service processing order can be broken.
 	for rawEv := range evCh {
 		outEv := rawEv
+
+		// forward to origin
+		sink <- outEv
 
 		switch ev := rawEv.(type) {
 
@@ -287,9 +293,6 @@ func (s *Service) runAgentLoopWithCallbacks(
 				)
 			}
 		}
-
-		// forward to origin
-		sink <- outEv
 	}
 }
 
