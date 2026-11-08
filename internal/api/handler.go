@@ -6,70 +6,60 @@ import (
 	"arch-agent/internal/mcp"
 	"arch-agent/internal/memory"
 	"arch-agent/internal/model"
+	"arch-agent/internal/server"
 	"arch-agent/internal/session"
 	"arch-agent/internal/task"
+	"arch-agent/internal/uuid"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 )
 
-// Responder
-type HTTPServer struct {
+type HTTPHandler struct {
 	*http.ServeMux
 	logger           *slog.Logger
 	taskSvc          *task.Service
 	chatSvc          *chat.Dispatcher
 	sessSvc          *session.Service
 	mcpSvc           *mcp.Service
+	consolidationSvc *memory.ConsolidationService
+	providerSvc      *model.ProviderService
+	activitySvc      *memory.ActivityService
 	memoryRepo       agent.MemoryRepo
 	memoryIndexer    agent.MemoryIndexer
-	consolidationSvc *memory.ConsolidationService
-	activityStore    activityStore
+	activityStore    agent.ActivityRepo
 	agentRepo        agent.Repo
-	providerSvc      *model.ProviderService
 	idGen            IDGenerator
-	activitySvc      *memory.ActivityService
 }
 
-func NewHTTPServer(
+func NewHTTPHandler(
 	logger *slog.Logger,
-	taskSvc *task.Service,
-	chatSvc *chat.Dispatcher,
-	sessSvc *session.Service,
-	mcpSvc *mcp.Service,
-	memoryRepo agent.MemoryRepo,
-	memoryIndexer agent.MemoryIndexer,
-	consolidationSvc *memory.ConsolidationService,
-	activityStore activityStore,
-	agentRepo agent.Repo,
-	providerSvc *model.ProviderService,
-	idGen IDGenerator,
-	activitySvc *memory.ActivityService,
-) *HTTPServer {
+	srv *server.Server,
+) *HTTPHandler {
 
-	srv := &HTTPServer{
+	h := &HTTPHandler{
 		logger:           logger.WithGroup("api"),
 		ServeMux:         http.NewServeMux(),
-		taskSvc:          taskSvc,
-		chatSvc:          chatSvc,
-		sessSvc:          sessSvc,
-		mcpSvc:           mcpSvc,
-		memoryRepo:       memoryRepo,
-		memoryIndexer:    memoryIndexer,
-		consolidationSvc: consolidationSvc,
-		activityStore:    activityStore,
-		agentRepo:        agentRepo,
-		providerSvc:      providerSvc,
-		idGen:            idGen,
-		activitySvc:      activitySvc,
+		taskSvc:          srv.TaskSvc,
+		chatSvc:          srv.ChatDispatcherSvc,
+		sessSvc:          srv.SessSvc,
+		mcpSvc:           srv.MCPSvc,
+		consolidationSvc: srv.MemoryConsolidationSvc,
+		memoryRepo:       srv.MemoryFiles,
+		memoryIndexer:    srv.MemoryFiles,
+		activityStore:    srv.ActivityFiles,
+		agentRepo:        srv.AgentFiles,
+		providerSvc:      srv.ProviderSvc,
+		activitySvc:      srv.ActivitySvc,
+		idGen:            uuid.NewUUIDGenerator(),
 	}
 
-	srv.registerRoutes()
+	h.registerRoutes()
 
-	return srv
+	return h
 }
 
-func (s *HTTPServer) registerRoutes() {
+func (s *HTTPHandler) registerRoutes() {
 	taskHandler := &taskHandler{taskSvc: s.taskSvc}
 	s.HandleFunc("GET /task", taskHandler.List)
 	s.HandleFunc("POST /task/{name}", taskHandler.Create)
@@ -127,11 +117,11 @@ func (s *HTTPServer) registerRoutes() {
 
 }
 
-func (s *HTTPServer) HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request) Response) {
+func (s *HTTPHandler) HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request) Response) {
 	s.ServeMux.HandleFunc(pattern, s.wrapResponse(handler))
 }
 
-func (s *HTTPServer) wrapResponse(h func(w http.ResponseWriter, r *http.Request) Response) http.HandlerFunc {
+func (s *HTTPHandler) wrapResponse(h func(w http.ResponseWriter, r *http.Request) Response) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger := s.logger.With("method", r.Method, "path", r.URL.Path)
 		logger.Info("incoming request")

@@ -1,8 +1,9 @@
 package main
 
 import (
-	wire "arch-agent/internal"
+	"arch-agent/internal/api"
 	"arch-agent/internal/logging"
+	"arch-agent/internal/server"
 	"context"
 	"fmt"
 	"log/slog"
@@ -25,31 +26,50 @@ func main() {
 }
 
 func run(ctx context.Context) error {
+
 	ctx, stop := signal.NotifyContext(
 		ctx,
 		os.Interrupt,
 		syscall.SIGTERM,
 	)
-
 	defer stop()
 
-	cfg, err := LoadConfig()
-	if err != nil {
-		return fmt.Errorf("bad environment variable: %w", err)
-	}
+	// ENV logging
+	logIndented := getBoolEnv("AGENT_LOG_INDENTED", false)
+	logSource := getBoolEnv("AGENT_LOG_SOURCE", false)
+	logLevel := getLoglevelEnv("AGENT_LOG_LEVEL", slog.LevelWarn)
+	logJSON := getBoolEnv("AGENT_LOG_JSON", false)
 
-	// Logging has complex logic and is part of the business logic due to the
-	// specifics of the project, so the logging config can't be set up in main.
+	// ENV server config
+	port := string(getInt64Env("AGENT_PORT", 8080))
+	datapath := getEnv("AGENT_DATAPATH", "./agent-data")
+	cleanupInterval := time.Duration(getInt64Env("AGENT_CLEAN_UP_INTERVAL", 12)) * time.Hour
+	sessRetention := time.Duration(getInt64Env("AGENT_SESSION_RETENTION", 240)) * time.Hour
+	maxLogLines := int(getInt64Env("AGENT_MAX_LOGLINES", 1000))
+	agentShell := getEnv("AGENT_SHELL", "")
+	agentShellAttribues := strings.Split(getEnv("AGENT_SHELL_ATTRIBUTES", ""), " ")
+
+	// Logging
+	logHandler := logging.NewHandler(logging.LoggerConfig{
+		LogJSON:   logJSON,
+		Level:     logLevel,
+		AddSource: logSource,
+		Indented:  logIndented,
+	})
+	logger := slog.New(logHandler)
+	slog.SetDefault(logger)
 
 	// App composing
-	srv, err := wire.BuildServer(ctx, cfg)
+	srv, err := server.New(ctx,
+		datapath, maxLogLines, sessRetention, cleanupInterval, agentShell, agentShellAttribues, logger,
+	)
 	if err != nil {
 		return err
 	}
 
 	httpServer := http.Server{
-		Addr:    fmt.Sprintf(":%s", cfg.Port),
-		Handler: srv,
+		Addr:    fmt.Sprintf(":%s", port),
+		Handler: api.NewHTTPHandler(logger, srv),
 	}
 
 	slog.Warn("start system")
@@ -77,66 +97,48 @@ func getEnv(key, def string) string {
 	return def
 }
 
-func LoadConfig() (wire.Config, error) {
-
-	dataPath := getEnv("DATA_PATH", "./agent-data")
-	port := getEnv("PORT", "8080")
-	logIndented := getEnv("LOG_INDENTED", "false")
-	logSource := getEnv("LOG_SOURCE", "false")
-	logLevel := getEnv("LOG_LEVEL", "error")
-	logJSON := getEnv("LOG_JSON", "false")
-	cleanupInterval := getEnv("CLEAN_UP_INTERVAL", "12")
-	sessRetention := getEnv("SESSION_RETENTION", "240")
-	maxLogLines := getEnv("MAX_LOG_LINES", "1000")
-	agentShell := getEnv("AGENT_SHELL", "")
-	agentShellAttribues := getEnv("AGENT_SHELL_ATTRIBUTES", "")
-
-	cleanupIntervalInt, err := strconv.ParseInt(cleanupInterval, 10, 64)
-	if err != nil {
-		return wire.Config{}, err
+func getInt64Env(key string, def int64) int64 {
+	envString, ok := os.LookupEnv(key)
+	if !ok {
+		fmt.Printf("%s: is not specified. Applyed default %d", key, def)
+		return def
 	}
 
-	sessRetentionInt, err := strconv.ParseInt(sessRetention, 10, 64)
+	v, err := strconv.ParseInt(envString, 10, 64)
 	if err != nil {
-		return wire.Config{}, err
+		fmt.Printf("%s: %s cant be parsed as int value. Applyed default %d", key, v, def)
+		return def
+	}
+	return v
+}
+
+func getBoolEnv(key string, def bool) bool {
+	envString, ok := os.LookupEnv(key)
+	if !ok {
+		fmt.Printf("%s: is not specified. Applyed default %d", key, def)
+		return def
 	}
 
-	maxLogLinesInt, err := strconv.ParseInt(maxLogLines, 10, 64)
+	v, err := strconv.ParseBool(envString)
 	if err != nil {
-		return wire.Config{}, err
+		fmt.Printf("%s: %s cant be parsed as bool value. Applyed default %d", key, v, def)
+		return def
+	}
+	return v
+}
+
+func getLoglevelEnv(key string, def slog.Level) slog.Level {
+	envString, ok := os.LookupEnv(key)
+	if !ok {
+		fmt.Printf("%s: is not specified. Applyed default %s", key, def.String())
+		return def
 	}
 
-	logSourceBool, err := strconv.ParseBool(logSource)
+	ll, err := logging.ToLogLevel(envString)
 	if err != nil {
-		return wire.Config{}, err
+		fmt.Printf("%s: %s cant be parsed as log level value", key, def.String())
+		return def
 	}
 
-	logIndentedBool, err := strconv.ParseBool(logIndented)
-	if err != nil {
-		return wire.Config{}, err
-	}
-
-	logLevelTyped, err := logging.ToLogLevel(logLevel)
-	if err != nil {
-		return wire.Config{}, err
-	}
-
-	logJSONBool, err := strconv.ParseBool(logJSON)
-	if err != nil {
-		return wire.Config{}, err
-	}
-
-	return wire.Config{
-		DataPath:            dataPath,
-		Port:                port,
-		LogIndented:         logIndentedBool,
-		LogSource:           logSourceBool,
-		LogLevel:            logLevelTyped,
-		LogJSON:             logJSONBool,
-		SessRetention:       time.Duration(sessRetentionInt) * time.Hour,
-		CleanUpInterval:     time.Duration(cleanupIntervalInt) * time.Hour,
-		MaxLogLines:         int(maxLogLinesInt),
-		AgentShell:          agentShell,
-		AgentShellAttribues: strings.Split(agentShellAttribues, " "),
-	}, nil
+	return ll
 }

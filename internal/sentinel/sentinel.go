@@ -55,11 +55,15 @@ type Sentinel struct {
 	logger  *slog.Logger
 	actions map[string]*debouncedAction
 	mu      sync.RWMutex
+	watcher *fsnotify.Watcher
 }
 
-func New(cwd string, logger *slog.Logger, opts ...Option) *Sentinel {
+func New(cwd string, logger *slog.Logger, opts ...Option) (*Sentinel, error) {
+
+	cwd = filepath.Clean(cwd)
+
 	s := &Sentinel{
-		cwd:     filepath.Clean(cwd),
+		cwd:     cwd,
 		actions: map[string]*debouncedAction{},
 		logger:  logger.WithGroup("file_sentinel"),
 	}
@@ -68,25 +72,28 @@ func New(cwd string, logger *slog.Logger, opts ...Option) *Sentinel {
 		opt(s)
 	}
 
-	return s
-}
-
-func (s *Sentinel) Run(ctx context.Context) error {
 	watcher, err := fsnotify.NewBufferedWatcher(1)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer watcher.Close()
 
-	if err := watcher.Add(s.cwd); err != nil {
-		return err
+	if err := watcher.Add(cwd); err != nil {
+		return nil, err
 	}
 
+	s.watcher = watcher
+
+	return s, nil
+}
+
+func (s *Sentinel) Run(ctx context.Context) {
 	for {
 		select {
-		case ev, ok := <-watcher.Events:
+		case ev, ok := <-s.watcher.Events:
 			if !ok {
-				return ErrClosedWatcher
+				s.logger.Warn("watcher closed")
+				return
 			}
 
 			s.mu.RLock()
@@ -95,14 +102,15 @@ func (s *Sentinel) Run(ctx context.Context) error {
 			}
 			s.mu.RUnlock()
 
-		case err, ok := <-watcher.Errors:
+		case err, ok := <-s.watcher.Errors:
 			if !ok {
-				return ErrClosedWatcher
+				s.logger.Warn("watcher closed")
+				return
 			}
 			s.logger.Error("can't backup new data", "error", err)
 
 		case <-ctx.Done():
-			return ctx.Err()
+			return
 		}
 	}
 }
