@@ -217,7 +217,17 @@ func (s *Service) runAgentLoopWithCallbacks(
 
 		// flush to sink
 		go func() {
-			sink <- outEv
+
+			// if context cancelled then is not a error
+			if ev, ok := outEv.(*runtime.LoopExitEvent); ok {
+				if errors.Is(ev.Err(), context.Canceled) {
+					outEv = runtime.NewLoopExitEvent(nil)
+				}
+			}
+			select {
+			case sink <- outEv:
+			case <-ctx.Done():
+			}
 		}()
 
 		switch ev := rawEv.(type) {
@@ -230,7 +240,6 @@ func (s *Service) runAgentLoopWithCallbacks(
 				logger.Info("loop exit")
 
 			case errors.Is(err, context.Canceled):
-				outEv = runtime.NewLoopExitEvent(nil)
 				sess.AddMessages(agent.NewUserMessage(prompt.InterruptionExplanation()))
 				logger.Info("loop interrupted")
 
