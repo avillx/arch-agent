@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	toml "github.com/pelletier/go-toml/v2"
 	"gopkg.in/yaml.v3"
 )
 
@@ -316,22 +317,41 @@ func ensureFilePlaceholder(
 }
 
 func resolveFrontmatter[T any](data []byte) (T, error) {
-	var zero T
-	const delim = "---"
+	const tomlDelim = "+++"
+
+	var (
+		zero  T
+		delim = "---"
+		dto   T
+		err   error
+	)
+
 	s := strings.ReplaceAll(string(data), "\r\n", "\n")
+
+	if strings.HasPrefix(s, tomlDelim) {
+		delim = tomlDelim
+	}
 
 	after, ok := strings.CutPrefix(s, delim+"\n")
 	if !ok {
-		return zero, fmt.Errorf("hook file must start with ---")
+		return zero, fmt.Errorf("file must start frontmatter delimiter --- or +++")
 	}
 
 	fmEnd := strings.Index(after, "\n"+delim)
 	if fmEnd == -1 {
-		return zero, fmt.Errorf("unclosed frontmatter")
+		return zero, fmt.Errorf("unclosed frontmatter, expect: %s", delim)
 	}
 
-	var dto T
-	if err := yaml.Unmarshal([]byte(after[:fmEnd]), &dto); err != nil {
+	frontmatterBytes := []byte(after[:fmEnd])
+
+	switch {
+	case delim == tomlDelim:
+		err = toml.Unmarshal(frontmatterBytes, &dto)
+	default:
+		err = yaml.Unmarshal(frontmatterBytes, &dto)
+	}
+
+	if err != nil {
 		return zero, err
 	}
 
