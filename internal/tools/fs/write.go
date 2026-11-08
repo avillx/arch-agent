@@ -30,7 +30,7 @@ func (t *WriteTool) Schema() map[string]any {
 			"path": map[string]any{
 				"type": "string",
 				"description": `File path, create full path when it is not exist.
-e.g. './shared/project-x/README.md', './shared/non/exist/path/README.md'`,
+e.g. 'shared/project-x/README.md', 'shared/non/exist/path/README.md'`,
 			},
 			"content": map[string]any{
 				"type":        "string",

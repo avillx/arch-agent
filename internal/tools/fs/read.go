@@ -50,7 +50,7 @@ func (t *ReadTool) Schema() map[string]any {
 		"properties": map[string]any{
 			"path": map[string]any{
 				"type":        "string",
-				"description": "Path to file or directory, e.g. `./shared` './shared/project-x/README.md', './shared/img.png'",
+				"description": "Path to file or directory, e.g. `shared` 'shared/project-x/README.md', 'shared/img.png'",
 			},
 			"start_line": map[string]any{
 				"type":        "number",

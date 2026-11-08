@@ -25,7 +25,7 @@ func (t *EditTool) Schema() map[string]any {
 		"properties": map[string]any{
 			"path": map[string]any{
 				"type":        "string",
-				"description": "File path e.g './shared/project-x/README.md'",
+				"description": "File path e.g 'shared/project-x/README.md'",
 			},
 			"old": map[string]any{
 				"type":        "string",

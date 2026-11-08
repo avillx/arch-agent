@@ -23,11 +23,11 @@ func (t *MoveTool) Schema() map[string]any {
 		"properties": map[string]any{
 			"src": map[string]any{
 				"type":        "string",
-				"description": "Source path e.g. './shared/project-x' or './shared/project-x/README.md'",
+				"description": "Source path e.g. 'shared/project-x' or 'shared/project-x/README.md'",
 			},
 			"dst": map[string]any{
 				"type":        "string",
-				"description": "Destination path './shared/other-project' or './shared/other-project/README.md'",
+				"description": "Destination path 'shared/other-project' or 'shared/other-project/README.md'",
 			},
 		},
 		"required": []string{"src", "dst"},
