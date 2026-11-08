@@ -59,7 +59,7 @@ func New(
 	sessRetention time.Duration,
 	cleanUpInterval time.Duration,
 	agentShell string,
-	agentShellAttribues []string,
+	agentShellAttributes []string,
 	logger *slog.Logger,
 ) (*Server, error) {
 
@@ -196,7 +196,7 @@ func New(
 	}
 
 	if err := attachBuildinToolServers(
-		datapath, agentShell, agentShellAttribues, toolSvc, secretSvc, fileStorage,
+		datapath, agentShell, agentShellAttributes, toolSvc, secretSvc, fileStorage,
 		skipPatterns, todoStorage, chatSvc, sessSvc, logger, agentRepo,
 	); err != nil {
 		return nil, err
@@ -276,7 +276,7 @@ func buildTaskService(
 func attachBuildinToolServers(
 	datapath string,
 	agentShell string,
-	AgentShellAttribues []string,
+	agentShellAttributes []string,
 	toolSvc *tools.Service,
 	secretSvc *secrets.Service,
 	fileStorage files.FileStorage,
@@ -301,7 +301,7 @@ func attachBuildinToolServers(
 		datapath,
 		secretSvc,
 		agentShell,
-		AgentShellAttribues,
+		agentShellAttributes,
 	))
 
 	return nil

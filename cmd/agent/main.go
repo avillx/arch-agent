@@ -35,19 +35,19 @@ func run(ctx context.Context) error {
 	defer stop()
 
 	// ENV logging
-	logIndented := getBoolEnv("AGENT_LOG_INDENTED", false)
-	logSource := getBoolEnv("AGENT_LOG_SOURCE", false)
-	logLevel := getLoglevelEnv("AGENT_LOG_LEVEL", slog.LevelWarn)
-	logJSON := getBoolEnv("AGENT_LOG_JSON", false)
+	logIndented := getEnv("AGENT_LOG_INDENTED", false, strconv.ParseBool)
+	logSource := getEnv("AGENT_LOG_SOURCE", false, strconv.ParseBool)
+	logLevel := getEnv("AGENT_LOG_LEVEL", slog.LevelWarn, logging.ToLogLevel)
+	logJSON := getEnv("AGENT_LOG_JSON", false, strconv.ParseBool)
 
 	// ENV server config
-	port := string(getInt64Env("AGENT_PORT", 8080))
-	datapath := getEnv("AGENT_DATAPATH", "./agent-data")
-	cleanupInterval := time.Duration(getInt64Env("AGENT_CLEAN_UP_INTERVAL", 12)) * time.Hour
-	sessRetention := time.Duration(getInt64Env("AGENT_SESSION_RETENTION", 240)) * time.Hour
-	maxLogLines := int(getInt64Env("AGENT_MAX_LOGLINES", 1000))
-	agentShell := getEnv("AGENT_SHELL", "")
-	agentShellAttribues := strings.Split(getEnv("AGENT_SHELL_ATTRIBUTES", ""), " ")
+	port := getEnv("AGENT_PORT", 8080, strconv.Atoi)
+	datapath := getEnv("AGENT_DATAPATH", "./agent-data", parseString)
+	cleanupInterval := getEnv("AGENT_CLEAN_UP_INTERVAL", 12*time.Hour, time.ParseDuration)
+	sessRetention := getEnv("AGENT_SESSION_RETENTION", 240*time.Hour, time.ParseDuration)
+	maxLogLines := getEnv("AGENT_MAX_LOGLINES", 1000, strconv.Atoi)
+	agentShell := getEnv("AGENT_SHELL", "", parseString)
+	agentShellAttributes := strings.Fields(getEnv("AGENT_SHELL_ATTRIBUTES", "", parseString))
 
 	// Logging
 	logHandler := logging.NewHandler(logging.LoggerConfig{
@@ -61,7 +61,7 @@ func run(ctx context.Context) error {
 
 	// App composing
 	srv, err := server.New(ctx,
-		datapath, maxLogLines, sessRetention, cleanupInterval, agentShell, agentShellAttribues, logger,
+		datapath, maxLogLines, sessRetention, cleanupInterval, agentShell, agentShellAttributes, logger,
 	)
 	if err != nil {
 		return err
@@ -90,55 +90,22 @@ func run(ctx context.Context) error {
 	return httpServer.Shutdown(shutdownCtx)
 }
 
-func getEnv(key, def string) string {
-	if v, ok := os.LookupEnv(key); ok {
-		return v
-	}
-	return def
-}
-
-func getInt64Env(key string, def int64) int64 {
-	envString, ok := os.LookupEnv(key)
+func getEnv[T any](key string, def T, parse func(string) (T, error)) T {
+	raw, ok := os.LookupEnv(key)
 	if !ok {
-		fmt.Printf("%s: is not specified. Applyed default %d", key, def)
+		slog.Info("Environment variable is not specified, default applied",
+			"env", key, "default", def)
 		return def
 	}
 
-	v, err := strconv.ParseInt(envString, 10, 64)
+	v, err := parse(raw)
 	if err != nil {
-		fmt.Printf("%s: %s cant be parsed as int value. Applyed default %d", key, v, def)
+		slog.Error("Environment variable can't be parsed, default applied",
+			"env", key, "value", raw, "default", def, "error", err)
 		return def
 	}
 	return v
 }
 
-func getBoolEnv(key string, def bool) bool {
-	envString, ok := os.LookupEnv(key)
-	if !ok {
-		fmt.Printf("%s: is not specified. Applyed default %d", key, def)
-		return def
-	}
-
-	v, err := strconv.ParseBool(envString)
-	if err != nil {
-		fmt.Printf("%s: %s cant be parsed as bool value. Applyed default %d", key, v, def)
-		return def
-	}
-	return v
-}
-
-func getLoglevelEnv(key string, def slog.Level) slog.Level {
-	envString, ok := os.LookupEnv(key)
-	if !ok {
-		fmt.Printf("%s: is not specified. Applyed default %s", key, def.String())
-		return def
-	}
-
-	ll, err := logging.ToLogLevel(envString)
-	if err != nil {
-		fmt.Printf("%s: %s cant be parsed as log level value", key, def.String())
-		return def
-	}
-
-	return ll
-}
+func parseString(s string) (string, error) { return s, nil }
+func parseInt64(s string) (int64, error)   { return strconv.ParseInt(s, 10, 64) }
