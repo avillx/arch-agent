@@ -18,9 +18,9 @@ type mcpTool struct {
 	session     *mcpsdk.ClientSession
 }
 
-func (t *mcpTool) Name() agent.ToolName { return t.name }
-func (t *mcpTool) Description() string  { return t.description }
-func (t *mcpTool) Schema() any          { return t.schema }
+func (t *mcpTool) Name() agent.ToolName   { return t.name }
+func (t *mcpTool) Description() string    { return t.description }
+func (t *mcpTool) Schema() map[string]any { return t.schema }
 func (t *mcpTool) Call(ctx context.Context, args agent.ToolArguments) ([]agent.ContentPart, error) {
 	var m map[string]any
 	if err := json.Unmarshal(args, &m); err != nil {

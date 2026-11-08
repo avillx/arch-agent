@@ -179,9 +179,9 @@ type mockTool struct {
 	callFn func(context.Context, agent.ToolArguments) ([]agent.ContentPart, error)
 }
 
-func (m *mockTool) Name() agent.ToolName { return agent.ToolName(m.name) }
-func (m *mockTool) Description() string  { return m.name }
-func (m *mockTool) Schema() any          { return map[string]any{} }
+func (m *mockTool) Name() agent.ToolName   { return agent.ToolName(m.name) }
+func (m *mockTool) Description() string    { return m.name }
+func (m *mockTool) Schema() map[string]any { return map[string]any{} }
 func (m *mockTool) Call(ctx context.Context, args agent.ToolArguments) ([]agent.ContentPart, error) {
 	if m.callFn != nil {
 		return m.callFn(ctx, args)

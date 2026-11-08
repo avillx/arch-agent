@@ -44,21 +44,21 @@ func (t *FindTool) Description() string {
 	return "glob-like path search; When regex specified returns matched file content (grep-like behaviour)"
 }
 
-func (t *FindTool) Schema() any {
-	return []agent.ToolProperty{
-		{
-			Name:        "glob",
-			Required:    true,
-			Type:        agent.TypeString,
-			Description: "Glob pattern e.g. **/**.md",
+func (t *FindTool) Schema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"glob": map[string]any{
+				"type":        "string",
+				"description": "Glob pattern e.g. **/**.md",
+			},
+			"regex": map[string]any{
+				"type": "string",
+				"description": `Go-compitable regular expression,
+				serve to find content in files; Adds matched file entry to results`,
+			},
 		},
-		{
-			Name:     "regex",
-			Required: false,
-			Type:     agent.TypeString,
-			Description: `Go-compitable regular expression,
-			serve to find content in files; Adds matched file entry to results`,
-		},
+		"required": []string{"glob"},
 	}
 }
 

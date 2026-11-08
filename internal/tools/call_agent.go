@@ -79,20 +79,20 @@ func (t *CallAgentTool) TimeOut() time.Duration {
 	return 10 * time.Minute
 }
 
-func (t *CallAgentTool) Schema() any {
-	return []agent.ToolProperty{
-		{
-			Name:        "name",
-			Required:    true,
-			Type:        agent.TypeString,
-			Description: "Target agent name",
+func (t *CallAgentTool) Schema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"name": map[string]any{
+				"type":        "string",
+				"description": "Target agent name",
+			},
+			"request": map[string]any{
+				"type":        "string",
+				"description": "ask or question for agent",
+			},
 		},
-		{
-			Name:        "request",
-			Required:    true,
-			Type:        agent.TypeString,
-			Description: "Task or question for agent",
-		},
+		"required": []string{"name", "request"},
 	}
 }
 

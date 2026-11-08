@@ -61,15 +61,19 @@ type CreateTodoTool struct{ Store Store }
 func (t *CreateTodoTool) Name() agent.ToolName { return "create_todo" }
 func (t *CreateTodoTool) Description() string  { return "Create one or more todos" }
 
-func (t *CreateTodoTool) Schema() any {
-	return []agent.ToolProperty{
-		{
-			Name:        "titles",
-			Required:    true,
-			IsArray:     true,
-			Type:        agent.TypeString,
-			Description: "Todo titles to create",
+func (t *CreateTodoTool) Schema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"titles": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "string",
+				},
+				"description": "Todo titles to create",
+			},
 		},
+		"required": []string{"titles"},
 	}
 }
 
@@ -98,21 +102,21 @@ type UpdateTodoTool struct{ Store Store }
 func (t *UpdateTodoTool) Name() agent.ToolName { return "update_todo" }
 func (t *UpdateTodoTool) Description() string  { return "Update a todo's status by ID" }
 
-func (t *UpdateTodoTool) Schema() any {
-	return []agent.ToolProperty{
-		{
-			Name:        "id",
-			Required:    true,
-			Type:        agent.TypeNumber,
-			Description: "Todo ID",
+func (t *UpdateTodoTool) Schema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"id": map[string]any{
+				"type":        "number",
+				"description": "Todo ID",
+			},
+			"status": map[string]any{
+				"type":        "string",
+				"description": "New status value",
+				"enum":        []string{"pending", "in_progress", "done", "declined"},
+			},
 		},
-		{
-			Name:        "status",
-			Required:    true,
-			Type:        agent.TypeString,
-			Description: "New status value",
-			Enum:        []string{"pending", "in_progress", "done", "declined"},
-		},
+		"required": []string{"id", "status"},
 	}
 }
 
@@ -144,7 +148,12 @@ func (t *ListTodoTool) Description() string {
 	return "List all todos in the current session"
 }
 
-func (t *ListTodoTool) Schema() any { return nil }
+func (t *ListTodoTool) Schema() map[string]any {
+	return map[string]any{
+		"type":       "object",
+		"properties": map[string]any{},
+	}
+}
 
 func (t *ListTodoTool) Call(ctx context.Context, _ agent.ToolArguments) ([]agent.ContentPart, error) {
 	sessionID := tools.MustSessionID(ctx)

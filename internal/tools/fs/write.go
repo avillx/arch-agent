@@ -23,28 +23,26 @@ func (t *WriteTool) Name() agent.ToolName { return "write" }
 func (t *WriteTool) Description() string {
 	return "Write content to a file, creating it if it does not exist; default mode overwrites"
 }
-func (t *WriteTool) Schema() any {
-	return []agent.ToolProperty{
-		{
-			Name:     "path",
-			Required: true,
-			Type:     agent.TypeString,
-			Description: `File path, create full path when it is not exist.
+func (t *WriteTool) Schema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"path": map[string]any{
+				"type": "string",
+				"description": `File path, create full path when it is not exist.
 e.g. './shared/project-x/README.md', './shared/non/exist/path/README.md'`,
+			},
+			"content": map[string]any{
+				"type":        "string",
+				"description": "Text content to write",
+			},
+			"mode": map[string]any{
+				"type":        "string",
+				"description": `"Overwrite" (default) or "append"`,
+				"enum":        []string{string(Overwrite), string(Append)},
+			},
 		},
-		{
-			Name:        "content",
-			Required:    true,
-			Type:        agent.TypeString,
-			Description: "Text content to write",
-		},
-		{
-			Name:        "mode",
-			Required:    false,
-			Type:        agent.TypeString,
-			Description: `"Overwrite" (default) or "append"`,
-			Enum:        []string{string(Overwrite), string(Append)},
-		},
+		"required": []string{"path", "content"},
 	}
 }
 

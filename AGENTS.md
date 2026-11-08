@@ -229,7 +229,7 @@ Widely used protection pattern: a public interface and constructor, with a priva
 - [message](./internal/agent/message.go) — the `Message` interface with a per-role implementation, including transcription rules.
 - [model](./internal/agent/model.go) — the `Model` interface (the LLM itself) plus `Completion`, `ModelSettings`, and the `ModelRegistry` port. Its implementation lives in `openai`.
 - [service](./internal/agent/service.go) — `agent.Service`; thin validation over the agent storage (checks the model and tool servers exist before saving/deleting).
-- [tool](./internal/agent/tool.go) — the tool ports used by the agent: `Tool`, `ToolServer`, `ToolRegistry`, and `ToolProperty`.
+- [tool](./internal/agent/tool.go) — the tool ports used by the agent: `Tool`, `ToolServer`, and `ToolRegistry`. A tool's `Schema()` returns a JSON schema.
 - [toolcall](./internal/agent/toolcall.go) — part of an agent message; when the agent calls a tool, it should be represented as a `ToolCall`.
 
 ## [session domain](./internal/session)

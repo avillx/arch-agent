@@ -19,26 +19,24 @@ func (t *EditTool) Description() string {
 	return "Replace a unique string in a file; 'old' string must match exactly once"
 }
 
-func (t *EditTool) Schema() any {
-	return []agent.ToolProperty{
-		{
-			Name:        "path",
-			Required:    true,
-			Type:        agent.TypeString,
-			Description: "File path e.g './shared/project-x/README.md'",
+func (t *EditTool) Schema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"path": map[string]any{
+				"type":        "string",
+				"description": "File path e.g './shared/project-x/README.md'",
+			},
+			"old": map[string]any{
+				"type":        "string",
+				"description": "Unique string to replace",
+			},
+			"new": map[string]any{
+				"type":        "string",
+				"description": "Replacement string; empty string to delete",
+			},
 		},
-		{
-			Name:        "old",
-			Required:    true,
-			Type:        agent.TypeString,
-			Description: "Unique string to replace",
-		},
-		{
-			Name:        "new",
-			Required:    true,
-			Type:        agent.TypeString,
-			Description: "Replacement string; empty string to delete",
-		},
+		"required": []string{"path", "old", "new"},
 	}
 }
 

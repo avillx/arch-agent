@@ -159,59 +159,10 @@ func toolToOpenAI(t agent.Tool) openai.ChatCompletionToolUnionParam {
 				Name: string(t.Name()),
 				// Strict:      openai.Bool(true),
 				Description: openai.String(t.Description()),
-				Parameters:  propertiesToOpenAI(t.Schema()),
+				Parameters:  t.Schema(),
 			},
 		},
 	}
-}
-
-func propertiesToOpenAI(props any) shared.FunctionParameters {
-
-	if props == nil {
-		return map[string]any{}
-	}
-
-	internalProps, ok := props.([]agent.ToolProperty)
-	if !ok {
-		return props.(map[string]any)
-	}
-
-	functionParams := shared.FunctionParameters{"type": "object"}
-
-	properties := map[string]any{}
-	required := []string{}
-
-	for _, prop := range internalProps {
-		properties[prop.Name] = propertyToOpenAI(prop)
-
-		if prop.Required {
-			required = append(required, prop.Name)
-		}
-	}
-
-	functionParams["properties"] = properties
-	functionParams["required"] = required
-
-	return functionParams
-}
-
-func propertyToOpenAI(prop agent.ToolProperty) map[string]any {
-
-	result := map[string]any{
-		"type":        prop.Type,
-		"description": prop.Description,
-	}
-
-	if prop.IsArray {
-		result["type"] = "array"
-		result["items"] = map[string]any{"type": prop.Type}
-	}
-
-	if prop.Enum != nil {
-		result["enum"] = prop.Enum
-	}
-
-	return result
 }
 
 func openAIResponseFormat[T any](strict bool) openai.ChatCompletionNewParamsResponseFormatUnion {

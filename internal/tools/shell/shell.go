@@ -95,26 +95,24 @@ func (t *ShellTool) Description() string {
 	return "access to shell"
 }
 
-func (t *ShellTool) Schema() any {
-	return []agent.ToolProperty{
-		{
-			Name:        "command",
-			Required:    true,
-			Type:        agent.TypeString,
-			Description: "Full shell command for execution",
+func (t *ShellTool) Schema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"command": map[string]any{
+				"type":        "string",
+				"description": "Full shell command for execution",
+			},
+			"cwd": map[string]any{
+				"type":        "string",
+				"description": fmt.Sprintf("Working directory (default %s)", t.cwd),
+			},
+			"timeout": map[string]any{
+				"type":        "number",
+				"description": "Timeout in seconds",
+			},
 		},
-		{
-			Name:        "cwd",
-			Required:    false,
-			Type:        agent.TypeString,
-			Description: fmt.Sprintf("Working directory (default %s)", t.cwd),
-		},
-		{
-			Name:        "timeout",
-			Required:    false,
-			Type:        agent.TypeNumber,
-			Description: "Timeout in seconds",
-		},
+		"required": []string{"command"},
 	}
 }
 

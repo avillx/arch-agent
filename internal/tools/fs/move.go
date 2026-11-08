@@ -17,20 +17,20 @@ func (t *MoveTool) Description() string {
 	return "Move or rename a file or directory from src to dst"
 }
 
-func (t *MoveTool) Schema() any {
-	return []agent.ToolProperty{
-		{
-			Name:        "src",
-			Required:    true,
-			Type:        agent.TypeString,
-			Description: "Source path e.g. './shared/project-x' or './shared/project-x/README.md'",
+func (t *MoveTool) Schema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"src": map[string]any{
+				"type":        "string",
+				"description": "Source path e.g. './shared/project-x' or './shared/project-x/README.md'",
+			},
+			"dst": map[string]any{
+				"type":        "string",
+				"description": "Destination path './shared/other-project' or './shared/other-project/README.md'",
+			},
 		},
-		{
-			Name:        "dst",
-			Required:    true,
-			Type:        agent.TypeString,
-			Description: "Destination path './shared/other-project' or './shared/other-project/README.md'",
-		},
+		"required": []string{"src", "dst"},
 	}
 }
 

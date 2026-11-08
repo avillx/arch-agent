@@ -44,26 +44,24 @@ func (t *ReadTool) Description() string {
 limited to a line range, reads dir structure in 2 levels depth`
 }
 
-func (t *ReadTool) Schema() any {
-	return []agent.ToolProperty{
-		{
-			Name:        "path",
-			Required:    true,
-			Type:        agent.TypeString,
-			Description: "Path to file or directory, e.g. `./shared` './shared/project-x/README.md', './shared/img.png'",
+func (t *ReadTool) Schema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"path": map[string]any{
+				"type":        "string",
+				"description": "Path to file or directory, e.g. `./shared` './shared/project-x/README.md', './shared/img.png'",
+			},
+			"start_line": map[string]any{
+				"type":        "number",
+				"description": "First line of text file to read (default: 1)",
+			},
+			"end_line": map[string]any{
+				"type":        "number",
+				"description": "Last line of text file to read (default: end of file)",
+			},
 		},
-		{
-			Name:        "start_line",
-			Required:    false,
-			Type:        agent.TypeNumber,
-			Description: "First line of text file to read (default: 1)",
-		},
-		{
-			Name:        "end_line",
-			Required:    false,
-			Type:        agent.TypeNumber,
-			Description: "Last line of text file to read (default: end of file)",
-		},
+		"required": []string{"path"},
 	}
 }
 

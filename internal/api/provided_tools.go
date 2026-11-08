@@ -167,9 +167,9 @@ func (t *ProvidedTool) Chan() chan ProvidedToolResultDTO { return t.resultCh }
 func (t *ProvidedTool) SetID(id string)                  { t.id = id }
 func (t *ProvidedTool) SetStream(s *Stream)              { t.stream = s }
 
-func (t *ProvidedTool) Name() agent.ToolName { return agent.ToolName(t.name) }
-func (t *ProvidedTool) Description() string  { return t.description }
-func (t *ProvidedTool) Schema() any          { return t.scheme }
+func (t *ProvidedTool) Name() agent.ToolName   { return agent.ToolName(t.name) }
+func (t *ProvidedTool) Description() string    { return t.description }
+func (t *ProvidedTool) Schema() map[string]any { return t.scheme }
 func (t *ProvidedTool) Call(ctx context.Context, args agent.ToolArguments) ([]agent.ContentPart, error) {
 
 	type ProvidedToolCallDTO struct {

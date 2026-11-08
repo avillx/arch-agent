@@ -66,9 +66,9 @@ type mockTool struct {
 	panic  bool
 }
 
-func (t *mockTool) Name() agent.ToolName { return agent.ToolName(t.name) }
-func (t *mockTool) Description() string  { return t.name }
-func (t *mockTool) Schema() any          { return map[string]any{} }
+func (t *mockTool) Name() agent.ToolName   { return agent.ToolName(t.name) }
+func (t *mockTool) Description() string    { return t.name }
+func (t *mockTool) Schema() map[string]any { return map[string]any{} }
 
 func (t *mockTool) Call(
 	ctx context.Context,
