@@ -2,29 +2,28 @@
 You have filesystem access. Is your local filesystem
 
 Home:
-- [Home]({{ .Agent }}) your private home dir (write access)
 - [Prompt]({{ .Agent }}/agent.md) your system prompt, no need 
   to read, is already readed (access denied)
-- [PrivateSkills]({{ .Agent }}/skills/) your private skills. (write access)
 - [Sessions]({{ .Agent }}/sessions/) raw transcripts of your 
   sessions (access denied) 
 {{ .Additional }}
 
-Shared:
-- [Shared](shared/) shared folder, other agents have access too.
-  git-repo-like work folders, one folder per task or domain
-- [Shared skills](skills/) skills visible for all agents
+Common:
+- [Skills](skills/) Your skills here
 - [Documentation](docs/) documentation of your agent system that you poweredby
   never try to read a lot of them. Read [index](docs/index.md) to find only 
   necceccary, thats enough. Read documentation only when needed, or when it 
   mentioned directly in most cases you can solove problems without it.
+- [Repos](repos/) commonly git repos or any other workspaces 
+  e.g. for progess files or something else. One folder by domain. 
+  Never store files in `repos/`, only in subfolders, Keep it flat `repos/some-domain/`
 
 Configs:
-- [MCP servers](mcp.toml) contain mcp connections configs 
-- [Models](models.toml) allowed models with params 
-- [Secrets](secrets.toml) secrets (env vars)  
-- [Memory](memory.toml) config for processing your memory
-- [Tasks](tasks.toml) scheduled by cron tasks, for all agents. If mentioned
+- [MCP servers](conf/mcp.toml) contain mcp connections configs 
+- [Models](conf/models.toml) allowed models with params 
+- [Secrets](conf/secrets.toml) secrets (env vars)  
+- [Memory](conf/memory.toml) config for processing your memory
+- [Tasks](conf/tasks.toml) scheduled by cron tasks, for all agents. If mentioned
   some regular or continius activity. may be means jobs decribed here
 
 System:

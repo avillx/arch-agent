@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"log/slog"
 	"maps"
-	"path"
 	"sync"
 )
 
@@ -39,26 +38,13 @@ func NewSkillFiles(
 func (f *SkillFiles) Skills(agentID agent.ID) (map[string]string, error) {
 	skillsIndex := map[string]string{}
 
-	// private skills
-	// NOTE: path over filepath is required
-	privateSkillsPath := path.Join(string(agentID), skillsFolder)
-	privateSkills, err := f.loadSkills(privateSkillsPath)
+	skills, err := f.loadSkills(skillsFolder)
 	if err != nil {
 		return nil, err
 	}
 
-	// shared skills
-	sharedSkills, err := f.loadSkills(skillsFolder)
-	if err != nil {
-		return nil, err
-	}
-
-	// unite shared and private in one index
-	if privateSkills != nil {
-		maps.Copy(skillsIndex, privateSkills)
-	}
-	if sharedSkills != nil {
-		maps.Copy(skillsIndex, sharedSkills)
+	if skills != nil {
+		maps.Copy(skillsIndex, skills)
 	}
 
 	return skillsIndex, nil
@@ -67,8 +53,8 @@ func (f *SkillFiles) Skills(agentID agent.ID) (map[string]string, error) {
 func (f *SkillFiles) loadSkills(p string) (map[string]string, error) {
 
 	type skillFrontmatterDTO struct {
-		ID          string `yaml:"name"`
-		Description string `yaml:"description,omitempty"`
+		ID          string `yaml:"name" toml:"name"`
+		Description string `yaml:"description,omitempty" toml:"description,omitempty"`
 	}
 
 	skillIndex := map[string]string{}
