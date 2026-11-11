@@ -1,4 +1,4 @@
-# Agent Runtime Daemon
+# ARD | Agent Runtime Daemon
 
 ![Go](https://img.shields.io/badge/go-%2300ADD8.svg?style=for-the-badge&logo=go&logoColor=white)
 ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
@@ -13,7 +13,7 @@ Key points:
 - Agents work autonomously on a cron schedule (scheduled tasks).
 - Everything an agent does is written to activity logs and consolidated once a
   day into persistent memory the agent can use.
-- Built-in tools (filesystem, shell, web, to-do, delegation to other agents)
+- Built-in tools (filesystem, shell, to-do, delegation to other agents)
   plus external tools via MCP or provided by your API client per request.
 - Works with any OpenAI-compatible endpoint.
 
