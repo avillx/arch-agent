@@ -27,7 +27,7 @@ main() {
     for src in "$DEFAULTS_DIR"/skills/*; do
         dst="$SKILLS_DIR/${src##*/}"
         [[ -e "$dst" ]] && continue
-        cp -r "$src" "$dst"
+        cp -r --no-preserve=mode "$src" "$dst"
     done
 
     exec "$DEFAULTS_DIR"/ard
