@@ -15,7 +15,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 FROM ubuntu:resolute-20260811.1
 
 ENV USER=agent
-ENV DATA_PATH=/agent
+ENV AGENT_DATAPATH=/agent
 
 WORKDIR /
 
@@ -29,12 +29,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN useradd -m -d /home/$USER -s /bin/bash $USER
 
-RUN mkdir $DATA_PATH && chown $USER:$USER $DATA_PATH && chmod 755 $DATA_PATH
+RUN mkdir $AGENT_DATAPATH && chown $USER:$USER $AGENT_DATAPATH && chmod 755 $AGENT_DATAPATH
 
 COPY --chmod=444 ./README.md ./LICENSE /opt/ard/
-COPY --chmod=555 ./docs $DATA_PATH/docs
+COPY --chmod=555 ./docs $AGENT_DATAPATH/docs
 COPY --chmod=555 --from=builder /build/ard /opt/ard/ard
+COPY --chmod=555  scripts/entrypoint.sh /opt/ard/entrypoint.sh
 
 USER $USER
 
-ENTRYPOINT ["/opt/ard/ard"]
+ENTRYPOINT ["/opt/ard/entrypoint.sh"]
