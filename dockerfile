@@ -35,7 +35,8 @@ RUN useradd -m -d /home/$USER -s /bin/bash $USER
 RUN mkdir $AGENT_DATAPATH && chown $USER:$USER $AGENT_DATAPATH && chmod 755 $AGENT_DATAPATH
 
 COPY --chmod=444 ./README.md ./LICENSE /opt/ard/
-COPY --chmod=555 ./docs $AGENT_DATAPATH/docs
+COPY --chmod=555 ./docs /opt/ard/docs
+COPY --chmod=555 ./skills /opt/ard/skills
 COPY --chmod=555 --from=builder /build/ard /opt/ard/ard
 COPY --chmod=555  scripts/entrypoint.sh /opt/ard/entrypoint.sh
 
