@@ -1,8 +1,8 @@
 package files
 
 import (
-	"arch-agent/internal/sentinel"
-	"arch-agent/internal/types"
+	"ard/internal/sentinel"
+	"ard/internal/types"
 	"context"
 	"errors"
 	"io/fs"

@@ -1,9 +1,9 @@
 package files
 
 import (
-	"arch-agent/internal/model"
-	"arch-agent/internal/sentinel"
-	"arch-agent/internal/types"
+	"ard/internal/model"
+	"ard/internal/sentinel"
+	"ard/internal/types"
 	"bytes"
 	"context"
 	"path/filepath"

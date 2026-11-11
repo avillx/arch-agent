@@ -1,9 +1,9 @@
 package hooks
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/files"
-	"arch-agent/internal/logging"
+	"ard/internal/agent"
+	"ard/internal/files"
+	"ard/internal/logging"
 	"path/filepath"
 )
 

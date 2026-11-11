@@ -1,8 +1,8 @@
 package runtime
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/prompt"
+	"ard/internal/agent"
+	"ard/internal/prompt"
 	"context"
 	"fmt"
 )

@@ -1,9 +1,9 @@
 package chat_test
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/chat"
-	"arch-agent/internal/session"
+	"ard/internal/agent"
+	"ard/internal/chat"
+	"ard/internal/session"
 	"context"
 	"errors"
 	"strings"

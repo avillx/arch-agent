@@ -1,7 +1,7 @@
 package files
 
 import (
-	"arch-agent/internal/types"
+	"ard/internal/types"
 	"errors"
 	"fmt"
 	"io/fs"

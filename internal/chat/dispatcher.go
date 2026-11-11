@@ -1,8 +1,8 @@
 package chat
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/session"
+	"ard/internal/agent"
+	"ard/internal/session"
 	"context"
 	"log/slog"
 	"sync"

@@ -1,9 +1,9 @@
 package hooks_test
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/hooks"
-	fstools "arch-agent/internal/tools/fs"
+	"ard/internal/agent"
+	"ard/internal/hooks"
+	fstools "ard/internal/tools/fs"
 	"context"
 	"encoding/json"
 	"os"

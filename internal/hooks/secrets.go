@@ -1,8 +1,8 @@
 package hooks
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/runtime"
+	"ard/internal/agent"
+	"ard/internal/runtime"
 	"context"
 )
 

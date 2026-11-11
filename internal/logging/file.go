@@ -1,7 +1,7 @@
 package logging
 
 import (
-	"arch-agent/internal/files"
+	"ard/internal/files"
 	"bytes"
 	"fmt"
 	"io"

@@ -1,9 +1,9 @@
 package files
 
 import (
-	"arch-agent/internal/mcp"
-	"arch-agent/internal/sentinel"
-	"arch-agent/internal/types"
+	"ard/internal/mcp"
+	"ard/internal/sentinel"
+	"ard/internal/types"
 	"bytes"
 	"context"
 	"fmt"

@@ -1,7 +1,7 @@
 package prompt
 
 import (
-	"arch-agent/internal/agent"
+	"ard/internal/agent"
 	"bytes"
 	_ "embed"
 	"fmt"

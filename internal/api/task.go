@@ -1,8 +1,8 @@
 package api
 
 import (
-	"arch-agent/internal/task"
-	"arch-agent/internal/types"
+	"ard/internal/task"
+	"ard/internal/types"
 	"errors"
 	"net/http"
 )

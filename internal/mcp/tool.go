@@ -1,7 +1,7 @@
 package mcp
 
 import (
-	"arch-agent/internal/agent"
+	"ard/internal/agent"
 	"context"
 	"encoding/json"
 	"fmt"

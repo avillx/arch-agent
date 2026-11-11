@@ -1,7 +1,7 @@
 package session
 
 import (
-	"arch-agent/internal/agent"
+	"ard/internal/agent"
 	"log/slog"
 )
 

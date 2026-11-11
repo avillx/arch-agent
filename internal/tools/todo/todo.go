@@ -1,8 +1,8 @@
 package todo
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/tools"
+	"ard/internal/agent"
+	"ard/internal/tools"
 	"context"
 	"fmt"
 	"strings"

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"arch-agent/internal/agent"
-	"arch-agent/internal/task"
-	"arch-agent/internal/types"
+	"ard/internal/agent"
+	"ard/internal/task"
+	"ard/internal/types"
 )
 
 func strPtr(s string) *string { return &s }

@@ -1,4 +1,4 @@
-# ARCH.agent
+# Agent Runtime Daemon
 
 ![Go](https://img.shields.io/badge/go-%2300ADD8.svg?style=for-the-badge&logo=go&logoColor=white)
 ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
@@ -10,7 +10,6 @@ tools, MCP integration and cron-scheduled tasks, exposed through a plain HTTP
 API. All state lives in a file database on disk — no external infrastructure.
 
 Key points:
-- Container first approach
 - Agents work autonomously on a cron schedule (scheduled tasks).
 - Everything an agent does is written to activity logs and consolidated once a
   day into persistent memory the agent can use.
@@ -26,10 +25,10 @@ See current [guide](docs/getting-started.md)
 ## License
 This program is licensed under the GNU General Public License v3.0 (GPLv3). See the full license: `https://www.gnu.org/licenses/gpl-3.0.txt`
 
-Source: `https://github.com/avillx/arch-agent`
+Source: `https://github.com/avillx/ard`
 
 ```
-avillx/arch-agent: Copyright (C) 2026 avillx
+avillx/ard: Copyright (C) 2026 avillx
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

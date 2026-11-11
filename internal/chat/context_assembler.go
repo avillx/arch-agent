@@ -1,9 +1,9 @@
 package chat
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/prompt"
-	"arch-agent/internal/session"
+	"ard/internal/agent"
+	"ard/internal/prompt"
+	"ard/internal/session"
 	"context"
 	"fmt"
 	"log/slog"

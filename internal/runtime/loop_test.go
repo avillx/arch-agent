@@ -1,10 +1,10 @@
 package runtime_test
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/prompt"
-	"arch-agent/internal/runtime"
-	"arch-agent/internal/types"
+	"ard/internal/agent"
+	"ard/internal/prompt"
+	"ard/internal/runtime"
+	"ard/internal/types"
 	"context"
 	"errors"
 	"strings"

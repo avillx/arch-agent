@@ -1,9 +1,9 @@
 package fstools
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/files"
-	"arch-agent/internal/tools"
+	"ard/internal/agent"
+	"ard/internal/files"
+	"ard/internal/tools"
 	"context"
 	"fmt"
 )

@@ -1,7 +1,7 @@
 package files
 
 import (
-	"arch-agent/internal/agent"
+	"ard/internal/agent"
 	"encoding/json"
 	"fmt"
 )

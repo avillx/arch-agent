@@ -1,11 +1,11 @@
 package subagent
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/chat"
-	"arch-agent/internal/prompt"
-	"arch-agent/internal/runtime"
-	"arch-agent/internal/session"
+	"ard/internal/agent"
+	"ard/internal/chat"
+	"ard/internal/prompt"
+	"ard/internal/runtime"
+	"ard/internal/session"
 	"errors"
 	"fmt"
 	"log/slog"

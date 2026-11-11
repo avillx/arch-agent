@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"arch-agent/internal/tools"
+	"ard/internal/tools"
 )
 
 type ConfigRepo interface {

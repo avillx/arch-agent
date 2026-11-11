@@ -1,9 +1,9 @@
 package cleanup_test
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/cleanup"
-	"arch-agent/internal/session"
+	"ard/internal/agent"
+	"ard/internal/cleanup"
+	"ard/internal/session"
 	"context"
 	"errors"
 	"log/slog"

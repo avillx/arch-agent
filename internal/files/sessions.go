@@ -1,9 +1,9 @@
 package files
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/session"
-	"arch-agent/internal/types"
+	"ard/internal/agent"
+	"ard/internal/session"
+	"ard/internal/types"
 	"bufio"
 	"bytes"
 	"encoding/json"

@@ -1,9 +1,9 @@
 package tools
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/subagent"
-	"arch-agent/internal/types"
+	"ard/internal/agent"
+	"ard/internal/subagent"
+	"ard/internal/types"
 	"context"
 	"errors"
 	"fmt"

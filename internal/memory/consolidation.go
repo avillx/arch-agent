@@ -1,9 +1,9 @@
 package memory
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/prompt"
-	"arch-agent/internal/runtime"
+	"ard/internal/agent"
+	"ard/internal/prompt"
+	"ard/internal/runtime"
 	"context"
 	"errors"
 	"fmt"

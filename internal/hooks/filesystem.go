@@ -1,11 +1,11 @@
 package hooks
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/runtime"
-	"arch-agent/internal/tools"
-	fstools "arch-agent/internal/tools/fs"
-	"arch-agent/internal/types"
+	"ard/internal/agent"
+	"ard/internal/runtime"
+	"ard/internal/tools"
+	fstools "ard/internal/tools/fs"
+	"ard/internal/types"
 	"context"
 	"errors"
 	"fmt"

@@ -6,10 +6,10 @@ import (
 	"log/slog"
 	"testing"
 
-	"arch-agent/internal/agent"
-	"arch-agent/internal/chat"
-	"arch-agent/internal/runtime"
-	"arch-agent/internal/session"
+	"ard/internal/agent"
+	"ard/internal/chat"
+	"ard/internal/runtime"
+	"ard/internal/session"
 )
 
 type stubChatExecutor struct {

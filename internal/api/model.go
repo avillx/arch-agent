@@ -1,8 +1,8 @@
 package api
 
 import (
-	"arch-agent/internal/model"
-	"arch-agent/internal/types"
+	"ard/internal/model"
+	"ard/internal/types"
 	"encoding/base64"
 	"errors"
 	"net/http"

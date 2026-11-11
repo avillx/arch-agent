@@ -1,9 +1,9 @@
 package api
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/mcp"
-	"arch-agent/internal/types"
+	"ard/internal/agent"
+	"ard/internal/mcp"
+	"ard/internal/types"
 	"errors"
 	"net/http"
 )

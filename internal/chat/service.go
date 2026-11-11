@@ -1,11 +1,11 @@
 package chat
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/prompt"
-	"arch-agent/internal/runtime"
-	"arch-agent/internal/session"
-	"arch-agent/internal/types"
+	"ard/internal/agent"
+	"ard/internal/prompt"
+	"ard/internal/runtime"
+	"ard/internal/session"
+	"ard/internal/types"
 	"context"
 	"errors"
 	"fmt"

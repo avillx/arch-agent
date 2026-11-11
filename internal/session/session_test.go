@@ -1,8 +1,8 @@
 package session_test
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/session"
+	"ard/internal/agent"
+	"ard/internal/session"
 	"reflect"
 	"testing"
 	"time"

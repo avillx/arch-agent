@@ -1,7 +1,7 @@
 package mcp
 
 import (
-	"arch-agent/internal/types"
+	"ard/internal/types"
 	"context"
 	"errors"
 	"fmt"
@@ -126,7 +126,7 @@ func envToSlice(env map[string]string) []string {
 
 func newClient() *mcp.Client {
 	return mcp.NewClient(&mcp.Implementation{
-		Name:    "arch-agent",
+		Name:    "ard",
 		Version: "1.0.0",
 	},
 		&mcp.ClientOptions{},

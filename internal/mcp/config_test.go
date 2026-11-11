@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"arch-agent/internal/types"
+	"ard/internal/types"
 )
 
 func validationProblem(t *testing.T, err error) map[string]string {

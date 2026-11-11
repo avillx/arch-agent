@@ -1,8 +1,8 @@
 package cleanup
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/session"
+	"ard/internal/agent"
+	"ard/internal/session"
 	"errors"
 	"log/slog"
 	"sync"

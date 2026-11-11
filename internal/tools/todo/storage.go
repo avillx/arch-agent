@@ -1,7 +1,7 @@
 package todo
 
 import (
-	"arch-agent/internal/session"
+	"ard/internal/session"
 	"fmt"
 	"sync"
 	"time"

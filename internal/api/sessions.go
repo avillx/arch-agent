@@ -1,9 +1,9 @@
 package api
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/session"
-	"arch-agent/internal/types"
+	"ard/internal/agent"
+	"ard/internal/session"
+	"ard/internal/types"
 	"errors"
 	"net/http"
 	"time"

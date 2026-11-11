@@ -1,9 +1,9 @@
 package files
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/chat"
-	"arch-agent/internal/types"
+	"ard/internal/agent"
+	"ard/internal/chat"
+	"ard/internal/types"
 	"errors"
 	"io/fs"
 	"log/slog"

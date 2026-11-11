@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"arch-agent/internal/agent"
-	"arch-agent/internal/memory"
-	"arch-agent/internal/types"
+	"ard/internal/agent"
+	"ard/internal/memory"
+	"ard/internal/types"
 )
 
 type consolidationModelRegistry struct {

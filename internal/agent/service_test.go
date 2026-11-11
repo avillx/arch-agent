@@ -1,8 +1,8 @@
 package agent_test
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/types"
+	"ard/internal/agent"
+	"ard/internal/types"
 	"context"
 	"errors"
 	"slices"

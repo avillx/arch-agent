@@ -1,10 +1,10 @@
 package tools
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/chat"
-	"arch-agent/internal/session"
-	"arch-agent/internal/types"
+	"ard/internal/agent"
+	"ard/internal/chat"
+	"ard/internal/session"
+	"ard/internal/types"
 	"context"
 	"encoding/json"
 	"errors"

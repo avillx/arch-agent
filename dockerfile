@@ -10,7 +10,7 @@ COPY ./cmd ./cmd
 COPY ./internal ./internal
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -ldflags="-s -w" -o /build/arch-agent ./cmd/agent/
+    go build -ldflags="-s -w" -o /build/ard ./cmd/agent/
 
 FROM ubuntu:resolute-20260811.1
 
@@ -30,10 +30,10 @@ RUN useradd -m -d /home/$USER -s /bin/bash $USER
 
 RUN mkdir $DATA_PATH && chown $USER:$USER $DATA_PATH && chmod 755 $DATA_PATH
 
-COPY --chmod=444 ./README.md ./LICENSE /opt/arch-agent/
+COPY --chmod=444 ./README.md ./LICENSE /opt/ard/
 COPY --chmod=555 ./docs $DATA_PATH/docs
-COPY --chmod=555 --from=builder /build/arch-agent /opt/arch-agent/arch-agent
+COPY --chmod=555 --from=builder /build/ard /opt/ard/ard
 
 USER $USER
 
-ENTRYPOINT ["/opt/arch-agent/arch-agent"]
+ENTRYPOINT ["/opt/ard/ard"]

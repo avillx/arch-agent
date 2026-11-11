@@ -1,8 +1,8 @@
 package files
 
 import (
-	"arch-agent/internal/secrets"
-	"arch-agent/internal/sentinel"
+	"ard/internal/secrets"
+	"ard/internal/sentinel"
 	"bytes"
 	"context"
 	"path/filepath"

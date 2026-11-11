@@ -1,9 +1,9 @@
 package main
 
 import (
-	"arch-agent/internal/api"
-	"arch-agent/internal/logging"
-	"arch-agent/internal/server"
+	"ard/internal/api"
+	"ard/internal/logging"
+	"ard/internal/server"
 	"context"
 	"fmt"
 	"log/slog"

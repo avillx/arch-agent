@@ -8,7 +8,7 @@ default.
 
 | Variable | Allowed values | Default | What it controls |
 |----------|----------------|:-------:|------------------|
-| `DATA_PATH` | filesystem path | `~/.arch-agent` | Directory that holds all configuration files and data (see [configuration.md](configuration.md)) |
+| `DATA_PATH` | filesystem path | `~/.ard` | Directory that holds all configuration files and data (see [configuration.md](configuration.md)) |
 | `PORT` | port number | `8080` | Port the HTTP API listens on |
 | `LOG_LEVEL` | `debug`, `info`, `warn`, `error` | `error` | Minimum severity written to the console log |
 | `LOG_JSON` | `true`, `false` | `false` | Write console log in JSON format instead of plain text |
@@ -29,19 +29,19 @@ default.
 
 ```bash
 # Use a dedicated data directory and a non-default port
-DATA_PATH=/var/lib/arch-agent PORT=9000 ./arch-agent
+DATA_PATH=/var/lib/ard PORT=9000 ./ard
 
 # Verbose, structured logging for troubleshooting
-LOG_LEVEL=debug LOG_JSON=true LOG_SOURCE=true ./arch-agent
+LOG_LEVEL=debug LOG_JSON=true LOG_SOURCE=true ./ard
 
 # More aggressive cleanup and longer session retention
-CLEAN_UP_INTERVAL=4 SESSION_RETENTION=720 ./arch-agent
+CLEAN_UP_INTERVAL=4 SESSION_RETENTION=720 ./ard
 ```
 
 With Docker:
 
 ```bash
-docker run -e DATA_PATH=/agents -e PORT=8080 -p 8080:8080 -v agents:/agents ghcr.io/arch-agent/arch-agent
+docker run -e DATA_PATH=/agents -e PORT=8080 -p 8080:8080 -v agents:/agents ghcr.io/ard/ard
 ```
 
 ## Notes

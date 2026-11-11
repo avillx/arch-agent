@@ -1,8 +1,8 @@
 package openai
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/model"
+	"ard/internal/agent"
+	"ard/internal/model"
 	"encoding/json"
 	"fmt"
 	"sync"

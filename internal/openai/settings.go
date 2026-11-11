@@ -1,6 +1,6 @@
 package openai
 
-import "arch-agent/internal/agent"
+import "ard/internal/agent"
 
 type OpenAIModelSettings struct {
 	Model               *string          `json:"model"`

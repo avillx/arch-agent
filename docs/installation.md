@@ -11,7 +11,7 @@ to run inside a trusted network or behind your gateway.
 A ready image is published to GitHub Container Registry:
 
 ```
-ghcr.io/avillx/arch-agent:latest
+ghcr.io/avillx/ard:latest
 ```
 
 The image runs as a non-root user, has Python available inside (used by some
@@ -22,27 +22,27 @@ Run it directly:
 ```sh
 docker run -d \
   -p 8080:8080 \
-  -v arch-agent-data:/agents \
-  ghcr.io/avillx/arch-agent:latest
+  -v ard-data:/agents \
+  ghcr.io/avillx/ard:latest
 ```
 
 Or with Docker Compose:
 
 ```yaml
 services:
-  arch-agent:
-    image: ghcr.io/avillx/arch-agent:latest
+  ard:
+    image: ghcr.io/avillx/ard:latest
     restart: unless-stopped
     ports:
       - "8080:8080"
     volumes:
-      - arch-agent-data:/agents
+      - ard-data:/agents
     environment:
       - PORT=8080
       - LOG_LEVEL=info
 
 volumes:
-  arch-agent-data:
+  ard-data:
 ```
 
 - The volume mounted at `/agents` is the **data directory** — it holds all
@@ -57,13 +57,13 @@ volumes:
 Build from source (Go) or run a provided binary:
 
 ```sh
-go build -o arch-agent ./cmd/agent
-./arch-agent
+go build -o ard ./cmd/agent
+./ard
 ```
 
 With no configuration the server:
 
-- uses `~/.arch-agent` as the data directory (override with `DATA_PATH`);
+- uses `~/.ard` as the data directory (override with `DATA_PATH`);
 - listens on port `8080` (override with `PORT`).
 
 The very first start creates the data directory and its internal structure.

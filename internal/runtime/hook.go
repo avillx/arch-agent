@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	"arch-agent/internal/agent"
+	"ard/internal/agent"
 	"context"
 )
 

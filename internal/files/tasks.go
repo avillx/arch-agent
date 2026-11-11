@@ -1,10 +1,10 @@
 package files
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/sentinel"
-	"arch-agent/internal/task"
-	"arch-agent/internal/types"
+	"ard/internal/agent"
+	"ard/internal/sentinel"
+	"ard/internal/task"
+	"ard/internal/types"
 	"bytes"
 	"context"
 	"fmt"

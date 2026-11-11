@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"arch-agent/internal/agent"
+	"ard/internal/agent"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )

@@ -1,8 +1,8 @@
 package task
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/types"
+	"ard/internal/agent"
+	"ard/internal/types"
 	"errors"
 	"slices"
 	"time"

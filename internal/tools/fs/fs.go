@@ -1,11 +1,11 @@
 package fstools
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/files"
-	"arch-agent/internal/prompt"
-	"arch-agent/internal/tools"
-	"arch-agent/internal/types"
+	"ard/internal/agent"
+	"ard/internal/files"
+	"ard/internal/prompt"
+	"ard/internal/tools"
+	"ard/internal/types"
 	"errors"
 )
 

@@ -1,7 +1,7 @@
 package api
 
 import (
-	"arch-agent/internal/types"
+	"ard/internal/types"
 	"encoding/json"
 	"fmt"
 	"net/http"

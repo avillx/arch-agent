@@ -1,7 +1,7 @@
 package openai
 
 import (
-	"arch-agent/internal/agent"
+	"ard/internal/agent"
 	"context"
 	"slices"
 	"sync"

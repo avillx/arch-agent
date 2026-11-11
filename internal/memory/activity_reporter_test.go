@@ -10,9 +10,9 @@ import (
 	"testing/synctest"
 	"time"
 
-	"arch-agent/internal/agent"
-	"arch-agent/internal/memory"
-	"arch-agent/internal/session"
+	"ard/internal/agent"
+	"ard/internal/memory"
+	"ard/internal/session"
 )
 
 var (

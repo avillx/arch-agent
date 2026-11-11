@@ -1,8 +1,8 @@
 package shell
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/tools"
+	"ard/internal/agent"
+	"ard/internal/tools"
 	"bytes"
 	"cmp"
 	"context"

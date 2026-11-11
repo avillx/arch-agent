@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"arch-agent/internal/agent"
-	"arch-agent/internal/chat"
-	"arch-agent/internal/prompt"
-	"arch-agent/internal/session"
-	"arch-agent/internal/types"
+	"ard/internal/agent"
+	"ard/internal/chat"
+	"ard/internal/prompt"
+	"ard/internal/session"
+	"ard/internal/types"
 )
 
 var _ chat.ActivityLogger = (*ActivityService)(nil)

@@ -1,9 +1,9 @@
 package model_test
 
 import (
-	"arch-agent/internal/agent"
-	"arch-agent/internal/model"
-	"arch-agent/internal/types"
+	"ard/internal/agent"
+	"ard/internal/model"
+	"ard/internal/types"
 	"context"
 	"errors"
 	"log/slog"

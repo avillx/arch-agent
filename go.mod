@@ -1,4 +1,4 @@
-module arch-agent
+module ard
 
 go 1.27.3
 
