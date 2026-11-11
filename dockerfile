@@ -21,8 +21,13 @@ WORKDIR /
 
 RUN apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
-    python3 \
     ca-certificates \
+    python3 \
+    python3-venv \
+    git \
+    curl \
+    jq \
+    shellcheck \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -d /home/$USER -s /bin/bash $USER
