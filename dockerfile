@@ -21,6 +21,7 @@ WORKDIR /
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
+    ca-certificates \
     # python3-pip \
     # python3-venv \
     # python3-dev \
