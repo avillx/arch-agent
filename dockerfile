@@ -12,19 +12,17 @@ COPY ./internal ./internal
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -ldflags="-s -w" -o /build/ard ./cmd/agent/
 
-FROM ubuntu:resolute-20260811.1
+FROM ubuntu:26.04
 
 ENV USER=agent
 ENV AGENT_DATAPATH=/agent
 
 WORKDIR /
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get -o Acquire::Retries=3 update && \
+    apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
     python3 \
     ca-certificates \
-    # python3-pip \
-    # python3-venv \
-    # python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -d /home/$USER -s /bin/bash $USER
