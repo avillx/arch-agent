@@ -15,8 +15,11 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-const tmpLifeTime = 10 * time.Minute
-const TMPDir = "tmp"
+const (
+	TMPEntryTTL             = 10 * time.Minute
+	TMPDir                  = "tmp"
+	TMPDirFileMode FileMode = 0777
+)
 
 type TemporaryFiles struct {
 	timers  map[string]*time.Timer
@@ -60,8 +63,12 @@ func (f *TemporaryFiles) stageEntry() error {
 	if err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
 			// create if has no
-			return f.storage.MkdirAll(TMPDir, ModeDirPerm)
+			return f.storage.MkdirAll(TMPDir, TMPDirFileMode)
 		}
+		return err
+	}
+
+	if err := f.storage.Chmod(TMPDir, TMPDirFileMode); err != nil {
 		return err
 	}
 
@@ -87,7 +94,7 @@ func (f *TemporaryFiles) stageNew(entry []os.DirEntry) {
 
 func (f *TemporaryFiles) watchFor(p string) {
 
-	f.timers[p] = time.AfterFunc(tmpLifeTime, func() {
+	f.timers[p] = time.AfterFunc(TMPEntryTTL, func() {
 		f.mu.Lock()
 		defer f.mu.Unlock()
 
@@ -105,7 +112,7 @@ func (f *TemporaryFiles) watchFor(p string) {
 		}
 	})
 
-	f.logger.Info("element deletion planned", "element", p, "TTL (minutes)", (tmpLifeTime / time.Minute))
+	f.logger.Info("element deletion planned", "element", p, "TTL (minutes)", (TMPEntryTTL / time.Minute))
 }
 
 func (f *TemporaryFiles) releaseUnexisted(existed []os.DirEntry) {
