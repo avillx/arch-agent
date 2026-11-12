@@ -243,7 +243,7 @@ func metadataToEnv(ctx context.Context) []string {
 	sessionID := tools.MustSessionID(ctx)
 
 	return []string{
-		fmt.Sprintf("ARD_ID=%s", agentID),
-		fmt.Sprintf("ARD_SESSION_ID=%s", sessionID),
+		fmt.Sprintf("ARD_AGENT_ID=%s", agentID),
+		fmt.Sprintf("ARD_AGENT_SESSION_ID=%s", sessionID),
 	}
 }
