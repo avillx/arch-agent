@@ -12,45 +12,47 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-const MemoryConfigFile = "memory.toml"
+const (
+	MemoryConfigFileMode FileMode = 0755
+	MemoryConfigFile              = "memory.toml"
+	memoryConfigDoc      string   = `# Memory config
+
+	# Agent for **consolidation** memory is invoked once every 24h;
+	# it analyzes activity logs and maintains consistency of memory files.
+	# [consolidation]
+
+	# Enabled - true, Disabled - false
+	# enabled = true
+
+	# Model for consolidation, must support tool calls.
+	# Choose a model capable of handling this agentic task.
+	# model = ""
+
+	# Additional instruction for the consolidation request
+	# instruction="""
+	# Save all file paths and write user comments on the code in a separate file.
+	# """
+
+	# LLM called periodically to summarize a session segment and log it to activity.
+	# [activity]
+
+	# Enabled - true, Disabled - false
+	# enabled = true
+
+	# Model for logging; tool support is not required, a simple model is fine.
+	# model = ""
+
+	# Interval in seconds for flushing activity to logs. 120-600s is fine.
+	# interval = 600
+
+	# All available models are described in 'models.toml'.
+	# If a model is not listed in 'models.toml', it is not allowed.
+
+	# Do not touch this comment!
+	# After edit, ensure file consistency and comment integrity`
+)
 
 var MemoryConfigFilePath = filepath.Join(ConfigDir, MemoryConfigFile)
-
-const memoryConfigDoc string = `# Memory config
-
-# Agent for **consolidation** memory is invoked once every 24h;
-# it analyzes activity logs and maintains consistency of memory files.
-# [consolidation]
-
-# Enabled - true, Disabled - false
-# enabled = true
-
-# Model for consolidation, must support tool calls.
-# Choose a model capable of handling this agentic task.
-# model = ""
-
-# Additional instruction for the consolidation request
-# instruction="""
-# Save all file paths and write user comments on the code in a separate file.
-# """
-
-# LLM called periodically to summarize a session segment and log it to activity.
-# [activity]
-
-# Enabled - true, Disabled - false
-# enabled = true
-
-# Model for logging; tool support is not required, a simple model is fine.
-# model = ""
-
-# Interval in seconds for flushing activity to logs. 120-600s is fine.
-# interval = 600
-
-# All available models are described in 'models.toml'.
-# If a model is not listed in 'models.toml', it is not allowed.
-
-# Do not touch this comment!
-# After edit, ensure file consistency and comment integrity`
 
 type MemoryFile struct {
 	storage FileStorage
@@ -60,7 +62,12 @@ type MemoryFile struct {
 
 func NewMemoryConfigFile(storage FileStorage) (*MemoryFile, error) {
 
-	if err := ensureFilePlaceholder(storage, MemoryConfigFilePath, []byte(memoryConfigDoc)); err != nil {
+	if err := ensureFilePlaceholder(
+		storage,
+		MemoryConfigFilePath,
+		[]byte(memoryConfigDoc),
+		MemoryConfigFileMode,
+	); err != nil {
 		return nil, err
 	}
 

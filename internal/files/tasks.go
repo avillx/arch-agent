@@ -16,47 +16,49 @@ import (
 	toml "github.com/pelletier/go-toml/v2"
 )
 
-const TaskConfigFile = "tasks.toml"
+const (
+	TaskConfigFileMode = 0755
+	TaskConfigFile     = "tasks.toml"
+	taskConfigDoc      = `# Cron tasks config
+
+	# Tasks are planned requests sent to agent recipients on a cron schedule.
+	# When a recipient receives a request, it works autonomously.
+
+	# Task example:
+
+	# unique task name
+	# [task_name]
+
+	# Short, one line description of task
+	# description="short task description"
+
+	# Agent recipients
+	# recipients=["agent_id1","agent_id2"]
+
+	# Cron schedule
+	# schedule="* * * * *"
+
+	# Active field defines the state
+	# * true - task enabled
+	# * false - task disabled
+	# active=true
+
+	# When once is true, the task will disappear after its first execution
+	# once=true
+
+	# Exhaustive request that the recipient will receive on schedule
+	# Prefer use multiline """...""" format over one line '...'
+	# request="""
+	# Use your skill /some/path
+	# do ...
+	# Confirm result
+	# """
+
+	# Do not touch this comment!
+	# After edit, ensure file consistency and comment integrity`
+)
 
 var TaskConfigFilePath = filepath.Join(ConfigDir, TaskConfigFile)
-
-const taskConfigDoc = `# Cron tasks config
-
-# Tasks are planned requests sent to agent recipients on a cron schedule.
-# When a recipient receives a request, it works autonomously.
-
-# Task example:
-
-# unique task name
-# [task_name]
-
-# Short, one line description of task
-# description="short task description"
-
-# Agent recipients
-# recipients=["agent_id1","agent_id2"]
-
-# Cron schedule
-# schedule="* * * * *"
-
-# Active field defines the state
-# * true - task enabled
-# * false - task disabled
-# active=true
-
-# When once is true, the task will disappear after its first execution
-# once=true
-
-# Exhaustive request that the recipient will receive on schedule
-# Prefer use multiline """...""" format over one line '...'
-# request="""
-# Use your skill /some/path
-# do ...
-# Confirm result
-# """
-
-# Do not touch this comment!
-# After edit, ensure file consistency and comment integrity`
 
 type TaskFiles struct {
 	mu      sync.RWMutex
@@ -65,7 +67,12 @@ type TaskFiles struct {
 
 func NewTaskFiles(storage FileStorage) (*TaskFiles, error) {
 
-	if err := ensureFilePlaceholder(storage, TaskConfigFilePath, []byte(taskConfigDoc)); err != nil {
+	if err := ensureFilePlaceholder(
+		storage,
+		TaskConfigFilePath,
+		[]byte(taskConfigDoc),
+		TaskConfigFileMode,
+	); err != nil {
 		return nil, err
 	}
 

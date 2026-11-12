@@ -11,22 +11,24 @@ import (
 	toml "github.com/pelletier/go-toml/v2"
 )
 
-const SecretsConfigFile = "secrets.toml"
+const (
+	SecretsConfigFileMode = 0700
+	SecretsConfigFile     = "secrets.toml"
+	secretsFileDoc        = `# Secrets storage
+
+	# Key names should prefer upper snake case (e.g. SOME_VARIABLE)
+	# Variables must be unique, file format is toml, one variable per line
+	# SOME_VARIABLE='sk-100abc200'
+
+	# Content is hidden from the agent behind placeholders (e.g. { secret.SOME_VARIABLE } )
+
+	# In shell, these secrets are available as environment variables
+
+	# Do not touch this comment!
+	# After edit, ensure file consistency and comment integrity`
+)
 
 var SecretsConfigFilePath = filepath.Join(ConfigDir, SecretsConfigFile)
-
-const secretsFileDoc = `# Secrets storage
-
-# Key names should prefer upper snake case (e.g. SOME_VARIABLE)
-# Variables must be unique, file format is toml, one variable per line
-# SOME_VARIABLE='sk-100abc200'
-
-# Content is hidden from the agent behind placeholders (e.g. { secret.SOME_VARIABLE } )
-
-# In shell, these secrets are available as environment variables
-
-# Do not touch this comment!
-# After edit, ensure file consistency and comment integrity`
 
 var _ secrets.Repo = (*SecretsFiles)(nil)
 
@@ -36,7 +38,12 @@ type SecretsFiles struct {
 
 func NewSecretsFiles(storage FileStorage) (*SecretsFiles, error) {
 
-	if err := ensureFilePlaceholder(storage, SecretsConfigFilePath, []byte(secretsFileDoc)); err != nil {
+	if err := ensureFilePlaceholder(
+		storage,
+		SecretsConfigFilePath,
+		[]byte(secretsFileDoc),
+		SecretsConfigFileMode,
+	); err != nil {
 		return nil, err
 	}
 

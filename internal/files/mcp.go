@@ -14,38 +14,40 @@ import (
 	toml "github.com/pelletier/go-toml/v2"
 )
 
-const MCPConfigFile = "mcp.toml"
+const (
+	MCPConfigFileMode FileMode = 0755
+	MCPConfigFile              = "mcp.toml"
+	mcpConfigDoc               = `# MCP servers connections config
+	# All MCP servers described here will be connected
+
+	# Unique MCP server id
+	# [my-mcp]
+
+	# Address for HTTP transport
+	# url = 'https://example.com/mcp'
+
+	# Auth token for server
+	# token = '<bearer token>'
+
+	# Unique MCP server id
+	# [other-mcp]
+
+	# Shell command for stdio transport
+	# command = 'uvx'
+
+	# Args for command
+	# args = ['my-mcp', '--arg', 'arg']
+
+	# Environment variables for stdio process
+	# [my-command-mcp.env]
+	# MY_ENVIRONMENT_VARIABLE = '1'
+	# ANOTHER_ENV = '{ env.SECRET_REFERENCES }'
+
+	# Do not touch this comment!
+	# After edit, ensure file consistency and comment integrity`
+)
 
 var MCPConfigFilePath = filepath.Join(ConfigDir, MCPConfigFile)
-
-const mcpConfigDoc = `# MCP servers connections config
-# All MCP servers described here will be connected
-
-# Unique MCP server id
-# [my-mcp]
-
-# Address for HTTP transport
-# url = 'https://example.com/mcp'
-
-# Auth token for server
-# token = '<bearer token>'
-
-# Unique MCP server id
-# [other-mcp]
-
-# Shell command for stdio transport
-# command = 'uvx'
-
-# Args for command
-# args = ['my-mcp', '--arg', 'arg']
-
-# Environment variables for stdio process
-# [my-command-mcp.env]
-# MY_ENVIRONMENT_VARIABLE = '1'
-# ANOTHER_ENV = '{ env.SECRET_REFERENCES }'
-
-# Do not touch this comment!
-# After edit, ensure file consistency and comment integrity`
 
 var _ mcp.ConfigRepo = (*MCPFiles)(nil)
 
@@ -57,7 +59,12 @@ type MCPFiles struct {
 
 func NewMCPFiles(storage FileStorage) (*MCPFiles, error) {
 
-	if err := ensureFilePlaceholder(storage, MCPConfigFilePath, []byte(mcpConfigDoc)); err != nil {
+	if err := ensureFilePlaceholder(
+		storage,
+		MCPConfigFilePath,
+		[]byte(mcpConfigDoc),
+		MCPConfigFileMode,
+	); err != nil {
 		return nil, err
 	}
 

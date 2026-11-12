@@ -11,8 +11,11 @@ import (
 	"sync"
 )
 
-const skillsFolder = "skills"
-const skillFile = "SKILL.md"
+const (
+	skillsFolderMode FileMode = 0777
+	skillsFolder              = "skills"
+	skillFile                 = "SKILL.md"
+)
 
 var _ chat.SkillsRepo = (*SkillFiles)(nil)
 
@@ -26,13 +29,18 @@ type SkillFiles struct {
 func NewSkillFiles(
 	storage FileStorage,
 	logger *slog.Logger,
-) *SkillFiles {
+) (*SkillFiles, error) {
+
 	sf := &SkillFiles{
 		storage: storage,
 		logger:  logger.WithGroup("skill_files"),
 	}
 
-	return sf
+	if err := ensureFolderPlaceHolder(storage, skillsFolder, skillsFolderMode); err != nil {
+		return nil, err
+	}
+
+	return sf, nil
 }
 
 func (f *SkillFiles) Skills(agentID agent.ID) (map[string]string, error) {

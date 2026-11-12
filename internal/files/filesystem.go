@@ -303,17 +303,35 @@ func ensureFilePlaceholder(
 	root FileStorage,
 	pathToFile string,
 	defaultEntry []byte,
+	mode FileMode,
 ) error {
 	if _, err := root.ReadFile(pathToFile); err != nil {
-
 		if !errors.Is(err, types.ErrIsNotExist) {
 			return err
 		}
-		if err := root.WriteFile(pathToFile, defaultEntry, ModePerm); err != nil {
+		if err := root.WriteFile(pathToFile, defaultEntry, mode); err != nil {
 			return err
 		}
 	}
-	return nil
+	return root.Chmod(pathToFile, mode)
+}
+
+func ensureFolderPlaceHolder(
+	root FileStorage,
+	pathToFolder string,
+	mode FileMode,
+) error {
+
+	if _, err := root.Stat(pathToFolder); err != nil {
+		if !errors.Is(err, types.ErrIsNotExist) {
+			return err
+		}
+		if err := root.MkdirAll(pathToFolder, mode); err != nil {
+			return err
+		}
+	}
+
+	return root.Chmod(pathToFolder, mode)
 }
 
 func resolveFrontmatter[T any](data []byte) (T, error) {

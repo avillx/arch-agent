@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	TMPEntryTTL             = 10 * time.Minute
-	TMPDir                  = "tmp"
-	TMPDirFileMode FileMode = 0777
+	TMPEntryTTL          = 10 * time.Minute
+	TMPDir               = "tmp"
+	TMPDirMode  FileMode = 0777
 )
 
 type TemporaryFiles struct {
@@ -34,6 +34,10 @@ func NewTemporaryFiles(storage FileStorage, logger *slog.Logger) (*TemporaryFile
 		timers:  map[string]*time.Timer{},
 		storage: storage,
 		logger:  logger.WithGroup("tmp"),
+	}
+
+	if err := ensureFolderPlaceHolder(storage, TMPDir, TMPDirMode); err != nil {
+		return nil, err
 	}
 
 	if err := f.stageEntry(); err != nil {
@@ -62,13 +66,8 @@ func (f *TemporaryFiles) stageEntry() error {
 	entry, err := fs.ReadDir(f.storage.FS(), TMPDir)
 	if err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
-			// create if has no
-			return f.storage.MkdirAll(TMPDir, TMPDirFileMode)
+			return f.storage.MkdirAll(TMPDir, TMPDirMode)
 		}
-		return err
-	}
-
-	if err := f.storage.Chmod(TMPDir, TMPDirFileMode); err != nil {
 		return err
 	}
 

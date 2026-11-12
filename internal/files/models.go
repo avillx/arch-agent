@@ -13,48 +13,50 @@ import (
 	toml "github.com/pelletier/go-toml/v2"
 )
 
-const ModelsConfigFile = "models.toml"
+const (
+	ModelsConfigFileMode FileMode = 0755
+	ModelsConfigFile              = "models.toml"
+	modelsConfigDoc               = `# Models config file
+	# LLM models available for agents
+
+	# Unique provider ID
+	# [open_ai]
+
+	# Type of API, only 'openai' is supported
+	# api_type='openai'
+
+	# Reference to variable from 'secrets.toml'
+	# key_ref='API_KEY'
+
+	# API URL
+	# base_url='https://api.openai.com/v1'
+
+	# List of provider models
+	# No need to describe every supported model, only the ones that will be used
+	# [open_ai.models]
+
+	# Current model config, agent can use only the mentioned models
+	# [open_ai.models.'openai/gpt-4o']
+
+	# Supported modalities. Agent receives only supported modalities.
+	# A model that doesn't support a modality, or shouldn't receive it
+	# for some other reason, should not be described here
+	# modalities= ['text', 'image']
+
+	# When session reaches ~90% of this limit, the session will be compacted
+	# context_limit = 200000
+
+	# Any other parameters supported by the API
+	# tool_choice = 'auto'
+	# reasoning_effort = 'medium'
+	# extras = { "order" : "some" }
+	# etc...
+
+	# Do not touch this comment!
+	# After edit, ensure file consistency and comment integrity`
+)
 
 var ModelsConfigFilePath = filepath.Join(ConfigDir, ModelsConfigFile)
-
-const modelsConfigDoc = `# Models config file
-# LLM models available for agents
-
-# Unique provider ID
-# [open_ai]
-
-# Type of API, only 'openai' is supported
-# api_type='openai'
-
-# Reference to variable from 'secrets.toml'
-# key_ref='API_KEY'
-
-# API URL
-# base_url='https://api.openai.com/v1'
-
-# List of provider models
-# No need to describe every supported model, only the ones that will be used
-# [open_ai.models]
-
-# Current model config, agent can use only the mentioned models
-# [open_ai.models.'openai/gpt-4o']
-
-# Supported modalities. Agent receives only supported modalities.
-# A model that doesn't support a modality, or shouldn't receive it
-# for some other reason, should not be described here
-# modalities= ['text', 'image']
-
-# When session reaches ~90% of this limit, the session will be compacted
-# context_limit = 200000
-
-# Any other parameters supported by the API
-# tool_choice = 'auto'
-# reasoning_effort = 'medium'
-# extras = { "order" : "some" }
-# etc...
-
-# Do not touch this comment!
-# After edit, ensure file consistency and comment integrity`
 
 var _ model.ProviderConfigRepo = (*ProviderFiles)(nil)
 
@@ -75,7 +77,12 @@ type ProviderFiles struct {
 
 func NewProviderFiles(storage FileStorage) (*ProviderFiles, error) {
 
-	if err := ensureFilePlaceholder(storage, ModelsConfigFilePath, []byte(modelsConfigDoc)); err != nil {
+	if err := ensureFilePlaceholder(
+		storage,
+		ModelsConfigFilePath,
+		[]byte(modelsConfigDoc),
+		ModelsConfigFileMode,
+	); err != nil {
 		return nil, err
 	}
 

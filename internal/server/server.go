@@ -170,7 +170,10 @@ func New(
 		return nil, err
 	}
 
-	skillFiles := files.NewSkillFiles(fileStorage, logger)
+	skillFiles, err := files.NewSkillFiles(fileStorage, logger)
+	if err != nil {
+		return nil, err
+	}
 	memoryFiles := files.NewMemoryFiles(fileStorage, logger)
 
 	chatSvc := chat.NewService(
