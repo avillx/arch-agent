@@ -134,7 +134,7 @@ func (r *fileStorage) CreateBasicFolders() error {
 	}
 
 	for name, mode := range dirs {
-		if err := r.root.Mkdir(name, mode); err != nil {
+		if err := r.root.MkdirAll(name, mode); err != nil {
 			return err
 		}
 	}
