@@ -18,7 +18,11 @@ type FileMode = fs.FileMode
 type FileInfo = os.FileInfo
 
 const (
-	ConfigDir = "conf"
+	ReposDir     = "repos"
+	ReposDirMode = 0777
+
+	ConfigDir     = "conf"
+	ConfigDirMode = 0755
 
 	ModeFilePerm = 0644
 	ModeDirPerm  = 0755
@@ -118,6 +122,24 @@ func NewFileStorage(dir string) (*fileStorage, error) {
 		root:  root,
 		flock: newLockTable(),
 	}, nil
+}
+
+func (r *fileStorage) CreateBasicFolders() error {
+
+	dirs := map[string]FileMode{
+		ReposDir:  ReposDirMode,
+		ConfigDir: ConfigDirMode,
+		SkillsDir: SkillsDirMode,
+		TMPDir:    TMPDirMode,
+	}
+
+	for name, mode := range dirs {
+		if err := r.root.Mkdir(name, mode); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (r *fileStorage) Chmod(name string, mode FileMode) error {

@@ -68,6 +68,10 @@ func New(
 		return nil, err
 	}
 
+	applyMigrations(fileStorage)
+
+	fileStorage.CreateBasicFolders()
+
 	// wraps common handler to intercept logs and sink in into agent available file
 	logFile := logging.NewLogFile(fileStorage)
 	fileHandler := logging.WithAgentLog(

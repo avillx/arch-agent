@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	skillsFolderMode FileMode = 0777
-	skillsFolder              = "skills"
-	skillFile                 = "SKILL.md"
+	SkillsDirMode FileMode = 0777
+	SkillsDir              = "skills"
+	SkillFile              = "SKILL.md"
 )
 
 var _ chat.SkillsRepo = (*SkillFiles)(nil)
@@ -36,7 +36,7 @@ func NewSkillFiles(
 		logger:  logger.WithGroup("skill_files"),
 	}
 
-	if err := ensureFolderPlaceHolder(storage, skillsFolder, skillsFolderMode); err != nil {
+	if err := ensureFolderPlaceHolder(storage, SkillsDir, SkillsDirMode); err != nil {
 		return nil, err
 	}
 
@@ -46,7 +46,7 @@ func NewSkillFiles(
 func (f *SkillFiles) Skills(agentID agent.ID) (map[string]string, error) {
 	skillsIndex := map[string]string{}
 
-	skills, err := f.loadSkills(skillsFolder)
+	skills, err := f.loadSkills(SkillsDir)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (f *SkillFiles) loadSkills(p string) (map[string]string, error) {
 		}
 
 		// skip non skill files
-		if d.Name() != skillFile {
+		if d.Name() != SkillFile {
 			return nil
 		}
 

@@ -91,18 +91,12 @@ func (s *AgentFiles) Get(id agent.ID) (agent.Agent, error) {
 	return nil, errors.New("can't get agent")
 }
 
-const sharedFolder = "shared"
-
 func validateAgentName(agentName string) error {
 	reservedNames := []string{
-		MCPConfigFile,
-		ModelsConfigFile,
-		TaskConfigFile,
-		SecretsConfigFile,
-		MemoryConfigFile,
+		ConfigDir,
+		ReposDir,
+		SkillsDir,
 		TMPDir,
-		skillsFolder,
-		sharedFolder,
 	}
 
 	if slices.Contains(reservedNames, agentName) {
