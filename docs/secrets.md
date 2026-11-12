@@ -28,7 +28,7 @@ Conventions:
   ([mcp.md](mcp.md)).
 - **Shell** — every command run through the `shell` tool gets all secrets as
   environment variables. A command can use them as `$OPENAI_API_KEY` etc.
-  The shell also exports `AGENT_ID` and `AGENT_SESSION_ID` with the current
+  The shell also exports `ARD_ID` and `ARD_SESSION_ID` with the current
   agent and session ids.
 
 ## The agent never sees real values

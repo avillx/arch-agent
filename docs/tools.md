@@ -42,7 +42,7 @@ Behaviour details:
 - default timeout is 30 seconds; longer operations need an explicit `timeout`
   (in seconds, up to 15 minutes);
 - secrets are passed as environment variables (see [secrets.md](secrets.md)),
-  plus `AGENT_ID` and `AGENT_SESSION_ID`;
+  plus `ARD_ID` and `ARD_SESSION_ID`;
 - commands return combined stdout/stderr and the exit status;
 - a timed-out command is terminated and reported as such.
 

@@ -15,7 +15,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 FROM ubuntu:26.04
 
 ENV USER=agent
-ENV AGENT_DATAPATH=/agent
+ENV ARD_DATAPATH=/agent
 
 WORKDIR /
 
@@ -32,7 +32,7 @@ RUN apt-get -o Acquire::Retries=3 update && \
 
 RUN useradd -m -d /home/$USER -s /bin/bash $USER
 
-RUN mkdir $AGENT_DATAPATH && chown $USER:$USER $AGENT_DATAPATH && chmod 755 $AGENT_DATAPATH
+RUN mkdir $ARD_DATAPATH && chown $USER:$USER $ARD_DATAPATH && chmod 755 $ARD_DATAPATH
 
 COPY --chmod=444 ./README.md ./LICENSE /opt/ard/
 COPY --chmod=555 ./docs /opt/ard/docs

@@ -4,11 +4,11 @@ set -euo pipefail
 shopt -s nullglob
 
 readonly DEFAULTS_DIR=/opt/ard
-readonly DOCS_DIR="${AGENT_DATAPATH:?AGENT_DATAPATH is not set}/docs"
-readonly SKILLS_DIR="${AGENT_DATAPATH}/skills"
+readonly DOCS_DIR="${ARD_DATAPATH:?ARD_DATAPATH is not set}/docs"
+readonly SKILLS_DIR="${ARD_DATAPATH}/skills"
 
-export AGENT_SHELL="${AGENT_SHELL:-/bin/bash}"
-export AGENT_SHELL_ATTRIBUTES="${AGENT_SHELL_ATTRIBUTES:--c}"
+export ARD_SHELL="${ARD_SHELL:-/bin/bash}"
+export ARD_SHELL_ATTRIBUTES="${ARD_SHELL_ATTRIBUTES:--c}"
 
 ##########################
 # Entry point

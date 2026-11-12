@@ -35,19 +35,19 @@ func run(ctx context.Context) error {
 	defer stop()
 
 	// ENV logging
-	logIndented := getEnv("AGENT_LOG_INDENTED", false, strconv.ParseBool)
-	logSource := getEnv("AGENT_LOG_SOURCE", false, strconv.ParseBool)
-	logLevel := getEnv("AGENT_LOG_LEVEL", slog.LevelWarn, logging.ToLogLevel)
-	logJSON := getEnv("AGENT_LOG_JSON", false, strconv.ParseBool)
+	logIndented := getEnv("ARD_LOG_INDENTED", false, strconv.ParseBool)
+	logSource := getEnv("ARD_LOG_SOURCE", false, strconv.ParseBool)
+	logLevel := getEnv("ARD_LOG_LEVEL", slog.LevelWarn, logging.ToLogLevel)
+	logJSON := getEnv("ARD_LOG_JSON", false, strconv.ParseBool)
 
 	// ENV server config
-	port := strconv.Itoa(getEnv("AGENT_PORT", 8080, strconv.Atoi))
-	datapath := getEnv("AGENT_DATAPATH", "./agent-data", parseString)
-	cleanupInterval := getEnv("AGENT_CLEAN_UP_INTERVAL", 12*time.Hour, time.ParseDuration)
-	sessRetention := getEnv("AGENT_SESSION_RETENTION", 240*time.Hour, time.ParseDuration)
-	maxLogLines := getEnv("AGENT_MAX_LOGLINES", 1000, strconv.Atoi)
-	agentShell := getEnv("AGENT_SHELL", "", parseString)
-	agentShellAttributes := strings.Fields(getEnv("AGENT_SHELL_ATTRIBUTES", "", parseString))
+	port := strconv.Itoa(getEnv("ARD_PORT", 8080, strconv.Atoi))
+	datapath := getEnv("ARD_DATAPATH", "./agent-data", parseString)
+	cleanupInterval := getEnv("ARD_CLEAN_UP_INTERVAL", 12*time.Hour, time.ParseDuration)
+	sessRetention := getEnv("ARD_SESSION_RETENTION", 240*time.Hour, time.ParseDuration)
+	maxLogLines := getEnv("ARD_MAX_LOGLINES", 1000, strconv.Atoi)
+	agentShell := getEnv("ARD_SHELL", "", parseString)
+	agentShellAttributes := strings.Fields(getEnv("ARD_SHELL_ATTRIBUTES", "", parseString))
 
 	// Logging
 	logHandler := logging.NewHandler(logging.LoggerConfig{

@@ -17,8 +17,8 @@ default.
 | `CLEAN_UP_INTERVAL` | integer, hours | `12` | How often routine cleanup runs (temporary files, expired sessions, log trimming) |
 | `SESSION_RETENTION` | integer, hours | `240` | How long a session lives before it is considered stale and removed (see [sessions.md](sessions.md)) |
 | `MAX_LOG_LINES` | integer | `1000` | Maximum number of lines kept in the agent-visible log file; the oldest lines are trimmed (see [operations.md](operations.md)) |
-| `AGENT_SHELL` | any shell | `/bin/sh` | This value override agent shell in shell tool |
-| `AGENT_SHELL_ATTRIBUTES` | shell attributes in one line | `-c` | Attributes overrides default shell attributes. Mostly recomended to define if `AGENT_SHELL` has override |
+| `ARD_SHELL` | any shell | `/bin/sh` | This value override agent shell in shell tool |
+| `ARD_SHELL_ATTRIBUTES` | shell attributes in one line | `-c` | Attributes overrides default shell attributes. Mostly recomended to define if `ARD_SHELL` has override |
 
 
 ## Units
