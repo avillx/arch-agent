@@ -76,7 +76,6 @@ func New(cwd string, logger *slog.Logger, opts ...Option) (*Sentinel, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer watcher.Close()
 
 	if err := watcher.Add(cwd); err != nil {
 		return nil, err
@@ -88,6 +87,9 @@ func New(cwd string, logger *slog.Logger, opts ...Option) (*Sentinel, error) {
 }
 
 func (s *Sentinel) Run(ctx context.Context) {
+
+	defer s.watcher.Close()
+
 	for {
 		select {
 		case ev, ok := <-s.watcher.Events:
