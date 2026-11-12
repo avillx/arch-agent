@@ -1,9 +1,11 @@
----
-name: ard-skill-creator
-description: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends agents capabilities with specialized knowledge, workflows, or tool integrations.
-version: 1.2.0
-author: OpenAI
----
++++
+name = 'ard-skill-creator'
+version = '1.2.0'
+author = 'OpenAI'
+description = """
+Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends agents capabilities with specialized knowledge, workflows, or tool integrations.
+"""
++++
 
 # Skill creator
 

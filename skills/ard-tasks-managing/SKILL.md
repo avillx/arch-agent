@@ -1,15 +1,16 @@
----
-name: ard-tasks-managing
-description: |
-  How to gracefully manage tasks. Read this skill if you need to create or
-  manage scheduled tasks. Do not read it if you are not ready to manage
-  tasks — when you just need to know about existing tasks, read the config
-  instead of this skill.
-  It fits when the user says something like "do this" or "stop doing this",
-  implying it should be done continuously, repeatedly, or after some time.
-version: 1.0.0
-author: avillx
----
++++
+name = 'ard-tasks-managing'
+version = '1.0.0'
+author = 'Avill'
+description = """
+How to gracefully manage tasks. Read this skill if you need to create or
+manage scheduled tasks. Do not read it if you are not ready to manage
+tasks — when you just need to know about existing tasks, read the config
+instead of this skill.
+It fits when the user says something like "do this" or "stop doing this",
+implying it should be done continuously, repeatedly, or after some time.
+"""
++++
 
 # Schedule Manager
 
