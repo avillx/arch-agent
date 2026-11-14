@@ -60,7 +60,6 @@ func NewService(
 
 // implement sentinel action.
 func (s *Service) Reload(_ context.Context) error {
-
 	tasks, err := s.repo.All()
 	if err != nil {
 		return err

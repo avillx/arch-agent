@@ -33,7 +33,7 @@ func New(repo Repo, logger *slog.Logger) (*Service, error) {
 	}, nil
 }
 
-func (s *Service) Reload(_ context.Context) error {
+func (s *Service) Reload(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -44,7 +44,7 @@ func (s *Service) Reload(_ context.Context) error {
 
 	s.secrets = secrets
 
-	s.logger.InfoContext(_, "reloaded")
+	s.logger.InfoContext(ctx, "reloaded")
 	return nil
 }
 

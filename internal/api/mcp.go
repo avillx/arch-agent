@@ -1,11 +1,12 @@
 package api
 
 import (
+	"errors"
+	"net/http"
+
 	"ard/internal/agent"
 	"ard/internal/mcp"
 	"ard/internal/types"
-	"errors"
-	"net/http"
 )
 
 type ToolReprDTO map[agent.ToolName]string

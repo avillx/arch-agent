@@ -31,7 +31,6 @@ func NewExecutor(
 }
 
 func (s *executor) Execute(ctx context.Context, t TaskConfig) {
-
 	logger := s.logger.With("task", t.Name)
 
 	for _, r := range t.Recipients {

@@ -130,6 +130,7 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) Response {
 func forwardEventsToStream(evCh chan runtime.Event, stream *Stream) {
 	type ToolErrorDTO struct {
 		EventTypeDTO
+
 		Cause    string              `json:"cause"`
 		ToolName agent.ToolName      `json:"tool_name"`
 		Args     agent.ToolArguments `json:"args"`

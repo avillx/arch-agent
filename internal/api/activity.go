@@ -1,13 +1,14 @@
 package api
 
 import (
-	"ard/internal/agent"
-	"ard/internal/memory"
-	"ard/internal/types"
 	"context"
 	"errors"
 	"net/http"
 	"time"
+
+	"ard/internal/agent"
+	"ard/internal/memory"
+	"ard/internal/types"
 )
 
 var _ types.Validator = RequestDTO{}
