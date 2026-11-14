@@ -89,7 +89,6 @@ func (a *ContextAssembler) BuildSystemMessage(
 	toolServers []agent.ToolServer,
 	sess session.Session,
 ) (*agent.SystemMessage, error) {
-
 	key := sessionKey{
 		AgentID:   agt.ID(),
 		SessionID: sess.ID(),
@@ -128,7 +127,7 @@ func AssembleParts(ctx context.Context, parts []SystemMessageParticipant) (strin
 	return systemMessage.String(), nil
 }
 
-// agent system Prompt
+// agent system Prompt.
 var _ SystemMessageParticipant = (*AgentPart)(nil)
 
 type AgentPart struct {
@@ -142,7 +141,7 @@ func (i *AgentPart) Part(_ context.Context) (string, error) {
 	return prompt.DefaultAgent(), nil
 }
 
-// memory index
+// memory index.
 var _ SystemMessageParticipant = (*MemoryPart)(nil)
 
 type MemoryRepo interface {
@@ -156,7 +155,6 @@ type MemoryPart struct {
 }
 
 func (i *MemoryPart) Part(ctx context.Context) (string, error) {
-
 	// load persistent memory prompt
 	idx, err := i.repo.MemoryIndex(i.agentID)
 	if err != nil {
@@ -176,7 +174,7 @@ func (i *MemoryPart) Part(ctx context.Context) (string, error) {
 	return prompt.PersistentMemory(i.agentID, sb.String(), ""), nil
 }
 
-// skill index
+// skill index.
 var _ SystemMessageParticipant = (*SkillPart)(nil)
 
 type SkillsRepo interface {
@@ -192,7 +190,7 @@ type SkillPart struct {
 func (i *SkillPart) Part(ctx context.Context) (string, error) {
 	skills, err := i.repo.Skills(i.agentID)
 	if err != nil {
-		slog.Error("skill load", "error", err)
+		slog.ErrorContext(ctx, "skill load", "error", err)
 	}
 
 	// has no skills no need to guide it
@@ -209,7 +207,7 @@ func (i *SkillPart) Part(ctx context.Context) (string, error) {
 	return prompt.SkillGuidance(sb.String()), nil
 }
 
-// tool aware behaviour
+// tool aware behaviour.
 var _ SystemMessageParticipant = (*ToolAwarePart)(nil)
 
 type ToolInstructer interface {
@@ -226,7 +224,6 @@ type ToolAwarePart struct {
 }
 
 func (i *ToolAwarePart) Part(ctx context.Context) (string, error) {
-
 	// if has no tools no need to guide it
 	if len(i.toolServers) <= 0 {
 		return "", nil
@@ -250,7 +247,7 @@ func (i *ToolAwarePart) Part(ctx context.Context) (string, error) {
 	return strings.Join(instructions, "\n\n"), nil
 }
 
-// session additional context
+// session additional context.
 var _ SystemMessageParticipant = (*SessionPart)(nil)
 
 type SessionPart struct {

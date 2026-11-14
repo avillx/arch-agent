@@ -14,7 +14,7 @@ import (
 	"sync"
 )
 
-// ensure valid memory front matter
+// ensure valid memory front matter.
 var _ runtime.CompletionHook = (*OnlyValidMemoryFrontmatterHook)(nil)
 
 type OnlyValidMemoryFrontmatterHook struct {
@@ -26,7 +26,6 @@ func (h *OnlyValidMemoryFrontmatterHook) Apply(
 	ctx context.Context,
 	c *agent.Completion,
 ) (*agent.Completion, error) {
-
 	if !c.Done {
 		return c, nil
 	}
@@ -45,7 +44,7 @@ func (h *OnlyValidMemoryFrontmatterHook) Apply(
 	return c, nil
 }
 
-// empty answer harness
+// empty answer harness.
 var _ runtime.CompletionHook = (*EmptyAnswerHook)(nil)
 
 type EmptyAnswerHook struct{}
@@ -69,7 +68,7 @@ type todoStorage interface {
 const maxIncomplitedTodoAttempts = 3
 
 // TODO: now agent runtime is control mistakes in compltions and drop loop agter
-// several bad attempts to stop without result. attemt counter is not actual anymore
+// several bad attempts to stop without result. attemt counter is not actual anymore.
 var _ runtime.CompletionHook = (*UndoneTodoHook)(nil)
 
 type UndoneTodoHook struct {
@@ -90,7 +89,6 @@ func (h *UndoneTodoHook) Apply(
 	ctx context.Context,
 	c *agent.Completion,
 ) (*agent.Completion, error) {
-
 	if !c.Done {
 		return c, nil
 	}
@@ -103,11 +101,9 @@ func (h *UndoneTodoHook) Apply(
 	undoneTodos := h.extractUndoneTodos(sessID)
 
 	if len(undoneTodos) > 0 {
-
 		taskList := todoToList(undoneTodos)
 
 		if h.isAgentCantHandle(sessID) {
-
 			h.dropAttempts(sessID)
 			return c, fmt.Errorf("agent can't handle with undone tasks")
 		}
@@ -155,7 +151,6 @@ func (h *UndoneTodoHook) isAgentCantHandle(sessID session.ID) bool {
 
 	if h.attemptCounter[sessID] >= maxIncomplitedTodoAttempts {
 		return true
-
 	}
 	return false
 }

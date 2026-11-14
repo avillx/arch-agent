@@ -37,7 +37,6 @@ func NewService(
 }
 
 func (s *Service) Create(agentID agent.ID, instruction string) (ID, error) {
-
 	newSessionID := ID(s.uuid.New())
 	newSession := NewSession(newSessionID)
 

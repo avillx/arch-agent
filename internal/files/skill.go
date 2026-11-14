@@ -30,7 +30,6 @@ func NewSkillFiles(
 	storage FileStorage,
 	logger *slog.Logger,
 ) (*SkillFiles, error) {
-
 	sf := &SkillFiles{
 		storage: storage,
 		logger:  logger.WithGroup("skill_files"),
@@ -59,9 +58,8 @@ func (f *SkillFiles) Skills(agentID agent.ID) (map[string]string, error) {
 }
 
 func (f *SkillFiles) loadSkills(p string) (map[string]string, error) {
-
 	type skillFrontmatterDTO struct {
-		ID          string `yaml:"name" toml:"name"`
+		ID          string `yaml:"name"                  toml:"name"`
 		Description string `yaml:"description,omitempty" toml:"description,omitempty"`
 	}
 

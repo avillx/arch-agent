@@ -39,7 +39,12 @@ func runSinglePass(t *testing.T, svc *cleanup.CleanUpService, signal <-chan stru
 	}
 }
 
-func newService(t *testing.T, sessRepo session.SessionsRepo, logFile *mockLogTrimmer, logger *slog.Logger) *cleanup.CleanUpService {
+func newService(
+	t *testing.T,
+	sessRepo session.SessionsRepo,
+	logFile *mockLogTrimmer,
+	logger *slog.Logger,
+) *cleanup.CleanUpService {
 	t.Helper()
 
 	svc, err := cleanup.NewCleanUpService(cleanup.CleanUpConfig{

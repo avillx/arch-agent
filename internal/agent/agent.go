@@ -39,7 +39,6 @@ func NewAgent(
 	toolServers []string,
 	hasMemory bool,
 ) *agent {
-
 	if toolServers == nil {
 		toolServers = []string{}
 	}

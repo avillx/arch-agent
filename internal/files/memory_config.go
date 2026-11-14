@@ -61,7 +61,6 @@ type MemoryFile struct {
 }
 
 func NewMemoryConfigFile(storage FileStorage) (*MemoryFile, error) {
-
 	if err := ensureFilePlaceholder(
 		storage,
 		MemoryConfigFilePath,
@@ -133,7 +132,7 @@ func (r *MemoryFile) Load() (MemoryConfigDTO, error) {
 	return MemoryConfigDTO{}, nil
 }
 
-// activity memory repo
+// activity memory repo.
 var _ memory.ActivityConfigRepo = (*ActivityRepo)(nil)
 
 type ActivityRepo struct {
@@ -165,7 +164,7 @@ func (r *ActivityRepo) Load() (memory.ActivityConfig, error) {
 	return memory.ActivityConfig{}, nil
 }
 
-// Persistent memory repo
+// Persistent memory repo.
 var _ memory.MemoryRepo = (*ConsolidatorRepo)(nil)
 
 type ConsolidatorRepo struct {
@@ -202,7 +201,7 @@ type MemoryConfigDTO struct {
 	Activity     *memory.ActivityConfig     `toml:"activity,omitempty"`
 }
 
-// memoSent
+// memoSent.
 func NewMemoReloader(
 	consolidationSvc *memory.ConsolidationService,
 	activitySvc *memory.ActivityService,

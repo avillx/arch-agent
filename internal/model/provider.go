@@ -21,7 +21,11 @@ type ProviderService struct {
 	mu sync.RWMutex
 }
 
-func NewProviderService(modelSvc *ModelService, repo ProviderConfigRepo, logger *slog.Logger) (*ProviderService, error) {
+func NewProviderService(
+	modelSvc *ModelService,
+	repo ProviderConfigRepo,
+	logger *slog.Logger,
+) (*ProviderService, error) {
 	svc := &ProviderService{
 		modelSvc: modelSvc,
 		repo:     repo,
@@ -159,7 +163,6 @@ func (s *ProviderService) DeleteModel(providerID ProviderID, modelName string) e
 }
 
 func (s *ProviderService) SetModel(providerID ProviderID, modelName string, modelCfg ModelConfig) error {
-
 	// base validation
 	if modelName == "" {
 		return ErrEmptyModelName

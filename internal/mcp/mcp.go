@@ -28,7 +28,6 @@ type ServerGatewayConfig struct {
 }
 
 func (c ServerGatewayConfig) Validate(_ context.Context) error {
-
 	if c.CommandGateway == nil && c.HTTPGateway == nil {
 		return types.NewValidationError(map[string]string{
 			"config": "config is empty. At least one gateway must be specified",
@@ -89,18 +88,15 @@ func (c *CommandGatewayConfig) Equals(other *CommandGatewayConfig) bool {
 }
 
 func validateConfig(cfg ServerGatewayConfig) error {
-
 	problems := map[string]string{}
 
 	if cfg.HTTPGateway != nil &&
 		cfg.CommandGateway != nil {
-
 		problems["config"] = "must be at least one gateway (http or command)"
 	}
 
 	if cfg.HTTPGateway == nil &&
 		cfg.CommandGateway == nil {
-
 		problems["config"] = "must be at least one gateway (http or command)"
 	}
 
@@ -129,6 +125,7 @@ type MCPServer interface {
 
 type mcpServerInstructed struct {
 	*mcpServer
+
 	instruction string
 }
 
@@ -155,7 +152,6 @@ func (s *mcpServer) Gateway() gateway            { return s.gateway }
 func (s *mcpServer) Config() ServerGatewayConfig { return s.cfg }
 
 func NewMCPServer(ctx context.Context, id MCPServerID, cfg ServerGatewayConfig) (MCPServer, error) {
-
 	if err := validateConfig(cfg); err != nil {
 		return nil, err
 	}
@@ -203,9 +199,8 @@ func (s *mcpServer) setErr(err error)    { s.err = err }
 func (s *mcpServer) Err() error          { return s.err }
 func (s *mcpServer) Tools() []agent.Tool { return s.tools }
 
-// blocking
+// blocking.
 func (s *mcpServer) Run(ctx context.Context) error {
-
 	sess, err := s.gateway.createSession(ctx)
 	if err != nil {
 		return err

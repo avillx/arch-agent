@@ -68,10 +68,12 @@ func InterruptionExplanation() string { return interruptionExplanationRaw }
 
 //go:embed templates/consolidation_fs_instruction.md
 var consolidationFSinstructionRaw string
-var consolidationFSinstructionTempl = template.Must(template.New("consolidate_fs_inst").Parse(consolidationFSinstructionRaw))
+
+var consolidationFSinstructionTempl = template.Must(
+	template.New("consolidate_fs_inst").Parse(consolidationFSinstructionRaw),
+)
 
 func ConsolidationFSInstruction(cwd string, agentID agent.ID) string {
-
 	vars := map[string]any{
 		"Agent": agentID,
 		"Cwd":   cwd,
@@ -85,7 +87,6 @@ var consolidateMemoryRaw string
 var consolidateMemoryTmpl = template.Must(template.New("consolidate_memory").Parse(consolidateMemoryRaw))
 
 func Memorization(agentID agent.ID) string {
-
 	vars := map[string]any{
 		"Agent": agentID,
 	}
@@ -98,7 +99,6 @@ var memorizationRequestRaw string
 var memorizationRequestTmpl = template.Must(template.New("memorization_request").Parse(memorizationRequestRaw))
 
 func MemorizationRequest(agentID agent.ID, date time.Time, additional string) string {
-
 	vars := map[string]any{
 		"AgentID":           agentID,
 		"Date":              date.Format("2006.01.02"),
@@ -113,7 +113,6 @@ var persistentMemoryRaw string
 var persistentMemoryTmpl = template.Must(template.New("persistent_memory").Parse(persistentMemoryRaw))
 
 func PersistentMemory(agentID agent.ID, memoryIndex string, activity string) string {
-
 	vars := map[string]any{
 		"Index":    memoryIndex,
 		"Agent":    agentID,
@@ -128,7 +127,6 @@ var skillGuidanceRaw string
 var skillGuidanceTmpl = template.Must(template.New("skill_guidance").Parse(skillGuidanceRaw))
 
 func SkillGuidance(availableSkills string) string {
-
 	vars := map[string]any{
 		"Skills": availableSkills,
 	}
@@ -141,7 +139,6 @@ var summaryExplanationRaw string
 var summaryExplanationTmpl = template.Must(template.New("summary_explanation").Parse(summaryExplanationRaw))
 
 func SummaryExplanation(summary string) string {
-
 	vars := map[string]any{
 		"Summary": summary,
 	}
@@ -154,7 +151,6 @@ var excludedModalityRaw string
 var excludedModalityTmpl = template.Must(template.New("excluded_unsupported_modality").Parse(excludedModalityRaw))
 
 func ExcludedUnsupportedModality(modality agent.Modality) string {
-
 	vars := map[string]any{
 		"Modality": modality,
 	}
@@ -167,7 +163,6 @@ var memoryFilesystemInstructionRaw string
 var memoryFilesystemInstructionTmpl = template.Must(template.New("mem_fs_inst").Parse(memoryFilesystemInstructionRaw))
 
 func memoryFileSystemInstruction(agentID agent.ID) string {
-
 	vars := map[string]any{
 		"Agent": agentID,
 	}
@@ -180,7 +175,6 @@ var filesystemInstructionRaw string
 var filesystemInstructionTmpl = template.Must(template.New("file_system_instruction").Parse(filesystemInstructionRaw))
 
 func FileSystemInstruction(cwd string, agentID agent.ID, addMemory bool) string {
-
 	additional := ""
 
 	if addMemory {
@@ -201,7 +195,6 @@ var undoneTodoCautionRaw string
 var undoneTodoCautionTmpl = template.Must(template.New("undone_todos_caution").Parse(undoneTodoCautionRaw))
 
 func UndoneTodosCaution(todoList string) string {
-
 	vars := map[string]any{
 		"Todos": todoList,
 	}

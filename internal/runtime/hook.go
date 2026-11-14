@@ -6,7 +6,7 @@ import (
 )
 
 // TODO:
-// Rename to PostCompletion / PreToolCall / PostToolCall
+// Rename to PostCompletion / PreToolCall / PostToolCall.
 type CompletionHook Hook[*agent.Completion]
 type ToolCallHook Hook[*agent.ToolCall]
 type ToolResultHook Hook[*AfterToolCall]
@@ -21,9 +21,7 @@ type AfterToolCall struct {
 }
 
 func ApplyHooks[T any](ctx context.Context, hooks []any, event T) (T, error) {
-
 	for _, h := range hooks {
-
 		typedHook, ok := h.(Hook[T])
 		if !ok {
 			continue
@@ -34,7 +32,6 @@ func ApplyHooks[T any](ctx context.Context, hooks []any, event T) (T, error) {
 			return new, err
 		}
 		event = new
-
 	}
 
 	return event, nil

@@ -53,6 +53,7 @@ const (
 
 type File struct {
 	*os.File
+
 	unlockFunc func()
 }
 
@@ -99,7 +100,6 @@ type fileStorage struct {
 }
 
 func NewFileStorage(dir string) (*fileStorage, error) {
-
 	info, err := os.Stat(dir)
 	if err != nil {
 		if !errors.Is(err, types.ErrIsNotExist) {
@@ -125,7 +125,6 @@ func NewFileStorage(dir string) (*fileStorage, error) {
 }
 
 func (r *fileStorage) CreateBasicFolders() error {
-
 	dirs := map[string]FileMode{
 		ReposDir:  ReposDirMode,
 		ConfigDir: ConfigDirMode,
@@ -343,7 +342,6 @@ func ensureFolderPlaceHolder(
 	pathToFolder string,
 	mode FileMode,
 ) error {
-
 	if _, err := root.Stat(pathToFolder); err != nil {
 		if !errors.Is(err, types.ErrIsNotExist) {
 			return err
@@ -384,8 +382,8 @@ func resolveFrontmatter[T any](data []byte) (T, error) {
 
 	frontmatterBytes := []byte(after[:fmEnd])
 
-	switch {
-	case delim == tomlDelim:
+	switch delim {
+	case tomlDelim:
 		err = toml.Unmarshal(frontmatterBytes, &dto)
 	default:
 		err = yaml.Unmarshal(frontmatterBytes, &dto)

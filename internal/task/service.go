@@ -39,7 +39,6 @@ func NewService(
 	agentRepo agent.Repo,
 	logger *slog.Logger,
 ) (*Service, error) {
-
 	svc := &Service{
 		repo:        repo,
 		runtimes:    map[string]*taskRuntime{},
@@ -59,7 +58,7 @@ func NewService(
 	return svc, nil
 }
 
-// implement sentinel action
+// implement sentinel action.
 func (s *Service) Reload(_ context.Context) error {
 
 	tasks, err := s.repo.All()
@@ -103,7 +102,7 @@ func (s *Service) Reload(_ context.Context) error {
 	return nil
 }
 
-// run all tasks from config
+// run all tasks from config.
 func (s *Service) runTasks(cfgs map[string]TaskConfig) {
 	for _, t := range cfgs {
 		if !t.Active {
@@ -126,7 +125,6 @@ func (s *Service) stopRuntime(name string) {
 }
 
 func (s *Service) start(cfg TaskConfig) error {
-
 	cron, err := s.cronFactory(cfg.Reglament)
 	if err != nil {
 		return ErrCron
@@ -187,7 +185,6 @@ func runLoop(ctx context.Context, cron Cron, cfg TaskConfig, onExecute func(cont
 }
 
 func (s *Service) List() ([]TaskConfig, error) {
-
 	taskMap, err := s.repo.All()
 	if err != nil {
 		return nil, err
@@ -202,7 +199,6 @@ func (s *Service) List() ([]TaskConfig, error) {
 }
 
 func (s *Service) Add(cfg TaskConfig) error {
-
 	if err := validateTaskConfig(cfg, s.cronFactory); err != nil {
 		return err
 	}
@@ -222,7 +218,6 @@ func (s *Service) Add(cfg TaskConfig) error {
 }
 
 func (s *Service) Patch(name string, patch TaskPatch) error {
-
 	if patch.Recipients != nil {
 		if err := s.validateRecipients(*patch.Recipients); err != nil {
 			return err

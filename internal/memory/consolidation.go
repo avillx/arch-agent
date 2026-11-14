@@ -60,8 +60,7 @@ func NewConsolidationService(
 	memoryRepo MemoryRepo,
 	logger *slog.Logger,
 ) (*ConsolidationService, error) {
-
-	if !(len(toolServer) > 0) {
+	if len(toolServer) <= 0 {
 		return nil, fmt.Errorf("no tools for managing memory")
 	}
 
@@ -87,7 +86,6 @@ func NewConsolidationService(
 }
 
 func (m *ConsolidationService) Reload() error {
-
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -101,7 +99,6 @@ func (m *ConsolidationService) Reload() error {
 }
 
 func (m *ConsolidationService) load() error {
-
 	cfg, err := m.memoryRepo.Load()
 	if err != nil {
 		return err
@@ -125,7 +122,11 @@ func (m *ConsolidationService) load() error {
 	return nil
 }
 
-func (m *ConsolidationService) ConsolidateImmidate(ctx context.Context, agentID agent.ID, evCh chan runtime.Event) error {
+func (m *ConsolidationService) ConsolidateImmidate(
+	ctx context.Context,
+	agentID agent.ID,
+	evCh chan runtime.Event,
+) error {
 	agt, err := m.agentRepo.Get(agentID)
 	if err != nil {
 		return err
@@ -134,8 +135,11 @@ func (m *ConsolidationService) ConsolidateImmidate(ctx context.Context, agentID 
 	return m.consolidateMemoryFor(ctx, agt, evCh)
 }
 
-func (m *ConsolidationService) consolidateMemoryFor(ctx context.Context, agt agent.Agent, evCh chan runtime.Event) error {
-
+func (m *ConsolidationService) consolidateMemoryFor(
+	ctx context.Context,
+	agt agent.Agent,
+	evCh chan runtime.Event,
+) error {
 	if !agt.HasMemory() {
 		return ErrDisabledMemory
 	}
@@ -149,7 +153,7 @@ func (m *ConsolidationService) consolidateMemoryFor(ctx context.Context, agt age
 		return fmt.Errorf("consolidation model is not set")
 	}
 
-	m.logger.Info("consolidation started", "agent", agt.ID())
+	m.logger.InfoContext(ctx, "consolidation started", "agent", agt.ID())
 
 	systemPrompt := prompt.Memorization(agt.ID())
 	systemMessage := agent.NewSystemMessage(systemPrompt)
@@ -176,7 +180,7 @@ func (m *ConsolidationService) consolidateMemoryFor(ctx context.Context, agt age
 	return nil
 }
 
-// without mutex
+// without mutex.
 func (m *ConsolidationService) Config() ConsolidatorConfig {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -235,7 +239,7 @@ func (m *ConsolidationService) Run(ctx context.Context) {
 		ticker := time.Tick(time.Until(NextConsolidation(time.Now())))
 		select {
 		case <-ticker:
-			m.logger.Info("automatic consolidation started")
+			m.logger.InfoContext(ctx, "automatic consolidation started")
 
 			m.mu.RLock()
 			enabled := m.enabled
@@ -244,17 +248,17 @@ func (m *ConsolidationService) Run(ctx context.Context) {
 
 			if !enabled {
 				// unneccecary noise in logs better than silent disable consolidation
-				m.logger.Info("skip memory consolidation, consolidation is disabled")
+				m.logger.InfoContext(ctx, "skip memory consolidation, consolidation is disabled")
 				continue
 			}
 
 			if model == nil {
-				m.logger.Warn("consolidation declined, model is not defined")
+				m.logger.WarnContext(ctx, "consolidation declined, model is not defined")
 				continue
 			}
 
 			if err := m.consolidateInBackground(ctx); err != nil {
-				m.logger.Error("consolidation", "error", err)
+				m.logger.ErrorContext(ctx, "consolidation", "error", err)
 			}
 		case <-ctx.Done():
 			return

@@ -17,7 +17,6 @@ func (h *ContentSizeLimitHook) Apply(
 	ctx context.Context,
 	tc *runtime.AfterToolCall,
 ) (*runtime.AfterToolCall, error) {
-
 	// validation
 	var buf []byte
 	for _, p := range tc.Result {

@@ -83,7 +83,6 @@ func ToolcallsToDTO(calls []*agent.ToolCall) []ToolCallDTO {
 }
 
 func DtoToMessage(dto MessageDTO) (agent.Message, error) {
-
 	switch dto.Role {
 	case "user":
 		return agent.NewUserMessage(dtoToContent(dto.Content)), nil

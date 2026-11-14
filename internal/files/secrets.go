@@ -37,7 +37,6 @@ type SecretsFiles struct {
 }
 
 func NewSecretsFiles(storage FileStorage) (*SecretsFiles, error) {
-
 	if err := ensureFilePlaceholder(
 		storage,
 		SecretsConfigFilePath,
@@ -79,7 +78,7 @@ func (sf *SecretsFiles) Save(secrets map[string]string) error {
 	return sf.storage.WriteFile(SecretsConfigFilePath, dataWithDoc, ModeFilePerm)
 }
 
-// secretsSent
+// secretsSent.
 func NewSecretsReloader(secretSvc *secrets.Service) sentinel.Action {
 	return func(ctx context.Context, ev fsnotify.Event) error {
 		return secretSvc.Reload(ctx)

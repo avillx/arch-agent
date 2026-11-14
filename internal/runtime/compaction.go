@@ -19,7 +19,6 @@ func doCompact(
 	msgs []agent.Message,
 	evCh chan Event,
 ) ([]agent.Message, error) {
-
 	if len(msgs) <= 1 {
 		return nil, fmt.Errorf("must be at least one message")
 	}
@@ -71,11 +70,9 @@ func roleSafePushback(
 	messages []agent.Message,
 	newFirstMessage agent.Message,
 ) []agent.Message {
-
 	firstMessage := messages[0]
 
 	if firstMessage.Role() == newFirstMessage.Role() {
-
 		prevFirstContent := firstMessage.Content()
 		newFirstContent := newFirstMessage.Content()
 

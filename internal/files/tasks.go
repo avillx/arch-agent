@@ -66,7 +66,6 @@ type TaskFiles struct {
 }
 
 func NewTaskFiles(storage FileStorage) (*TaskFiles, error) {
-
 	if err := ensureFilePlaceholder(
 		storage,
 		TaskConfigFilePath,
@@ -89,7 +88,6 @@ func (tf *TaskFiles) All() (map[string]task.TaskConfig, error) {
 }
 
 func (tf *TaskFiles) Get(id string) (task.TaskConfig, error) {
-
 	tf.mu.RLock()
 	defer tf.mu.RUnlock()
 
@@ -107,7 +105,6 @@ func (tf *TaskFiles) Get(id string) (task.TaskConfig, error) {
 }
 
 func (tf *TaskFiles) Save(t task.TaskConfig) error {
-
 	tf.mu.Lock()
 	defer tf.mu.Unlock()
 
@@ -121,7 +118,6 @@ func (tf *TaskFiles) Save(t task.TaskConfig) error {
 }
 
 func (tf *TaskFiles) Delete(id string) error {
-
 	tf.mu.Lock()
 	defer tf.mu.Unlock()
 
@@ -168,11 +164,10 @@ type TaskDTO struct {
 	Reglament   string     `toml:"schedule"`
 	Active      bool       `toml:"active"`
 	Oneshot     bool       `toml:"once"`
-	Request     string     `toml:"request" multiline:"true"`
+	Request     string     `toml:"request"     multiline:"true"`
 }
 
 func UnmarshalTasks(data []byte) (map[string]task.TaskConfig, error) {
-
 	var dtos map[string]TaskDTO
 	if err := toml.Unmarshal(data, &dtos); err != nil {
 		return nil, err
@@ -195,7 +190,6 @@ func UnmarshalTasks(data []byte) (map[string]task.TaskConfig, error) {
 }
 
 func MarshalTasks(tasks map[string]task.TaskConfig) ([]byte, error) {
-
 	dtos := map[string]TaskDTO{}
 
 	for _, v := range tasks {
@@ -220,7 +214,7 @@ func MarshalTasks(tasks map[string]task.TaskConfig) ([]byte, error) {
 	), nil
 }
 
-// tasksSent
+// tasksSent.
 func NewTasksReloader(tasksSvc *task.Service) sentinel.Action {
 	return func(ctx context.Context, ev fsnotify.Event) error {
 		return tasksSvc.Reload(ctx)

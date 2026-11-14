@@ -21,6 +21,7 @@ type SessionHeaderDTO struct {
 
 type SessionDTO struct {
 	SessionHeaderDTO
+
 	Messages []MessageDTO `json:"messages"`
 }
 
@@ -50,7 +51,6 @@ type sessionHandler struct {
 }
 
 func (h *sessionHandler) Get(w http.ResponseWriter, r *http.Request) Response {
-
 	agentID := agent.ID(r.PathValue("agent"))
 	sessID := session.ID(r.PathValue("session"))
 
@@ -77,7 +77,6 @@ func (h *sessionHandler) Sessions(w http.ResponseWriter, r *http.Request) Respon
 
 	sessions, err := h.sessSvc.Headers(agentID)
 	if err != nil {
-
 		// this route reaches only on agent is not exist
 		if errors.Is(err, types.ErrIsNotExist) {
 			return NewBadRequest("agent is not exist")
@@ -106,7 +105,6 @@ func (h *sessionHandler) Sessions(w http.ResponseWriter, r *http.Request) Respon
 }
 
 func (h *sessionHandler) Create(w http.ResponseWriter, r *http.Request) Response {
-
 	type SessionCreateDTO struct {
 		Instructon string `json:"instruction,omitempty"`
 	}

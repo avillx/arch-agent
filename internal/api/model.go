@@ -8,13 +8,12 @@ import (
 	"net/http"
 )
 
-// handler
+// handler.
 type providerHandler struct {
 	providerSvc *model.ProviderService
 }
 
 func (h *providerHandler) AddProvider(w http.ResponseWriter, r *http.Request) Response {
-
 	cfg, err := decode[model.ProviderConfig](r)
 	if err != nil {
 		return NewInvalidRequest(err)
@@ -57,7 +56,6 @@ func (h *providerHandler) GetProvider(w http.ResponseWriter, r *http.Request) Re
 }
 
 func (h *providerHandler) UpdateProvider(w http.ResponseWriter, r *http.Request) Response {
-
 	providerID := model.ProviderID(r.PathValue("name"))
 
 	patch, err := decode[model.ProviderConfigPatch](r)
@@ -85,7 +83,6 @@ func (h *providerHandler) GetAll(w http.ResponseWriter, r *http.Request) Respons
 }
 
 func (h *providerHandler) SetModel(w http.ResponseWriter, r *http.Request) Response {
-
 	providerID := model.ProviderID(r.PathValue("name"))
 	encodedModelName := r.PathValue("model")
 
@@ -100,7 +97,6 @@ func (h *providerHandler) SetModel(w http.ResponseWriter, r *http.Request) Respo
 	}
 
 	if err := h.providerSvc.SetModel(providerID, string(modelNameData), modelCfg); err != nil {
-
 		switch {
 		// NOTE: So it error is already closed by architecture but it can changed
 		// so i leave it here

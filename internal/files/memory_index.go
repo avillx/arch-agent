@@ -31,7 +31,6 @@ func NewMemoryFiles(
 }
 
 func (f *MemoryFiles) MemoryIndex(agentID agent.ID) (map[string]string, error) {
-
 	// NOTE: all fs funcs disallow backslashes so that the reason to use path
 	// over filepath. Cause filepath on windows return path with backslashes
 	// and this stuff never read directory
@@ -83,7 +82,6 @@ func (f *MemoryFiles) MemoryIndex(agentID agent.ID) (map[string]string, error) {
 }
 
 func (f *MemoryFiles) GetMemory(agentID agent.ID, name string) (string, error) {
-
 	// NOTE: path over filepath is required
 	memoryPath := path.Join(string(agentID), MemoryFolder)
 

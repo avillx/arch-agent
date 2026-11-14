@@ -21,7 +21,6 @@ type Service struct {
 }
 
 func New(repo Repo, logger *slog.Logger) (*Service, error) {
-
 	secrets, err := repo.Load()
 	if err != nil {
 		return nil, err
@@ -45,7 +44,7 @@ func (s *Service) Reload(_ context.Context) error {
 
 	s.secrets = secrets
 
-	s.logger.Info("reloaded")
+	s.logger.InfoContext(_, "reloaded")
 	return nil
 }
 

@@ -5,9 +5,9 @@ import (
 	"time"
 )
 
-type Event interface{}
+type Event any
 
-// base event
+// base event.
 type baseEvent struct {
 	Timestamp time.Time `json:"timestamp"`
 }
@@ -18,9 +18,10 @@ func newBaseEvent() baseEvent {
 	}
 }
 
-// compaction event
+// compaction event.
 type CompactionEvent struct {
 	baseEvent
+
 	compactedContext []agent.Message
 	summary          string
 }
@@ -41,9 +42,10 @@ func (ev *CompactionEvent) CompactedContext() []agent.Message {
 	return ev.compactedContext
 }
 
-// complete event
+// complete event.
 type CompleteEvent struct {
 	baseEvent
+
 	completion *agent.Completion
 }
 
@@ -58,9 +60,10 @@ func (e *CompleteEvent) Complete() *agent.Completion {
 	return e.completion
 }
 
-// tool call result event
+// tool call result event.
 type ToolResultEvent struct {
 	baseEvent
+
 	call   *agent.ToolCall
 	result *agent.ToolResult
 }
@@ -81,9 +84,10 @@ func (e *ToolResultEvent) Result() *agent.ToolResult {
 	return e.result
 }
 
-// tool call error event
+// tool call error event.
 type ToolCallErrEvent struct {
 	baseEvent
+
 	toolName agent.ToolName
 	toolArgs agent.ToolArguments
 	err      error
@@ -110,9 +114,10 @@ func (e *ToolCallErrEvent) Err() error {
 	return e.err
 }
 
-// loop exit event
+// loop exit event.
 type LoopExitEvent struct {
 	baseEvent
+
 	err error
 }
 
@@ -127,9 +132,10 @@ func (e *LoopExitEvent) Err() error {
 	return e.err
 }
 
-// completion mistake event
+// completion mistake event.
 type CompletionMistakeEvent struct {
 	baseEvent
+
 	cause error
 }
 

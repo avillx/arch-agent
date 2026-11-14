@@ -5,6 +5,7 @@ import (
 	"ard/internal/logging"
 	"ard/internal/server"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -26,7 +27,6 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-
 	ctx, stop := signal.NotifyContext(
 		ctx,
 		os.Interrupt,
@@ -75,14 +75,14 @@ func run(ctx context.Context) error {
 		Handler: api.NewHTTPHandler(logger, srv),
 	}
 
-	slog.Warn("start system")
+	slog.WarnContext(ctx, "start system")
 
 	go func() {
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("server", "error", err)
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.ErrorContext(ctx, "server", "error", err)
 		}
 		stop()
-		slog.Warn("system shutdown")
+		slog.WarnContext(ctx, "system shutdown")
 	}()
 
 	<-ctx.Done()

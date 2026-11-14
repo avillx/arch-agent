@@ -58,7 +58,6 @@ type MCPFiles struct {
 }
 
 func NewMCPFiles(storage FileStorage) (*MCPFiles, error) {
-
 	if err := ensureFilePlaceholder(
 		storage,
 		MCPConfigFilePath,
@@ -72,7 +71,6 @@ func NewMCPFiles(storage FileStorage) (*MCPFiles, error) {
 }
 
 func (f *MCPFiles) Save(id mcp.MCPServerID, cfg mcp.ServerGatewayConfig) error {
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -92,7 +90,6 @@ func (f *MCPFiles) Save(id mcp.MCPServerID, cfg mcp.ServerGatewayConfig) error {
 }
 
 func (f *MCPFiles) Load() (map[mcp.MCPServerID]mcp.ServerGatewayConfig, error) {
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -133,15 +130,14 @@ func (f *MCPFiles) Delete(mcpServerID mcp.MCPServerID) error {
 }
 
 type MCPServerConfigDTO struct {
-	URL     string            `json:"url" toml:"url,omitempty"`
+	URL     string            `json:"url"             toml:"url,omitempty"`
 	Token   string            `json:"token,omitempty" toml:"token,omitempty"`
-	Command string            `json:"command" toml:"command,omitempty"`
-	Args    []string          `json:"args,omitempty" toml:"args,omitempty"`
-	Env     map[string]string `json:"env,omitempty" toml:"env,omitempty"`
+	Command string            `json:"command"         toml:"command,omitempty"`
+	Args    []string          `json:"args,omitempty"  toml:"args,omitempty"`
+	Env     map[string]string `json:"env,omitempty"   toml:"env,omitempty"`
 }
 
 func ValidateMCPServerConfigDTO(data []byte) error {
-
 	var cfg map[mcp.MCPServerID]MCPServerConfigDTO
 	dec := toml.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
@@ -152,7 +148,6 @@ func ValidateMCPServerConfigDTO(data []byte) error {
 
 	problems := map[string]string{}
 	for k, dto := range cfg {
-
 		if dto.Command != "" && dto.URL != "" {
 			p := "allowed only one transport 'url' for http or 'command' for stdio"
 			problems[string(k)] = p
@@ -174,7 +169,6 @@ func ValidateMCPServerConfigDTO(data []byte) error {
 			p := "field 'token' allowed only for 'http' transport, but used with 'command'"
 			problems[string(k)] = p
 		}
-
 	}
 
 	if len(problems) > 0 {
@@ -185,10 +179,8 @@ func ValidateMCPServerConfigDTO(data []byte) error {
 }
 
 func MarshalMCPConfig(config map[mcp.MCPServerID]mcp.ServerGatewayConfig) ([]byte, error) {
-
 	newMCPConfig := map[mcp.MCPServerID]MCPServerConfigDTO{}
 	for k, v := range config {
-
 		if v.CommandGateway == nil {
 			v.CommandGateway = &mcp.CommandGatewayConfig{}
 		}
@@ -218,7 +210,6 @@ func MarshalMCPConfig(config map[mcp.MCPServerID]mcp.ServerGatewayConfig) ([]byt
 }
 
 func UnmarshalMCPConfig(data []byte) (map[mcp.MCPServerID]mcp.ServerGatewayConfig, error) {
-
 	var dto map[mcp.MCPServerID]MCPServerConfigDTO
 	if err := toml.Unmarshal(data, &dto); err != nil {
 		return nil, err
@@ -226,7 +217,6 @@ func UnmarshalMCPConfig(data []byte) (map[mcp.MCPServerID]mcp.ServerGatewayConfi
 
 	config := map[mcp.MCPServerID]mcp.ServerGatewayConfig{}
 	for k, v := range dto {
-
 		var commandGateway *mcp.CommandGatewayConfig
 		if v.Command != "" {
 			commandGateway = &mcp.CommandGatewayConfig{
@@ -253,7 +243,7 @@ func UnmarshalMCPConfig(data []byte) (map[mcp.MCPServerID]mcp.ServerGatewayConfi
 	return config, nil
 }
 
-// mcpSent
+// mcpSent.
 func NewMCPReloader(mcpSvc *mcp.Service) sentinel.Action {
 	return func(ctx context.Context, ev fsnotify.Event) error {
 		return mcpSvc.Reload(ctx)

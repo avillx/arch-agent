@@ -13,7 +13,6 @@ func NewAgentHooks(
 	todoStorage todoStorage,
 	r Replcaer,
 ) ([]any, error) {
-
 	accessRules := []Rule{
 		{Pattern: logging.AgentLogFile, Access: Read},
 		{Pattern: files.SecretsConfigFile, Access: Read},
@@ -42,7 +41,6 @@ func NewAgentHooks(
 func NewMemoryHooksResolver(
 	indexer agent.MemoryIndexer,
 ) (func(agentID agent.ID) []any, error) {
-
 	// for validation path patterns
 	_, err := NewMemoryHooks("unexisted_agent", indexer)
 	if err != nil {
@@ -60,7 +58,6 @@ func NewMemoryHooks(
 	agentID agent.ID,
 	indexer agent.MemoryIndexer,
 ) ([]any, error) {
-
 	// Readability helper
 	// Concat cwd with pattern and inject agentID in
 	// also normalize with filepath

@@ -28,7 +28,6 @@ func (s *Service) AllToolServers() map[string]agent.ToolServer {
 }
 
 func (s *Service) ToolServers(names ...string) ([]agent.ToolServer, error) {
-
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 

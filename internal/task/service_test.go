@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"maps"
 	"slices"
 	"sync"
 	"testing"
@@ -14,7 +15,8 @@ import (
 	"ard/internal/types"
 )
 
-func strPtr(s string) *string { return &s }
+//go:fix inline
+func strPtr(s string) *string { return new(s) }
 
 func validTask(name string) task.TaskConfig {
 	return task.TaskConfig{
@@ -79,9 +81,7 @@ func (r *taskRepoStub) All() (map[string]task.TaskConfig, error) {
 	}
 
 	out := make(map[string]task.TaskConfig, len(r.tasks))
-	for name, cfg := range r.tasks {
-		out[name] = cfg
-	}
+	maps.Copy(out, r.tasks)
 	return out, nil
 }
 
@@ -310,7 +310,7 @@ func TestValidate_BadCronOnPatch(t *testing.T) {
 	badCronFactory := func(string) (task.Cron, error) { return nil, task.ErrCron }
 	svc := newService(t, repo, newAgentRepoStub("agent-a"), newExecutorStub(), badCronFactory)
 
-	err := svc.Patch("task", task.TaskPatch{Reglament: strPtr("bad")})
+	err := svc.Patch("task", task.TaskPatch{Reglament: new("bad")})
 	if got := validationProblem(t, err, "schedule"); got != "invalid cron" {
 		t.Fatalf("schedule problem = %q, want %q", got, "invalid cron")
 	}
@@ -363,7 +363,7 @@ func TestPatch_NewNameDeletesPreviousName(t *testing.T) {
 		t.Fatalf("Add() error = %v", err)
 	}
 
-	if err := svc.Patch("old", task.TaskPatch{Name: strPtr("new")}); err != nil {
+	if err := svc.Patch("old", task.TaskPatch{Name: new("new")}); err != nil {
 		t.Fatalf("Patch() error = %v", err)
 	}
 

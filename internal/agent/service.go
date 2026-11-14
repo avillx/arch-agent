@@ -63,7 +63,6 @@ func (s *Service) Get(agentID ID) (Agent, error) {
 }
 
 func (s *Service) Save(agt Agent) error {
-
 	// validate model existence
 	if _, err := s.modelRepo.Get(agt.Model()); err != nil {
 		return err
@@ -78,7 +77,6 @@ func (s *Service) Save(agt Agent) error {
 }
 
 func (s *Service) Delete(agentID ID) error {
-
 	// validate agent existence
 	if _, err := s.storage.Get(agentID); err != nil {
 		return err

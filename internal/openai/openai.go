@@ -25,7 +25,6 @@ func messagesToOpenAI(internalFromatMessages []agent.Message) []openai.ChatCompl
 }
 
 func messageToOpenAI(internalFromatMessage agent.Message) []openai.ChatCompletionMessageParamUnion {
-
 	var (
 		result            openai.ChatCompletionMessageParamUnion
 		additionalContent = []openai.ChatCompletionContentPartUnionParam{}
@@ -35,7 +34,10 @@ func messageToOpenAI(internalFromatMessage agent.Message) []openai.ChatCompletio
 	case *agent.AgentMessage:
 
 		internalContent := msg.Content()
-		openAIContent := make([]openai.ChatCompletionAssistantMessageParamContentArrayOfContentPartUnion, len(internalContent))
+		openAIContent := make(
+			[]openai.ChatCompletionAssistantMessageParamContentArrayOfContentPartUnion,
+			len(internalContent),
+		)
 		for i, cp := range internalContent {
 			openAIContent[i] = openai.ChatCompletionAssistantMessageParamContentArrayOfContentPartUnion{
 				OfText: &openai.ChatCompletionContentPartTextParam{
@@ -83,7 +85,6 @@ func messageToOpenAI(internalFromatMessage agent.Message) []openai.ChatCompletio
 		openAIContent := make([]openai.ChatCompletionContentPartTextParam, len(internalContent))
 
 		for i, cp := range internalContent {
-
 			if cp.ImageURL != "" {
 				imagePartContent := openai.ChatCompletionContentPartUnionParam{
 					OfImageURL: &openai.ChatCompletionContentPartImageParam{
@@ -195,7 +196,9 @@ func OpenAIToolChoice(tc string) openai.ChatCompletionToolChoiceOptionUnionParam
 }
 
 func builtMessages(conversation []agent.Message, prompt string) []openai.ChatCompletionMessageParamUnion {
-	return append([]openai.ChatCompletionMessageParamUnion{openai.SystemMessage(prompt)}, messagesToOpenAI(conversation)...)
+	return append(
+		[]openai.ChatCompletionMessageParamUnion{openai.SystemMessage(prompt)},
+		messagesToOpenAI(conversation)...)
 }
 
 func OpenAICompletionToContent(completion *openai.ChatCompletion) (string, error) {
@@ -206,7 +209,6 @@ func OpenAICompletionToContent(completion *openai.ChatCompletion) (string, error
 }
 
 func OpenAICompletionToReasonResult(completion *openai.ChatCompletion) (*agent.Completion, error) {
-
 	if len(completion.Choices) == 0 {
 		return nil, errors.New("empty choices")
 	}

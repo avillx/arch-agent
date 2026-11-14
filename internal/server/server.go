@@ -30,7 +30,7 @@ import (
 	"time"
 )
 
-// Simple orchestrator
+// Simple orchestrator.
 type Server struct {
 	TMPFiles               *files.TemporaryFiles
 	SecretSvc              *secrets.Service
@@ -62,7 +62,6 @@ func New(
 	agentShellAttributes []string,
 	logger *slog.Logger,
 ) (*Server, error) {
-
 	fileStorage, err := files.NewFileStorage(datapath)
 	if err != nil {
 		return nil, err

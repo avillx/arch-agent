@@ -97,7 +97,7 @@ func validateTaskConfig(cfg TaskConfig, cronFactory func(string) (Cron, error)) 
 	if cfg.Description == "" {
 		problems["description"] = "must be not empty"
 	}
-	if !(len(cfg.Recipients) > 0) {
+	if len(cfg.Recipients) <= 0 {
 		problems["recipients"] = ErrNoRecipients.Error()
 	}
 	if _, err := cronFactory(cfg.Reglament); err != nil {

@@ -49,19 +49,16 @@ func NewValidationError(problems map[string]string) error {
 func (e *ValidationError) Error() string               { return "validation failed" }
 func (e *ValidationError) Problems() map[string]string { return e.problems }
 func (e *ValidationError) Message() string {
-
 	var sb strings.Builder
 	for k, v := range e.Problems() {
 		fmt.Fprintf(&sb, "problem with %s - %s\n", k, v)
 	}
 
 	return sb.String()
-
 }
 
 func ResovleValidationProblems(err error) map[string]string {
-	var validationErr *ValidationError
-	if errors.As(err, &validationErr) {
+	if validationErr, ok := errors.AsType[*ValidationError](err); ok {
 		return validationErr.problems
 	}
 	return nil

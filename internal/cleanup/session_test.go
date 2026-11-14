@@ -178,13 +178,11 @@ func TestClean_IsConcurrencySafe(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for range 2 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			if err := cleaner.Clean(testRetention); err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 

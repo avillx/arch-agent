@@ -40,7 +40,6 @@ func (s *Service) Call(
 	subAgentID agent.ID,
 	request string,
 ) (string, error) {
-
 	ctx, isOverflow := subAgentCallStack(ctx, subAgentCall{subagent: subAgentID})
 	if isOverflow {
 		return "", ErrCallStackOverflow
@@ -72,7 +71,7 @@ func (s *Service) Call(
 		chatErrCh <- err
 	}()
 
-	logger.Info("running")
+	logger.InfoContext(ctx, "running")
 
 	lastAgentMessageContent := ""
 
@@ -83,7 +82,7 @@ func (s *Service) Call(
 				message := fmt.Sprintf("sub agent %s, fall with error", subAgentID)
 				lastAgentMessageContent += message
 
-				logger.Error(
+				logger.ErrorContext(ctx,
 					"fall with error",
 					"error", ev.Err(),
 				)
@@ -96,7 +95,7 @@ func (s *Service) Call(
 	if err := <-chatErrCh; err != nil {
 		agentID, _ := chat.AgentIDFromContext(ctx)
 		sessID, _ := chat.SessionIDFromContext(ctx)
-		s.logger.Error("agent has problems with sub agent",
+		s.logger.ErrorContext(ctx, "agent has problems with sub agent",
 			"agent", agentID,
 			"session", sessID,
 			"subagent", subAgentID,

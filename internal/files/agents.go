@@ -20,7 +20,7 @@ var _ agent.Repo = (*AgentFiles)(nil)
 
 const AgentFile = "agent.md"
 
-// Files
+// Files.
 type AgentFiles struct {
 	storage FileStorage
 	mu      sync.RWMutex
@@ -159,7 +159,7 @@ func (s *AgentFiles) fromDTO(dtos ...AgentDTO) ([]agent.Agent, error) {
 	return agents, nil
 }
 
-// DTO
+// DTO.
 type AgentDTO struct {
 	ID           agent.ID `yaml:"id"`
 	Description  string   `yaml:"description,omitempty"`
@@ -178,22 +178,21 @@ func parseAgentFile(data []byte) (AgentDTO, error) {
 		return AgentDTO{}, fmt.Errorf("agent file must start with ---")
 	}
 
-	fmEnd := strings.Index(after, "\n"+delim)
-	if fmEnd == -1 {
+	before, after0, ok := strings.Cut(after, "\n"+delim)
+	if !ok {
 		return AgentDTO{}, fmt.Errorf("unclosed frontmatter")
 	}
 
 	var dto AgentDTO
-	if err := yaml.Unmarshal([]byte(after[:fmEnd]), &dto); err != nil {
+	if err := yaml.Unmarshal([]byte(before), &dto); err != nil {
 		return AgentDTO{}, err
 	}
 
-	dto.SystemPrompt = strings.TrimPrefix(after[fmEnd+len("\n"+delim):], "\n")
+	dto.SystemPrompt = strings.TrimPrefix(after0, "\n")
 	return dto, nil
 }
 
 func marshalAgentFile(agt agent.Agent) ([]byte, error) {
-
 	fm, err := yaml.Marshal(AgentDTO{
 		ID:          agt.ID(),
 		Description: agt.Description(),

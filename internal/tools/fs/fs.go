@@ -11,11 +11,11 @@ import (
 
 type ConsolidationInstuctFS struct {
 	agent.ToolServer
+
 	cwd string
 }
 
 func NewConsolidationInstuctFS(storage files.FileStorage, skipPatterns []string) (*ConsolidationInstuctFS, error) {
-
 	ts, err := NewRawFileSystemToolServer(storage, skipPatterns)
 	if err != nil {
 		return nil, err
@@ -32,11 +32,11 @@ func (r *ConsolidationInstuctFS) AgentInstruction(agt agent.Agent) string {
 
 type FileSystemToolServer struct {
 	*tools.BuildInToolServer
+
 	storage files.FileStorage
 }
 
 func NewFileSystemToolServer(storage files.FileStorage, skipPatterns []string) (*FileSystemToolServer, error) {
-
 	ts, err := NewRawFileSystemToolServer(storage, skipPatterns)
 	if err != nil {
 		return nil, err
@@ -49,7 +49,6 @@ func NewFileSystemToolServer(storage files.FileStorage, skipPatterns []string) (
 }
 
 func NewRawFileSystemToolServer(storage files.FileStorage, skipPatterns []string) (*tools.BuildInToolServer, error) {
-
 	findTool, err := NewFindTool(storage, skipPatterns)
 	if err != nil {
 		return nil, err

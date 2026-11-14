@@ -22,7 +22,7 @@ var (
 	ErrTooManyMistakes  = errors.New("agent makes too much mistakes")
 )
 
-// blocking
+// blocking.
 func RunAgentLoop(
 	ctx context.Context,
 	model agent.Model,
@@ -31,7 +31,6 @@ func RunAgentLoop(
 	evCh chan Event,
 	hooks []any,
 ) {
-
 	completionMistakes := 0
 
 	for range resolveMaxTurns(model.Settings()) {
@@ -45,7 +44,6 @@ func RunAgentLoop(
 		// run completion
 		completion, err := processCompletion(ctx, model, tools, messages, hooks)
 		if err != nil {
-
 			// overflow handling
 			if errors.Is(err, ErrContextOverflow) {
 				messages, err = doCompact(ctx, model, messages, evCh)
@@ -57,8 +55,7 @@ func RunAgentLoop(
 			}
 
 			// agent mistake handling
-			var mistakeErr *types.AgentMistakeError
-			if errors.As(err, &mistakeErr) {
+			if mistakeErr, ok := errors.AsType[*types.AgentMistakeError](err); ok {
 				evCh <- NewCompletionMistakeEvent(err)
 				completionMistakes++
 
@@ -116,7 +113,6 @@ func processCompletion(
 	messages []agent.Message,
 	hooks []any,
 ) (*agent.Completion, error) {
-
 	completion, err := model.Complete(
 		ctx,
 		tools,
@@ -147,7 +143,6 @@ func processToolCalls(
 	resultMessages := []agent.Message{}
 
 	for _, call := range toolcalls {
-
 		result, err := processToolCall(ctx, toolMap, call, hooks)
 		if err != nil {
 			evCh <- NewErrToolCallEvent(call.ToolName, call.Arguments, err)
@@ -162,15 +157,13 @@ func processToolCalls(
 }
 
 func handleToolCallErr(callID string, err error) *agent.ToolResult {
-
 	msgs := []string{"toolcall error"}
 
 	if errors.Is(err, context.DeadlineExceeded) {
 		msgs = append(msgs, "timeout error")
 	}
 
-	var agentMistakeErr *types.AgentMistakeError
-	if errors.As(err, &agentMistakeErr) {
+	if agentMistakeErr, ok := errors.AsType[*types.AgentMistakeError](err); ok {
 		msgs = append(msgs, agentMistakeErr.Message())
 	}
 
@@ -183,7 +176,6 @@ func processToolCall(
 	call *agent.ToolCall,
 	hooks []any,
 ) (*agent.ToolResult, error) {
-
 	tool, exist := toolkit[call.ToolName]
 	if !exist {
 		msg := fmt.Sprintf("tool %s is not exist", call.ToolName)

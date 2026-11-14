@@ -33,9 +33,8 @@ func newHTTPGateway(url string, authToken string) *httpGateway {
 
 func (g *httpGateway) Type() string { return "http" }
 
-// gateway implementation
+// gateway implementation.
 func (g *httpGateway) createSession(ctx context.Context) (*mcp.ClientSession, error) {
-
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -74,7 +73,6 @@ type processGateway struct {
 }
 
 func newProcessGateway(command string, args []string, env map[string]string) (*processGateway, error) {
-
 	_, err := exec.LookPath(command)
 	if err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
@@ -92,7 +90,7 @@ func newProcessGateway(command string, args []string, env map[string]string) (*p
 
 func (g *processGateway) Type() string { return "process" }
 
-// gateway implementation
+// gateway implementation.
 func (g *processGateway) createSession(ctx context.Context) (*mcp.ClientSession, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -115,7 +113,7 @@ func (g *processGateway) createSession(ctx context.Context) (*mcp.ClientSession,
 	return cs, nil
 }
 
-// helpers
+// helpers.
 func envToSlice(env map[string]string) []string {
 	out := make([]string, 0, len(env))
 	for k, v := range env {

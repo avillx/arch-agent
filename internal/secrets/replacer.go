@@ -25,7 +25,6 @@ func NewReplacer(s *Service) *Replacer {
 }
 
 func (r *Replacer) Reload() {
-
 	// lock fill service. If secrets is updated, new secrets can leak without lock
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -50,7 +49,6 @@ func (r *Replacer) Reload() {
 
 	pairs := make([]string, 0, len(keys)*2)
 	for _, k := range keys {
-
 		// suuuuper edge case
 		if all[k] == "" {
 			continue

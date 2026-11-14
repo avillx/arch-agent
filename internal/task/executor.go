@@ -37,15 +37,14 @@ func (s *executor) Execute(ctx context.Context, t TaskConfig) {
 	for _, r := range t.Recipients {
 		logger := logger.With("agent", r)
 
-		logger.Info("processing started")
+		logger.InfoContext(ctx, "processing started")
 		if err := s.processRecipientTask(ctx, agent.ID(r), t.Request); err != nil {
-			logger.Error("processing", "error", err)
+			logger.ErrorContext(ctx, "processing", "error", err)
 		}
 	}
 }
 
 func (s *executor) processRecipientTask(ctx context.Context, agentID agent.ID, request string) error {
-
 	sessID, err := s.sessionSvc.Create(agentID, prompt.GetAutonomusGuidance())
 	if err != nil {
 		return err

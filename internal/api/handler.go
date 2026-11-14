@@ -17,6 +17,7 @@ import (
 
 type HTTPHandler struct {
 	*http.ServeMux
+
 	logger           *slog.Logger
 	taskSvc          *task.Service
 	chatSvc          *chat.Dispatcher
@@ -36,7 +37,6 @@ func NewHTTPHandler(
 	logger *slog.Logger,
 	srv *server.Server,
 ) *HTTPHandler {
-
 	h := &HTTPHandler{
 		logger:           logger.WithGroup("api"),
 		ServeMux:         http.NewServeMux(),
@@ -114,7 +114,6 @@ func (s *HTTPHandler) registerRoutes() {
 	s.HandleFunc("DELETE /providers/{name}", providerHandler.DeleteProvider)
 	s.HandleFunc("POST /providers/{name}/models/{model}", providerHandler.SetModel)
 	s.HandleFunc("DELETE /providers/{name}/models/{model}", providerHandler.DeleteModel)
-
 }
 
 func (s *HTTPHandler) HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request) Response) {
@@ -124,13 +123,13 @@ func (s *HTTPHandler) HandleFunc(pattern string, handler func(http.ResponseWrite
 func (s *HTTPHandler) wrapResponse(h func(w http.ResponseWriter, r *http.Request) Response) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger := s.logger.With("method", r.Method, "path", r.URL.Path)
-		logger.Info("incoming request")
+		logger.InfoContext(r.Context(), "incoming request")
 
 		response := h(w, r)
 
 		// log error
 		if cause, ok := response.(interface{ Err() error }); ok {
-			logger.Error("internal", "error", cause.Err())
+			logger.ErrorContext(r.Context(), "internal", "error", cause.Err())
 		}
 
 		// silent case. no response provided
@@ -138,7 +137,7 @@ func (s *HTTPHandler) wrapResponse(h func(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		logger.Info("respond", "status", response.StatusCode())
+		logger.InfoContext(r.Context(), "respond", "status", response.StatusCode())
 
 		// respond json
 		if jr, ok := response.(JSONResponse); ok {
@@ -146,7 +145,7 @@ func (s *HTTPHandler) wrapResponse(h func(w http.ResponseWriter, r *http.Request
 			w.WriteHeader(jr.StatusCode())
 			enc := json.NewEncoder(w)
 			if err := enc.Encode(jr.Content()); err != nil {
-				logger.Error("response encoding", "error", err)
+				logger.ErrorContext(r.Context(), "response encoding", "error", err)
 			}
 			return
 		}

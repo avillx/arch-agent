@@ -184,7 +184,7 @@ func isAgentDir(root files.FileStorage, e fs.DirEntry) bool {
 	return err == nil && !stat.IsDir()
 }
 
-// moveToRepos: dir -> repos/<name>-moved, file -> repos/<name>-moved/<file>
+// moveToRepos: dir -> repos/<name>-moved, file -> repos/<name>-moved/<file>.
 func moveToRepos(root files.FileStorage, src, name string, isDir bool) {
 	const (
 		reposDir     = "repos"

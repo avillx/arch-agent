@@ -47,7 +47,7 @@ func NewProvidedToolsRouter(idGen IDGenerator) *providedToolsRouter {
 	}
 }
 
-// POST /toolresult/{id}
+// POST /toolresult/{id}.
 func (h *providedToolsRouter) ResolveCall(w http.ResponseWriter, r *http.Request) Response {
 	id := r.PathValue("id")
 
@@ -88,7 +88,7 @@ func (h *providedToolsRouter) registerTool(t *ProvidedTool) unregisterFunc {
 	}
 }
 
-// server
+// server.
 var _ agent.ToolServer = (*ProvidedToolServer)(nil)
 
 type ProvidedToolServer struct {
@@ -99,11 +99,12 @@ func (s *ProvidedToolServer) Tools() []agent.Tool {
 	return s.tools
 }
 
-// instucted wrapper
+// instucted wrapper.
 var _ chat.ToolInstructer = (*ProvidedToolServerInstructed)(nil)
 
 type ProvidedToolServerInstructed struct {
 	ProvidedToolServer
+
 	instuction string
 }
 
@@ -131,7 +132,6 @@ func newProvidedToolServer(dto ProvidedToolServerDTO) agent.ToolServer {
 }
 
 func dtoToServers(dtos []ProvidedToolServerDTO) []agent.ToolServer {
-
 	toolServers := []agent.ToolServer{}
 	for _, d := range dtos {
 		toolServers = append(toolServers, newProvidedToolServer(d))
@@ -140,7 +140,7 @@ func dtoToServers(dtos []ProvidedToolServerDTO) []agent.ToolServer {
 	return toolServers
 }
 
-// tool
+// tool.
 var _ agent.Tool = (*ProvidedTool)(nil)
 
 type ProvidedTool struct {
@@ -171,7 +171,6 @@ func (t *ProvidedTool) Name() agent.ToolName   { return agent.ToolName(t.name) }
 func (t *ProvidedTool) Description() string    { return t.description }
 func (t *ProvidedTool) Schema() map[string]any { return t.scheme }
 func (t *ProvidedTool) Call(ctx context.Context, args agent.ToolArguments) ([]agent.ContentPart, error) {
-
 	type ProvidedToolCallDTO struct {
 		EventTypeDTO
 

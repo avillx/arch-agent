@@ -52,7 +52,6 @@ func (f *TemporaryFiles) Reload(_ context.Context) error {
 }
 
 func (f *TemporaryFiles) Run(ctx context.Context) {
-
 	<-ctx.Done()
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -62,7 +61,6 @@ func (f *TemporaryFiles) Run(ctx context.Context) {
 }
 
 func (f *TemporaryFiles) stageEntry() error {
-
 	entry, err := fs.ReadDir(f.storage.FS(), TMPDir)
 	if err != nil {
 		if errors.Is(err, types.ErrIsNotExist) {
@@ -92,7 +90,6 @@ func (f *TemporaryFiles) stageNew(entry []os.DirEntry) {
 }
 
 func (f *TemporaryFiles) watchFor(p string) {
-
 	f.timers[p] = time.AfterFunc(TMPEntryTTL, func() {
 		f.mu.Lock()
 		defer f.mu.Unlock()
@@ -115,7 +112,6 @@ func (f *TemporaryFiles) watchFor(p string) {
 }
 
 func (f *TemporaryFiles) releaseUnexisted(existed []os.DirEntry) {
-
 	existMap := make(map[string]struct{}, len(existed))
 	for _, e := range existed {
 		existMap[resolveTmpEntryPath(e.Name())] = struct{}{}
@@ -133,7 +129,7 @@ func resolveTmpEntryPath(e string) string {
 	return filepath.Join(TMPDir, e)
 }
 
-// tmpSent
+// tmpSent.
 func NewTMPDetector(tmpFiles *TemporaryFiles) sentinel.Action {
 	return func(ctx context.Context, ev fsnotify.Event) error {
 		return tmpFiles.Reload(ctx)

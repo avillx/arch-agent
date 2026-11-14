@@ -12,7 +12,6 @@ type RobfigCron struct {
 }
 
 func NewRobfigCron(expr string) (*RobfigCron, error) {
-
 	parser := robcron.NewParser(
 		robcron.Minute |
 			robcron.Hour |

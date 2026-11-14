@@ -42,7 +42,6 @@ const (
 )
 
 func NewImageContent(mimeType AllowedMIME, data []byte) (ContentPart, error) {
-
 	encoded := base64.StdEncoding.EncodeToString(data)
 
 	// validate mime type
@@ -72,7 +71,6 @@ type messageBase struct {
 }
 
 func newMessageBase[T string | []ContentPart](role Role, content T) messageBase {
-
 	return messageBase{
 		role:    role,
 		content: NewContent(content),
@@ -80,7 +78,6 @@ func newMessageBase[T string | []ContentPart](role Role, content T) messageBase 
 }
 
 func (b *messageBase) String() string {
-
 	var textParts strings.Builder
 	for _, c := range b.content {
 		textParts.WriteString(c.Text)
@@ -107,6 +104,7 @@ type UserMessage struct {
 
 type AgentMessage struct {
 	messageBase
+
 	toolCalls []*ToolCall
 }
 
@@ -216,9 +214,8 @@ var (
 // merge two messages with the same type.
 // ErrDiffirentTypes - on a and b is not matched
 // ErrCantMergeToolResult - a and b is a tool message
-// is is unknown type of messages
+// is is unknown type of messages.
 func MergeMatchedPair(a, b Message) (Message, error) {
-
 	if reflect.TypeOf(a) != reflect.TypeOf(b) {
 		return nil, ErrDiffirentTypes
 	}
@@ -253,7 +250,6 @@ func CollapseMatched(messages []Message) []Message {
 	mergedMessages := []Message{messages[0]}
 
 	for _, next := range messages[1:] {
-
 		last := mergedMessages[len(mergedMessages)-1]
 
 		mergedPair, err := MergeMatchedPair(last, next)

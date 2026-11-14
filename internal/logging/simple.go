@@ -32,7 +32,6 @@ func (h *simpleHandler) Enabled(_ context.Context, lvl slog.Level) bool {
 }
 
 func (h *simpleHandler) Handle(_ context.Context, r slog.Record) error {
-
 	h.mu.Lock()
 	defer h.mu.Unlock()
 

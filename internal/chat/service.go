@@ -26,7 +26,6 @@ type Request struct {
 }
 
 func (r Request) validate() error {
-
 	if r.AgentID == "" {
 		return fmt.Errorf("completion request must include agentID")
 	}
@@ -108,13 +107,12 @@ func (s *Service) Chat(
 	ctx context.Context,
 	r Request,
 ) error {
-
 	// validate request
 	if err := r.validate(); err != nil {
 		return err
 	}
 
-	//agent
+	// agent
 	agt, err := s.agentRepo.Get(r.AgentID)
 	if err != nil {
 		return err
@@ -217,7 +215,6 @@ func (s *Service) runAgentLoopWithCallbacks(
 
 		// flush to sink
 		go func() {
-
 			// if context cancelled then is not a error
 			if ev, ok := outEv.(*runtime.LoopExitEvent); ok {
 				if errors.Is(ev.Err(), context.Canceled) {
@@ -231,35 +228,34 @@ func (s *Service) runAgentLoopWithCallbacks(
 		}()
 
 		switch ev := rawEv.(type) {
-
 		// loop exit event
 		case *runtime.LoopExitEvent:
 
 			switch err := ev.Err(); {
 			case err == nil:
-				logger.Info("loop exit")
+				logger.InfoContext(ctx, "loop exit")
 
 			case errors.Is(err, context.Canceled):
 				sess.AddMessages(agent.NewUserMessage(prompt.InterruptionExplanation()))
-				logger.Info("loop interrupted")
+				logger.InfoContext(ctx, "loop interrupted")
 
 			default:
-				logger.Error("loop exit with error", "error", err)
+				logger.ErrorContext(ctx, "loop exit with error", "error", err)
 			}
 
 			if err := s.sessionRepo.Save(agentID, sess); err != nil {
-				logger.Error("save session", "error", err)
+				logger.ErrorContext(ctx, "save session", "error", err)
 			}
 
 		// compaction event
 		case *runtime.CompactionEvent:
-			logger.Warn("session compacted")
+			logger.WarnContext(ctx, "session compacted")
 			sess.OverwriteMessages(0, ev.CompactedContext())
 
 		// complete event
 		case *runtime.CompleteEvent:
 			c := ev.Complete()
-			logger.Info("completion",
+			logger.InfoContext(ctx, "completion",
 				"tool_calls", len(c.ToolCalls),
 				"input_tokens", c.InputTokens,
 				"output_tokens", c.CompletionTokens,
@@ -278,13 +274,13 @@ func (s *Service) runAgentLoopWithCallbacks(
 
 		// completion mistake
 		case *runtime.CompletionMistakeEvent:
-			logger.Info("compltion mistake",
+			logger.InfoContext(ctx, "compltion mistake",
 				"error", ev.Err(),
 			)
 
 		// tool result
 		case *runtime.ToolResultEvent:
-			logger.Info("tool result recivied",
+			logger.InfoContext(ctx, "tool result recivied",
 				"tool", ev.Call().ToolName,
 			)
 			sess.AddMessages(agent.NewToolResultMessage(ev.Result()))
@@ -292,13 +288,12 @@ func (s *Service) runAgentLoopWithCallbacks(
 		// tool call error
 		case *runtime.ToolCallErrEvent:
 			err := ev.Err()
-			var mistake *types.AgentMistakeError
-			if errors.As(err, &mistake) {
-				logger.Warn("bad tool call",
+			if _, ok := errors.AsType[*types.AgentMistakeError](err); ok {
+				logger.WarnContext(ctx, "bad tool call",
 					"tool", ev.ToolName(),
 				)
 			} else {
-				logger.Error("tool call error",
+				logger.ErrorContext(ctx, "tool call error",
 					"tool", ev.ToolName(),
 					"error", ev.Err(),
 				)
@@ -307,7 +302,11 @@ func (s *Service) runAgentLoopWithCallbacks(
 	}
 }
 
-func resolveToolServers(reg agent.ToolRegistry, agt agent.Agent, provided []agent.ToolServer) ([]agent.ToolServer, error) {
+func resolveToolServers(
+	reg agent.ToolRegistry,
+	agt agent.Agent,
+	provided []agent.ToolServer,
+) ([]agent.ToolServer, error) {
 	toolServers, err := reg.ToolServers(agt.ToolServers()...)
 	if err != nil {
 		if err := types.DistillErrNotExist(fmt.Sprintf("agent %s", err), err); err != nil {

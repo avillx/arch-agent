@@ -30,7 +30,7 @@ func (m *mockSkillsRepo) Skills(agent.ID) (map[string]string, error) {
 	return m.skills, nil
 }
 
-// plain tool server without any instruction interfaces
+// plain tool server without any instruction interfaces.
 type plainToolServer struct{}
 
 func (p *plainToolServer) Tools() []agent.Tool { return nil }

@@ -160,6 +160,7 @@ var _ Session = (*session)(nil)
 
 type session struct {
 	*sessionHeader
+
 	messages []agent.Message
 }
 
@@ -174,7 +175,6 @@ func NewRestoredSession(
 	h *sessionHeader,
 	messages []agent.Message,
 ) *session {
-
 	return &session{
 		sessionHeader: h,
 		messages:      messages,

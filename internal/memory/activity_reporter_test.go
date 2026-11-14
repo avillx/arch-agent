@@ -103,7 +103,11 @@ func (r *stubActivityConfigRepo) Save(cfg memory.ActivityConfig) error {
 	return nil
 }
 
-func newTestActivityService(t *testing.T, cfgRepo memory.ActivityConfigRepo, activityRepo agent.ActivityRepo) *memory.ActivityService {
+func newTestActivityService(
+	t *testing.T,
+	cfgRepo memory.ActivityConfigRepo,
+	activityRepo agent.ActivityRepo,
+) *memory.ActivityService {
 	t.Helper()
 
 	return memory.NewActivityService(

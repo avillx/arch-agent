@@ -22,6 +22,7 @@ type requestProcessing struct {
 
 type Dispatcher struct {
 	*Service
+
 	processes map[sessionKey]*requestProcessing
 	logging   *slog.Logger
 	mu        sync.Mutex

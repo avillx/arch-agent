@@ -24,7 +24,7 @@ type sessionKey struct {
 
 const defaultFlushInterval = 120 // multiplies on seconds
 
-// concurent safe messages buffer
+// concurent safe messages buffer.
 type messageBuffer struct {
 	msgs []agent.Message
 	mu   sync.Mutex
@@ -60,9 +60,9 @@ func (b *messageBuffer) transcript() string {
 }
 
 type ActivityConfig struct {
-	Enabled   bool   `toml:"enabled" json:"enabled"`
+	Enabled   bool   `toml:"enabled"  json:"enabled"`
 	Interval  int64  `toml:"interval" json:"interval"`
-	ModelName string `toml:"model" json:"model"`
+	ModelName string `toml:"model"    json:"model"`
 }
 
 func (c ActivityConfig) IsZero() bool {
@@ -117,7 +117,7 @@ func NewActivityService(
 	return svc
 }
 
-// for both user and completion stuff
+// for both user and completion stuff.
 func (o *ActivityService) Commit(agentID agent.ID, sessID session.ID, msgs []agent.Message) {
 	if !o.Config().Enabled {
 		// if sevice disabled then drop commits silently
@@ -157,7 +157,6 @@ func (o *ActivityService) getBuffer(key sessionKey) *messageBuffer {
 		buf = newMessageBuffer()
 		interval := time.Duration(o.Config().Interval) * time.Second
 		timer := time.AfterFunc(interval, func() {
-
 			logger := o.logger.With("agent", key.AgentID, "session", key.SessionID)
 
 			if !o.Config().Enabled {
@@ -180,7 +179,6 @@ func (o *ActivityService) getBuffer(key sessionKey) *messageBuffer {
 }
 
 func (o *ActivityService) flush(ctx context.Context, key sessionKey) error {
-
 	buf, err := o.releaseBuffer(key)
 	if err != nil {
 		return err
@@ -201,7 +199,6 @@ func (o *ActivityService) flush(ctx context.Context, key sessionKey) error {
 }
 
 func (r *ActivityService) extractActivity(ctx context.Context, buf *messageBuffer) (string, error) {
-
 	r.cfgMu.RLock()
 	model := r.model
 	r.cfgMu.RUnlock()
@@ -225,7 +222,6 @@ func (r *ActivityService) extractActivity(ctx context.Context, buf *messageBuffe
 }
 
 func (s *ActivityService) Reload() error {
-
 	cfg, err := s.cfgRepo.Load()
 	if err != nil {
 		return err
@@ -262,7 +258,6 @@ func (s *ActivityService) applyConfig(cfg ActivityConfig) error {
 }
 
 func (s *ActivityService) SaveConfig(cfg ActivityConfig) error {
-
 	_, err := s.modelRepo.Get(s.modelName)
 	if err != nil {
 		return err

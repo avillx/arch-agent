@@ -14,6 +14,7 @@ import (
 
 type CallAgentToolServer struct {
 	*BuildInToolServer
+
 	agentRepo agent.Repo
 }
 
@@ -50,7 +51,6 @@ then agent need full request with clarificaton again.
 	sb.WriteString(instruction + "\n")
 	sb.WriteString("Agent contacts:\n")
 	for _, a := range agents {
-
 		isYouLabel := ""
 		if a.ID() == agt.ID() {
 			isYouLabel = " (You)"

@@ -7,14 +7,13 @@ import (
 	"net/http"
 )
 
-// handler
+// handler.
 type taskHandler struct {
 	taskSvc *task.Service
 }
 
-// GET /task
+// GET /task.
 func (s *taskHandler) List(w http.ResponseWriter, _ *http.Request) Response {
-
 	tasks, err := s.taskSvc.List()
 	if err != nil {
 		return NewInternalError(err)
@@ -23,7 +22,7 @@ func (s *taskHandler) List(w http.ResponseWriter, _ *http.Request) Response {
 	return NewJSONResponse(http.StatusOK, tasks)
 }
 
-// POST /task/{name}
+// POST /task/{name}.
 func (s *taskHandler) Create(w http.ResponseWriter, r *http.Request) Response {
 	cfg, err := decode[task.TaskConfig](r)
 	if err != nil {
@@ -31,7 +30,6 @@ func (s *taskHandler) Create(w http.ResponseWriter, r *http.Request) Response {
 	}
 
 	if err := s.taskSvc.Add(cfg); err != nil {
-
 		if p := types.ResovleValidationProblems(err); len(p) > 0 {
 			return NewInvalidRequest(err)
 		}
@@ -42,7 +40,7 @@ func (s *taskHandler) Create(w http.ResponseWriter, r *http.Request) Response {
 	return NewResponse(http.StatusOK)
 }
 
-// PATCH /task/{name}
+// PATCH /task/{name}.
 func (s *taskHandler) Patch(w http.ResponseWriter, r *http.Request) Response {
 	taskName := r.PathValue("name")
 
@@ -66,11 +64,10 @@ func (s *taskHandler) Patch(w http.ResponseWriter, r *http.Request) Response {
 	return NewResponse(http.StatusOK)
 }
 
-// DELETE /task/{name}
+// DELETE /task/{name}.
 func (s *taskHandler) Delete(w http.ResponseWriter, r *http.Request) Response {
 	taskName := r.PathValue("name")
 	if err := s.taskSvc.Delete(taskName); err != nil {
-
 		if errors.Is(err, task.ErrIsNotExist) {
 			return NewNotFound("task is not exist")
 		}

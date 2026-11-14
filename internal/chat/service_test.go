@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"strings"
@@ -141,7 +140,12 @@ func (m *chatMockModel) ContextLimit() int64           { return m.ctxLimit }
 func (m *chatMockModel) SupportedModalities() []agent.Modality {
 	return []agent.Modality{agent.TextModality}
 }
-func (m *chatMockModel) Complete(ctx context.Context, tools []agent.Tool, msgs []agent.Message) (*agent.Completion, error) {
+
+func (m *chatMockModel) Complete(
+	ctx context.Context,
+	tools []agent.Tool,
+	msgs []agent.Message,
+) (*agent.Completion, error) {
 	m.lastCtx = ctx
 	m.lastMessages = msgs
 
@@ -169,7 +173,12 @@ func (m *dispatcherModel) ContextLimit() int64           { return 100_000 }
 func (m *dispatcherModel) SupportedModalities() []agent.Modality {
 	return []agent.Modality{agent.TextModality}
 }
-func (m *dispatcherModel) Complete(ctx context.Context, tools []agent.Tool, msgs []agent.Message) (*agent.Completion, error) {
+
+func (m *dispatcherModel) Complete(
+	ctx context.Context,
+	tools []agent.Tool,
+	msgs []agent.Message,
+) (*agent.Completion, error) {
 	return m.completeFn(ctx, tools, msgs)
 }
 
@@ -230,7 +239,7 @@ func newTestService(
 		activity = &mockActivityLogger{}
 	}
 
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	return chat.NewService(agentRepo, sessionRepo, modelRepo, toolRegistry, builder, activity, nil, logger)
 }
 

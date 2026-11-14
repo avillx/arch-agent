@@ -59,11 +59,9 @@ func (a *ActivityFiles) GetRange(
 	from time.Time,
 	to time.Time,
 ) ([]agent.ActivityLog, error) {
-
 	_, err := a.storage.Stat(resolveActivityFolderPath(agentID))
 	if err != nil {
-		var pathErr *os.PathError
-		if errors.As(err, &pathErr) {
+		if _, ok := errors.AsType[*os.PathError](err); ok {
 			return nil, types.ErrIsNotExist
 		}
 		return nil, err
@@ -76,7 +74,6 @@ func (a *ActivityFiles) GetRange(
 	}
 
 	for i := from; !i.After(to); i = i.AddDate(0, 0, 1) {
-
 		p := resolveActivityFilePath(agentID, i)
 		data, err := a.storage.ReadFile(p)
 		if err != nil && !errors.Is(err, types.ErrIsNotExist) {

@@ -24,7 +24,6 @@ type FindTool struct {
 }
 
 func NewFindTool(fs files.FileStorage, skipPatterns []string) (*FindTool, error) {
-
 	// validate skip patterns
 	for _, p := range skipPatterns {
 		if !doublestar.ValidatePattern(p) {
@@ -81,7 +80,6 @@ func (t *FindTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]age
 
 	var sb strings.Builder
 	err = doublestar.GlobWalk(t.storage.FS(), filepath.ToSlash(args.Glob), func(path string, d fs.DirEntry) error {
-
 		if d.IsDir() {
 			return nil
 		}
@@ -94,7 +92,6 @@ func (t *FindTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]age
 		}
 
 		if regex != nil {
-
 			data, err := t.storage.ReadFile(path)
 			if err != nil {
 				fmt.Fprintf(&sb, "%s err: %v", path, err)
@@ -128,7 +125,6 @@ func (t *FindTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]age
 }
 
 func lineAt(data []byte, idx int) (int, string) {
-
 	start := bytes.LastIndex(data[:idx], lineBreaker)
 
 	// to exclude start index of "\n" e.g. "\nmatch" -> "match"

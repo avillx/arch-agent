@@ -23,7 +23,6 @@ type ReadTool struct {
 }
 
 func NewReadTool(storage files.FileStorage, skipPatterns []string) (*ReadTool, error) {
-
 	// validate skip patterns
 	for _, p := range skipPatterns {
 		if !doublestar.ValidatePattern(p) {
@@ -65,7 +64,7 @@ func (t *ReadTool) Schema() map[string]any {
 	}
 }
 
-// read file
+// read file.
 func (t *ReadTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]agent.ContentPart, error) {
 	args, err := tools.UnwrapArgs[struct {
 		Path      string `json:"path"`
@@ -131,11 +130,9 @@ func (t *ReadTool) ReadTextFile(p string, start, end *int) (string, error) {
 }
 
 func (t *ReadTool) ReadDir(p string) (string, error) {
-
 	var sb strings.Builder
 	rootParts := strings.Split(p, string(os.PathSeparator))
 	err := fs.WalkDir(t.storage.FS(), filepath.ToSlash(p), func(path string, d fs.DirEntry, err error) error {
-
 		// should skip
 		for _, pattern := range t.skipPatterns {
 			if doublestar.PathMatchUnvalidated(pattern, path) {
@@ -153,7 +150,6 @@ func (t *ReadTool) ReadDir(p string) (string, error) {
 
 		// directory label
 		if d.IsDir() {
-
 			// skip if depth greather than 2 levels
 			parts := strings.Split(path, string(os.PathSeparator))
 			if len(parts) > len(rootParts)+2 {
@@ -172,11 +168,9 @@ func (t *ReadTool) ReadDir(p string) (string, error) {
 		data, err := t.storage.ReadFile(path)
 		if err == nil {
 			if isBinary(data) {
-
 				// Binary file add binary label
 				labels = append(labels, "[bin]")
 			} else {
-
 				// Text file add a lines label
 				lineCount := bytes.Count(data, []byte("\n"))
 				if len(data) > 0 && data[len(data)-1] != '\n' {
@@ -198,7 +192,6 @@ func (t *ReadTool) ReadDir(p string) (string, error) {
 }
 
 func detectImageType(p string) agent.AllowedMIME {
-
 	switch strings.TrimPrefix(path.Ext(p), ".") {
 	case "png":
 		return agent.Png

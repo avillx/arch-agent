@@ -34,11 +34,11 @@ func (a *debouncedAction) Do(ctx context.Context, ev fsnotify.Event) {
 	}
 
 	a.dropUpdates = true
-	a.logger.Debug("update detected, actions started")
+	a.logger.DebugContext(ctx, "update detected, actions started")
 
 	a.debounceTimer = time.AfterFunc(debounce, func() {
 		if err := a.action(ctx, ev); err != nil {
-			a.logger.Error("action failed", "error", err)
+			a.logger.ErrorContext(ctx, "action failed", "error", err)
 		}
 
 		a.debounceMu.Lock()
@@ -59,7 +59,6 @@ type Sentinel struct {
 }
 
 func New(cwd string, logger *slog.Logger, opts ...Option) (*Sentinel, error) {
-
 	cwd = filepath.Clean(cwd)
 
 	s := &Sentinel{
@@ -87,14 +86,13 @@ func New(cwd string, logger *slog.Logger, opts ...Option) (*Sentinel, error) {
 }
 
 func (s *Sentinel) Run(ctx context.Context) {
-
 	defer s.watcher.Close()
 
 	for {
 		select {
 		case ev, ok := <-s.watcher.Events:
 			if !ok {
-				s.logger.Warn("watcher closed")
+				s.logger.WarnContext(ctx, "watcher closed")
 				return
 			}
 
@@ -106,10 +104,10 @@ func (s *Sentinel) Run(ctx context.Context) {
 
 		case err, ok := <-s.watcher.Errors:
 			if !ok {
-				s.logger.Warn("watcher closed")
+				s.logger.WarnContext(ctx, "watcher closed")
 				return
 			}
-			s.logger.Error("can't backup new data", "error", err)
+			s.logger.ErrorContext(ctx, "can't backup new data", "error", err)
 
 		case <-ctx.Done():
 			return

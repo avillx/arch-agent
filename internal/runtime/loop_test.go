@@ -247,8 +247,7 @@ func TestRunAgentLoop_ToolAgentMistake(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool call error event, got %#v", events)
 	}
-	var mistake *types.AgentMistakeError
-	if !errors.As(toolErr.Err(), &mistake) {
+	if _, ok := errors.AsType[*types.AgentMistakeError](toolErr.Err()); !ok {
 		t.Fatalf("expected agent mistake, got %v", toolErr.Err())
 	}
 

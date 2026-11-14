@@ -43,10 +43,8 @@ func UnwrapValidArgs[T types.Validator](ctx context.Context, raw agent.ToolArgum
 		return args, types.NewAgentMistakeError(err.Error())
 	}
 	if err := args.Validate(ctx); err != nil {
-
 		var validationError *types.ValidationError
 		if errors.As(err, &validationError) {
-
 			var sb strings.Builder
 			for k, v := range validationError.Problems() {
 				fmt.Fprintf(&sb, "problem with %s - %s", k, v)
@@ -64,7 +62,7 @@ func UnwrapValidArgs[T types.Validator](ctx context.Context, raw agent.ToolArgum
 func MustAgentID(ctx context.Context) agent.ID {
 	agentID, ok := chat.AgentIDFromContext(ctx)
 	if !ok {
-		slog.Error("critical error context has no agentID")
+		slog.ErrorContext(ctx, "critical error context has no agentID")
 	}
 	return agentID
 }
@@ -72,7 +70,7 @@ func MustAgentID(ctx context.Context) agent.ID {
 func MustSessionID(ctx context.Context) session.ID {
 	sessionID, ok := chat.SessionIDFromContext(ctx)
 	if !ok {
-		slog.Error("critical error context has no sessionID")
+		slog.ErrorContext(ctx, "critical error context has no sessionID")
 	}
 	return sessionID
 }

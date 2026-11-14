@@ -28,6 +28,7 @@ type EventTypeDTO struct {
 
 type CompletionDTO struct {
 	EventTypeDTO
+
 	Done      bool          `json:"done"`
 	Content   string        `json:"completion"`
 	ToolCalls []ToolCallDTO `json:"tool_calls"`
@@ -35,6 +36,7 @@ type CompletionDTO struct {
 
 type CompletionMistakeDTO struct {
 	EventTypeDTO
+
 	Cause string `json:"error"`
 }
 
@@ -64,9 +66,8 @@ func (h *chatHandler) Interrupt(w http.ResponseWriter, r *http.Request) Response
 	return NewResponse(http.StatusOK)
 }
 
-// POST /chat/{agent}/{session}
+// POST /chat/{agent}/{session}.
 func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) Response {
-
 	agentID := agent.ID(r.PathValue("agent"))
 	sessionID := session.ID(r.PathValue("session"))
 
@@ -84,7 +85,7 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) Response {
 	chatReqDTO, err := decode[RequestDTO](r)
 	if err != nil {
 		stream.sendError(http.StatusBadRequest, err)
-		h.logger.Error("bad request",
+		h.logger.ErrorContext(r.Context(), "bad request",
 			"agent", agentID,
 			"session", sessionID,
 			"error", err,
@@ -114,7 +115,7 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) Response {
 		})
 		if err != nil {
 			stream.sendError(http.StatusBadRequest, err)
-			h.logger.Error("chat error",
+			h.logger.ErrorContext(r.Context(), "chat error",
 				"agent", agentID,
 				"session", sessionID,
 				"error", err,
@@ -127,7 +128,6 @@ func (h *chatHandler) Chat(w http.ResponseWriter, r *http.Request) Response {
 }
 
 func forwardEventsToStream(evCh chan runtime.Event, stream *Stream) {
-
 	type ToolErrorDTO struct {
 		EventTypeDTO
 		Cause    string              `json:"cause"`
@@ -137,24 +137,26 @@ func forwardEventsToStream(evCh chan runtime.Event, stream *Stream) {
 
 	type CompactionDTO struct {
 		EventTypeDTO
+
 		Message string `json:"message"`
 		Result  string `json:"result"`
 	}
 
 	type ToolResultDTO struct {
 		EventTypeDTO
+
 		ID     string              `json:"id"`
 		Result []agent.ContentPart `json:"result"`
 	}
 
 	type LoopExitDTO struct {
 		EventTypeDTO
+
 		Cause string `json:"cause,omitempty"`
 	}
 
 	for rawEv := range evCh {
 		switch ev := rawEv.(type) {
-
 		// loop exit event
 		case *runtime.LoopExitEvent:
 			cause := ""
@@ -260,10 +262,9 @@ type providedToolRegister interface {
 }
 
 func registerProvidedToolServers(r providedToolRegister, s *Stream, toolServers []agent.ToolServer) unregisterFunc {
-
 	unregFuncs := []unregisterFunc{}
 
-	if !(len(toolServers) > 0) {
+	if len(toolServers) <= 0 {
 		return func() {}
 	}
 	for _, ts := range toolServers {

@@ -76,7 +76,6 @@ type ProviderFiles struct {
 }
 
 func NewProviderFiles(storage FileStorage) (*ProviderFiles, error) {
-
 	if err := ensureFilePlaceholder(
 		storage,
 		ModelsConfigFilePath,
@@ -90,7 +89,6 @@ func NewProviderFiles(storage FileStorage) (*ProviderFiles, error) {
 }
 
 func (f *ProviderFiles) All() ([]model.ProviderConfig, error) {
-
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
@@ -115,7 +113,6 @@ func (f *ProviderFiles) All() ([]model.ProviderConfig, error) {
 }
 
 func (f *ProviderFiles) Get(id model.ProviderID) (model.ProviderConfig, error) {
-
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
@@ -139,7 +136,6 @@ func (f *ProviderFiles) Get(id model.ProviderID) (model.ProviderConfig, error) {
 }
 
 func (f *ProviderFiles) Save(cfg model.ProviderConfig) error {
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -159,7 +155,6 @@ func (f *ProviderFiles) Save(cfg model.ProviderConfig) error {
 }
 
 func (f *ProviderFiles) Delete(id model.ProviderID) error {
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -190,7 +185,6 @@ func (f *ProviderFiles) loadConfig() (modelsConfigDTO, error) {
 }
 
 func (f *ProviderFiles) saveConfig(dto modelsConfigDTO) error {
-
 	data, err := toml.Marshal(dto)
 	if err != nil {
 		return err
@@ -204,7 +198,7 @@ func (f *ProviderFiles) saveConfig(dto modelsConfigDTO) error {
 	return f.storage.WriteFile(ModelsConfigFilePath, dataWithDoc, ModeFilePerm)
 }
 
-// modelsSent
+// modelsSent.
 func NewModelsReloader(modelsSvc *model.ProviderService) sentinel.Action {
 	return func(ctx context.Context, ev fsnotify.Event) error {
 		return modelsSvc.Reload()

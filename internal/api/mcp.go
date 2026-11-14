@@ -10,14 +10,13 @@ import (
 
 type ToolReprDTO map[agent.ToolName]string
 
-// handler
+// handler.
 type mcpHandler struct {
 	mcpSvc *mcp.Service
 }
 
-// GET /mcp
+// GET /mcp.
 func (h *mcpHandler) List(w http.ResponseWriter, _ *http.Request) Response {
-
 	type MCPServerDTO struct {
 		Config mcp.ServerGatewayConfig `json:"config"`
 		Tools  ToolReprDTO             `json:"tools"`
@@ -27,7 +26,6 @@ func (h *mcpHandler) List(w http.ResponseWriter, _ *http.Request) Response {
 
 	mcpServers := MCPServersDTO{}
 	for _, srv := range h.mcpSvc.List() {
-
 		tools := ToolReprDTO{}
 		for _, t := range srv.Tools() {
 			tools[t.Name()] = t.Description()
@@ -42,9 +40,8 @@ func (h *mcpHandler) List(w http.ResponseWriter, _ *http.Request) Response {
 	return NewJSONResponse(http.StatusOK, mcpServers)
 }
 
-// POST /mcp/{mcp}
+// POST /mcp/{mcp}.
 func (h *mcpHandler) Connect(w http.ResponseWriter, r *http.Request) Response {
-
 	mcpID := mcp.MCPServerID(r.PathValue("mcp"))
 
 	gatewayConfig, err := decode[mcp.ServerGatewayConfig](r)
@@ -61,7 +58,7 @@ func (h *mcpHandler) Connect(w http.ResponseWriter, r *http.Request) Response {
 	return NewResponse(http.StatusOK)
 }
 
-// DELETE /mcp/{mcp}
+// DELETE /mcp/{mcp}.
 func (h *mcpHandler) Disconnect(w http.ResponseWriter, r *http.Request) Response {
 	mcpID := mcp.MCPServerID(r.PathValue("mcp"))
 	if err := h.mcpSvc.DeleteServer(mcpID); err != nil {

@@ -57,7 +57,6 @@ func (s *Service) List() []MCPServer {
 }
 
 func (s *Service) Reload(ctx context.Context) error {
-
 	cfgs, err := s.configRepo.Load()
 	if err != nil {
 		return err
@@ -79,7 +78,6 @@ func (s *Service) Reload(ctx context.Context) error {
 
 		// gather load candidates
 		for id, cfg := range cfgs {
-
 			srv, ok := s.servers[id]
 			// new added servers
 			if !ok {
@@ -97,7 +95,7 @@ func (s *Service) Reload(ctx context.Context) error {
 	}()
 
 	s.connectServers(ctx, loadCandidates)
-	s.logger.Info("reloaded")
+	s.logger.InfoContext(ctx, "reloaded")
 
 	return nil
 }
@@ -112,7 +110,6 @@ func (s *Service) load(ctx context.Context) error {
 }
 
 func (s *Service) connectServers(ctx context.Context, cfgs map[MCPServerID]ServerGatewayConfig) {
-
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
@@ -121,7 +118,7 @@ func (s *Service) connectServers(ctx context.Context, cfgs map[MCPServerID]Serve
 	for id, cfg := range cfgs {
 		wg.Go(func() {
 			if err := s.connectServer(ctx, id, cfg); err != nil {
-				s.logger.Error("connect server", "server", id, "error", err)
+				s.logger.ErrorContext(ctx, "connect server", "server", id, "error", err)
 			}
 		})
 	}
@@ -130,7 +127,6 @@ func (s *Service) connectServers(ctx context.Context, cfgs map[MCPServerID]Serve
 }
 
 func (s *Service) connectServer(ctx context.Context, id MCPServerID, cfg ServerGatewayConfig) error {
-
 	srv, err := s.serverFactory(ctx, id, cfg)
 	if err != nil {
 		return fmt.Errorf("mcp: server initialization: %w", err)
@@ -149,16 +145,16 @@ func (s *Service) connectServer(ctx context.Context, id MCPServerID, cfg ServerG
 		logger := s.logger.With("server", srv.ID())
 		// blocking
 		if err := srv.Run(context.Background()); err != nil {
-			logger.Error("bad connection", "error", err)
+			logger.ErrorContext(ctx, "bad connection", "error", err)
 			srv.setErr(err)
 		}
 
 		s.toolSvc.Disconnect(string(srv.ID()))
 
-		logger.Info("disconnected")
+		logger.InfoContext(ctx, "disconnected")
 	}()
 
-	s.logger.Info("connected", "server", srv.ID())
+	s.logger.InfoContext(ctx, "connected", "server", srv.ID())
 
 	return nil
 }
@@ -167,9 +163,8 @@ func (s *Service) DeleteServer(id MCPServerID) error {
 	return s.configRepo.Delete(id)
 }
 
-// Override behaviour
+// Override behaviour.
 func (s *Service) SetServer(ctx context.Context, id MCPServerID, cfg ServerGatewayConfig) error {
-
 	var depricatedSrv MCPServer
 	func() {
 		s.mu.Lock()

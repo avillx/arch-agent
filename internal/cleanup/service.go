@@ -36,7 +36,6 @@ func NewCleanUpService(
 	logTrimmer LogTrimmer,
 	logger *slog.Logger,
 ) (*CleanUpService, error) {
-
 	if cfg.SessRetention < minSessRetention {
 		return nil, fmt.Errorf("too short session retention, must be greather than 24h")
 	}

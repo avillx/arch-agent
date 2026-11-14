@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -30,11 +31,9 @@ func NewHandler(cfg LoggerConfig) slog.Handler {
 	}
 
 	return slog.NewTextHandler(os.Stdout, opts)
-
 }
 
 func WithAgentLog(h slog.Handler, w io.Writer) slog.Handler {
-
 	simpleHandler := NewSimpleHandler(
 		w,
 		slog.LevelInfo,
@@ -77,7 +76,7 @@ func replaceAttrs(groups []string, a slog.Attr) slog.Attr {
 	case []agent.Message:
 		attrs := []slog.Attr{}
 		for i, m := range v {
-			attrs = append(attrs, contentPartsToAtts(fmt.Sprintf("%d", i), m.Content()))
+			attrs = append(attrs, contentPartsToAtts(strconv.Itoa(i), m.Content()))
 		}
 		return slog.GroupAttrs(a.Key, attrs...)
 
@@ -90,7 +89,6 @@ func replaceAttrs(groups []string, a slog.Attr) slog.Attr {
 }
 
 func contentPartsToAtts(key string, parts []agent.ContentPart) slog.Attr {
-
 	items := make([]any, len(parts))
 	for i, p := range parts {
 		items[i] = map[string]any{

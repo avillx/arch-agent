@@ -23,18 +23,18 @@ type SecretsSource interface {
 
 type ShellToolServer struct {
 	*tools.BuildInToolServer
+
 	instruction string
 }
 
 // customShell is not required. leave it "" if you not need in it
-// customShellAttributes dosent apply if customShell is ""
+// customShellAttributes dosent apply if customShell is "".
 func NewShellToolServer(
 	cwd string,
 	secretsSource SecretsSource,
 	shell string,
 	shellAttributes []string,
 ) *ShellToolServer {
-
 	if shell == "" {
 		shell = defaultShell
 	}
@@ -86,7 +86,7 @@ func (t *ShellTool) Name() agent.ToolName {
 	return "shell"
 }
 
-// this is edge timeout, sets in runtime
+// this is edge timeout, sets in runtime.
 func (t *ShellTool) TimeOut() time.Duration {
 	return 15 * time.Minute
 }
@@ -197,7 +197,7 @@ func (t *ShellTool) Call(ctx context.Context, rawArgs agent.ToolArguments) ([]ag
 	return tools.Result(formattedOutput), nil
 }
 
-// helpers
+// helpers.
 func formatCommandOutput(ctx context.Context, err error, output string, timeout time.Duration) string {
 	var sb strings.Builder
 

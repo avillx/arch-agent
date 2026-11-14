@@ -29,9 +29,8 @@ type agentHandler struct {
 	repo agent.Repo
 }
 
-// GET /agent
+// GET /agent.
 func (h *agentHandler) List(w http.ResponseWriter, r *http.Request) Response {
-
 	agents, err := h.repo.All()
 	if err != nil {
 		return NewInternalError(err)
@@ -45,7 +44,7 @@ func (h *agentHandler) List(w http.ResponseWriter, r *http.Request) Response {
 	return NewJSONResponse(http.StatusOK, dtos)
 }
 
-// POST /agent/{id} DTO
+// POST /agent/{id} DTO.
 func (h *agentHandler) Create(w http.ResponseWriter, r *http.Request) Response {
 	id := agent.ID(r.PathValue("id"))
 
@@ -60,7 +59,7 @@ func (h *agentHandler) Create(w http.ResponseWriter, r *http.Request) Response {
 	return h.saveAgt(id, r)
 }
 
-// PUT /agent/{id}
+// PUT /agent/{id}.
 func (h *agentHandler) Update(w http.ResponseWriter, r *http.Request) Response {
 	id := agent.ID(r.PathValue("id"))
 
@@ -83,7 +82,6 @@ func (h *agentHandler) saveAgt(agentID agent.ID, r *http.Request) Response {
 	}
 
 	if err := h.repo.Save(dtoToAgent(agentID, agentDTO)); err != nil {
-
 		// On Model not exist or ToolServer not exist
 		if errors.Is(err, types.ErrIsNotExist) {
 			return NewBadRequest(err.Error())
@@ -95,9 +93,8 @@ func (h *agentHandler) saveAgt(agentID agent.ID, r *http.Request) Response {
 	return NewResponse(http.StatusOK)
 }
 
-// GET /agent/{id} // DTO
+// GET /agent/{id} // DTO.
 func (h *agentHandler) Read(w http.ResponseWriter, r *http.Request) Response {
-
 	id := agent.ID(r.PathValue("id"))
 	agt, err := h.repo.Get(id)
 	if err != nil {
@@ -110,7 +107,7 @@ func (h *agentHandler) Read(w http.ResponseWriter, r *http.Request) Response {
 	return NewJSONResponse(http.StatusOK, agentToDTO(agt))
 }
 
-// DELETE /agent/{id}
+// DELETE /agent/{id}.
 func (h *agentHandler) Delete(w http.ResponseWriter, r *http.Request) Response {
 	id := agent.ID(r.PathValue("id"))
 

@@ -32,7 +32,6 @@ func NewSessionFiles(storage FileStorage) *SessionFiles {
 }
 
 func (r *SessionFiles) Session(agentID agent.ID, sessionID session.ID) (session.Session, error) {
-
 	sessionFilePath := resolveSessionPath(agentID, sessionID)
 
 	data, err := r.storage.ReadFile(sessionFilePath)
@@ -69,7 +68,6 @@ func (r *SessionFiles) Headers(agentID agent.ID) ([]session.SessionHeader, error
 	sessionDir = filepath.ToSlash(sessionDir)
 	files, err := fs.ReadDir(r.storage.FS(), sessionDir)
 	if err != nil {
-
 		// if session folder or agent is not exist well it nil count of headers
 		if errors.Is(err, types.ErrIsNotExist) {
 			return []session.SessionHeader{}, nil
@@ -156,7 +154,6 @@ func marshalSession(s session.Session) ([]byte, error) {
 }
 
 func unmarshalSession(sessionID session.ID, data []byte) (session.Session, error) {
-
 	dec := json.NewDecoder(bytes.NewReader(data))
 
 	var header SessionHeaderDTO

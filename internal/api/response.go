@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-// Wrapper for simple status code response
+// Wrapper for simple status code response.
 type Response interface {
 	StatusCode() int
 }
@@ -27,7 +27,7 @@ func (r response) StatusCode() int {
 	return r.statusCode
 }
 
-// Wrapper for json responses
+// Wrapper for json responses.
 type JSONResponse interface {
 	Response
 	Content() any
@@ -35,6 +35,7 @@ type JSONResponse interface {
 
 type jsonResponse struct {
 	response
+
 	content any
 }
 
@@ -43,9 +44,8 @@ func (r *jsonResponse) Content() any {
 }
 
 // content should be sended as response
-// string wrapped as { "message" : "..." }
+// string wrapped as { "message" : "..." }.
 func NewJSONResponse[T string | any](code int, msg T) *jsonResponse {
-
 	var s any
 	s = msg
 
@@ -63,10 +63,11 @@ func NewJSONResponse[T string | any](code int, msg T) *jsonResponse {
 
 type internalError struct {
 	response
+
 	cause error
 }
 
-// error shouldn't be sended. only logged. respond 500
+// error shouldn't be sended. only logged. respond 500.
 func NewInternalError(cause error) Response {
 	return &internalError{
 		response: NewResponse(http.StatusInternalServerError),
@@ -85,9 +86,8 @@ func NewBadRequest[T string | map[string]any](msg T) Response {
 // send error as 400
 // error message will be sended as respond
 // unwrap validation error
-// e.g. { "problems" : "..." }
+// e.g. { "problems" : "..." }.
 func NewInvalidRequest(err error) Response {
-
 	var r map[string]any
 
 	if problems := types.ResovleValidationProblems(err); len(problems) > 0 {

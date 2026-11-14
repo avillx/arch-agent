@@ -22,7 +22,6 @@ type OpenAIModel struct {
 }
 
 func NewOpenAIModel(client *openai.Client, modelName string, settings OpenAIModelSettings) *OpenAIModel {
-
 	return &OpenAIModel{
 		client:    client,
 		modelName: modelName,
@@ -73,7 +72,6 @@ func (r *OpenAIModel) Complete(
 	tools []agent.Tool,
 	internalMsgs []agent.Message,
 ) (*agent.Completion, error) {
-
 	internalMsgs = excludeUnsupportedModalities(internalMsgs, r.SupportedModalities())
 	messages := messagesToOpenAI(internalMsgs)
 	agentTools := toolsToOpenAI(tools)
@@ -143,7 +141,6 @@ func (r *OpenAIModel) buildCompletionParams(
 }
 
 func excludeUnsupportedModalities(msgs []agent.Message, mdls []agent.Modality) []agent.Message {
-
 	if !slices.Contains(mdls, agent.ImageModality) {
 		msgs = excludeImageModality(msgs)
 	}

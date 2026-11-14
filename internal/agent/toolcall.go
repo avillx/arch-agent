@@ -36,7 +36,6 @@ type ToolResult struct {
 }
 
 func NewToolResult[T string | []ContentPart](id string, content T) *ToolResult {
-
 	return &ToolResult{
 		ID:     id,
 		Result: NewContent(content),

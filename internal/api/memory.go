@@ -32,9 +32,8 @@ func NewMemoryHandler(
 	}
 }
 
-// GET /memory/{agent}
+// GET /memory/{agent}.
 func (h *memoryHandler) List(w http.ResponseWriter, r *http.Request) Response {
-
 	type MemoryRecordDTO map[string]string
 
 	agentID := agent.ID(r.PathValue("agent"))
@@ -50,9 +49,8 @@ func (h *memoryHandler) List(w http.ResponseWriter, r *http.Request) Response {
 	return NewJSONResponse(http.StatusOK, MemoryRecordDTO(idx))
 }
 
-// GET /memory/{agent}/{memory_name}
+// GET /memory/{agent}/{memory_name}.
 func (h *memoryHandler) Get(w http.ResponseWriter, r *http.Request) Response {
-
 	type MemoryDTO struct {
 		Agent   agent.ID `json:"agent"`
 		Name    string   `json:"memory_name"`
@@ -79,7 +77,7 @@ func (h *memoryHandler) Get(w http.ResponseWriter, r *http.Request) Response {
 	return NewJSONResponse(http.StatusOK, dto)
 }
 
-// POST /memory/{agent}/consolidate
+// POST /memory/{agent}/consolidate.
 func (h *memoryHandler) Consolidate(w http.ResponseWriter, r *http.Request) Response {
 	agentID := agent.ID(r.PathValue("agent"))
 
@@ -114,7 +112,7 @@ func (h *memoryHandler) Consolidate(w http.ResponseWriter, r *http.Request) Resp
 			return nil
 		}
 
-		h.logger.Error("consolidation internal error occured", "error", err)
+		h.logger.ErrorContext(r.Context(), "consolidation internal error occured", "error", err)
 		stream.sendError(http.StatusInternalServerError, fmt.Errorf("internal error occured"))
 		return nil
 	}
@@ -122,15 +120,14 @@ func (h *memoryHandler) Consolidate(w http.ResponseWriter, r *http.Request) Resp
 	return nil
 }
 
-// GET /memory/config
+// GET /memory/config.
 func (h *memoryHandler) GetConfig(w http.ResponseWriter, r *http.Request) Response {
 	cfg := h.consolidationSvc.Config()
 	return NewJSONResponse(http.StatusOK, cfg)
 }
 
-// POST /memory/config
+// POST /memory/config.
 func (h *memoryHandler) SetConfig(w http.ResponseWriter, r *http.Request) Response {
-
 	newCfg, err := decode[memory.ConsolidatorConfig](r)
 	if err != nil {
 		return NewInvalidRequest(err)

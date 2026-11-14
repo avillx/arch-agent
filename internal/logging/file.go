@@ -40,7 +40,6 @@ func (s *LogFile) Write(p []byte) (int, error) {
 }
 
 func (s *LogFile) Trim(maxLines int) error {
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

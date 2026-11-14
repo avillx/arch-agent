@@ -40,9 +40,8 @@ type FileAccessHook struct {
 	rules []Rule
 }
 
-// First rule match wins, so be accuracy with order
+// First rule match wins, so be accuracy with order.
 func NewFileAccessHook(rules ...Rule) (*FileAccessHook, error) {
-
 	// validate patterns
 	for _, r := range rules {
 		if !doublestar.ValidatePathPattern(r.Pattern) {
@@ -56,7 +55,6 @@ func NewFileAccessHook(rules ...Rule) (*FileAccessHook, error) {
 }
 
 func (h *FileAccessHook) Apply(ctx context.Context, tc *agent.ToolCall) (*agent.ToolCall, error) {
-
 	paths, err := resolvePaths(tc)
 	if err != nil {
 		// if not file tool then just ignore
@@ -76,7 +74,6 @@ func (h *FileAccessHook) Apply(ctx context.Context, tc *agent.ToolCall) (*agent.
 }
 
 func (h *FileAccessHook) verifyPath(toolName agent.ToolName, p string) error {
-
 	// deny symlinks
 	foundSymlink, err := containsSymlink(p)
 	if err != nil {
@@ -139,7 +136,6 @@ func containsSymlink(p string) (bool, error) {
 }
 
 func resolvePaths(tc *agent.ToolCall) ([]string, error) {
-
 	switch tc.ToolName {
 	case
 		readToolName,

@@ -42,7 +42,6 @@ func (c *SessionsCleaner) Clean(retention time.Duration) error {
 	for _, agt := range agents {
 		headers, err := c.sessRepo.Headers(agt.ID())
 		if err != nil {
-
 			var brokenHeadersErr *session.ErrBrokenHeaders
 			if !errors.As(err, &brokenHeadersErr) {
 				c.logger.Error("read session headers", "agent", agt.ID(), "error", err)
@@ -50,7 +49,6 @@ func (c *SessionsCleaner) Clean(retention time.Duration) error {
 			}
 
 			c.handleBrokenSessions(brokenHeadersErr)
-
 		}
 
 		c.eliminateDepricatedSessions(retention, agt.ID(), headers)
