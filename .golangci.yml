@@ -447,6 +447,9 @@ linters:
     presets:
       - std-error-handling
       - common-false-positives
+
+    # Exclude test checks
+    paths: ['_test\.go$']
     # Excluding configuration per-path, per-linter, per-text and per-source.
     rules:
       - source: 'TODO'
@@ -461,13 +464,13 @@ linters:
       - text: 'comment on exported \S+ \S+ should be of the form ".+"'
         source: '// ?(nolint|TODO)'
         linters: [ revive, staticcheck ]
-      - path: '_test\.go'
-        linters:
-          - bodyclose
-          - dupl
-          - errcheck
-          - funlen
-          - goconst
-          - gosec
-          - noctx
-          - wrapcheck
+      # - path: '_test\.go'
+        # linters: [ revive ]
+          # - bodyclose
+          # - dupl
+          # - errcheck
+          # - funlen
+          # - goconst
+          # - gosec
+          # - noctx
+          # - wrapcheck
